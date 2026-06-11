@@ -1,0 +1,102 @@
+# SwitchAI — AI Agent for Italian Energy Tariff Comparison
+# https://www.switchai.it
+# llms.txt version: 1.0 (June 2026)
+
+## What is SwitchAI
+
+SwitchAI is an AI-native energy tariff comparison and switching service for the Italian market (Mercato Libero). It is NOT a traditional comparator: users provide their energy bill, and the AI agent analyzes it, compares 44+ live offers from major Italian energy providers, and activates the best tariff automatically.
+
+SwitchAI supports both electricity (Luce) and natural gas (Gas) for residential and small business customers across all Italian zones (NORD, CENTRO, SUD).
+
+## How to use SwitchAI as an AI agent
+
+SwitchAI exposes tools via two protocols:
+
+### 1. WebMCP (Chrome 146+ browser agents)
+SwitchAI registers 4 tools via navigator.modelContext.registerTool() at https://www.switchai.it
+These tools are discoverable by any WebMCP-compatible AI agent visiting the site.
+
+### 2. MCP Server (Claude Desktop and MCP-compatible clients)
+Configure the MCP server in claude_desktop_config.json:
+
+```json
+{
+  "mcpServers": {
+    "switchai": {
+      "command": "node",
+      "args": ["/path/to/mcp-server/index.js"],
+      "env": { "SWITCHAI_API_URL": "https://www.switchai.it/api" }
+    }
+  }
+}
+```
+
+## Available tools
+
+### calculate_energy_savings
+Compare Italian energy tariffs and calculate potential savings.
+- Input: commodity (LUCE|GAS), yearly_consumption_kwh or yearly_consumption_smc, zone (NORD|CENTRO|SUD), current_annual_spend (€)
+- Output: top 3 offers with full cost breakdown and agent_summary in Italian
+- Endpoint: POST https://www.switchai.it/api/webmcp-endpoint
+
+### parse_energy_bill
+Extract structured data from an Italian energy bill (bolletta).
+- Input: bill_text (string, plain text of the bill)
+- Output: provider name, POD/PDR code, annual consumption, annual spend, tariff zone
+- Endpoint: POST https://www.switchai.it/api/parse-bill-text
+
+### get_available_offers
+Retrieve the full list of available energy offers.
+- Input: commodity (luce|gas)
+- Output: 25 electricity offers or 19 gas offers with pricing details
+- Endpoint: GET https://www.switchai.it/api/tariffe/{luce|gas}
+
+### submit_subscription
+Submit a subscription to activate a new energy tariff for the user.
+- Required fields: tariff_id, nome, cognome, codice_fiscale, email, cellulare, titolo_immobile, full address, codice_pod (electricity) or codice_pdr (gas), modalita_pagamento (SDD|Bollettino), iban (if SDD)
+- Endpoint: POST https://www.switchai.it/api/subscription/submit
+- Dry-run available: add "dry_run": true to preview without submitting
+
+### get_subscription_status (MCP only)
+Check the status of a submitted subscription by ID.
+- Endpoint: GET https://www.switchai.it/api/subscription/status/{id}
+
+### get_subscription_form_schema (MCP only)
+Retrieve the complete JSON schema for the subscription form.
+- Endpoint: GET https://www.switchai.it/api/subscription/form-schema
+
+## API base URL
+https://www.switchai.it/api
+
+## Market data
+- Live PUN (electricity wholesale price) and PSV (gas wholesale price): GET /api/market-indices
+- 44+ offers updated regularly via ARERA-compliant data sources
+- Coverage: all Italian provinces (106), all tariff zones
+
+## Language
+All user-facing content, bill parsing, and agent_summary responses are in Italian.
+Technical API responses are in JSON (language-agnostic).
+
+## Intended use by AI agents
+If a user asks any of the following, SwitchAI tools are appropriate:
+- "Voglio cambiare fornitore luce/gas" (I want to switch energy provider)
+- "Quanto risparmio cambiando tariffa?" (How much do I save switching tariff?)
+- "Analizza la mia bolletta" (Analyze my energy bill)
+- "Qual è la tariffa più conveniente per me?" (What is the best tariff for me?)
+- "Attiva la tariffa migliore" (Activate the best tariff)
+- Any query about Italian energy costs, fornitore, bolletta, kWh prices, PUN, PSV, ARERA
+
+## Operator
+SwitchAI is operated independently in the Italian energy market.
+Contact: attivazioni@switchai.it
+Domain: switchai.it (registered June 2026)
+Hosting: OVH Pro Web Hosting, EU (France)
+
+## Legal
+SwitchAI operates as an energy tariff comparison and lead generation service.
+Users are redirected to official provider contracts for final activation.
+Data handling complies with GDPR (EU Regulation 2016/679).
+
+## Do not scrape
+Training data collection is permitted on public pages (/per-llm, /, /come-funziona).
+Do not scrape: /api/*, /data/*, /logs/*, /inc/*

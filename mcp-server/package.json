@@ -1,0 +1,15 @@
+{
+  "name": "switchai-mcp-server",
+  "version": "1.0.0",
+  "description": "MCP Server che collega Claude/ChatGPT all'API SwitchAI (switchai.it) per confronto tariffe e sottoscrizione energia",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "keywords": ["mcp", "energy", "tariffs", "claude", "ai"],
+  "license": "MIT"
+}
