@@ -126,81 +126,125 @@ server.tool(
     const icon = commodity === 'LUCE' ? '⚡' : '🔥';
     const label = commodity === 'LUCE' ? 'Luce' : 'Gas';
 
-    // Build markdown output
-    let md = `## ${icon} Confronto Tariffe ${label} — Zona ${params.zone}\n\n`;
-    md += `Spesa attuale: **${data.current_spend_estimated} €/anno**`;
-    if (consumo > 0) md += ` (${consumo} ${unit})`;
-    md += `\n`;
-    if (commodity === 'LUCE') {
-      md += `\n📐 *Tariffe Luce: il prezzo in bolletta = (PUN + spread) × 1,102 (perdite rete ~10,2% ARERA per BT). Per il gas non si applicano perdite di rete.*\n`;
+    // Build prefill params from user data
+    const prefillParams = {};
+    if (params.nome) prefillParams.nome = params.nome;
+    if (params.cognome) prefillParams.cognome = params.cognome;
+    if (params.cf) prefillParams.cf = params.cf;
+    if (params.email) prefillParams.email = params.email;
+    if (params.tel) prefillParams.tel = params.tel;
+    if (params.indirizzo) prefillParams.indirizzo = params.indirizzo;
+    if (params.civico) prefillParams.civico = params.civico;
+    if (params.citta) prefillParams.citta = params.citta;
+    if (params.provincia_sigla) prefillParams.provincia_sigla = params.provincia_sigla;
+    if (params.cap) prefillParams.cap = params.cap;
+    if (params.pod) prefillParams.pod = params.pod;
+    if (params.pdr) prefillParams.pdr = params.pdr;
+    if (params.consumi) prefillParams.consumi = params.consumi;
+    if (params.spesa) prefillParams.spesa = params.spesa;
+
+    // Build markdown output — funnel: decisione prima, dettagli dopo
+    const results = data.results || [];
+    const best = results[0];
+    const spesa = data.current_spend_estimated;
+
+    if (!best) {
+      return {
+        content: [{ type: "text", text: `*Nessuna offerta trovata per ${label} nella zona ${params.zone}.*` }],
+      };
     }
+
+    const savingsMonth = Math.round(best.savings_eur / 12 * 100) / 100;
+    const bestUrl = best.subscription_url || `https://www.switchai.it/sottoscrizione?tariff=${best.tariff_id}&supplier=${encodeURIComponent(best.supplier)}&name=${encodeURIComponent(best.tariff_name)}&commodity=${commodity.toLowerCase()}&annualCost=${best.annual_cost_eur}`;
+    const bestPrefillUrl = buildPrefillUrl(bestUrl, prefillParams);
+
+    // ── Header ──────────────────────────────────────────
+    const lossNote = commodity === 'LUCE'
+      ? '\n📐 Prezzo bolletta = (PUN + spread) × 1,102 (perdite rete ~10,2% ARERA)\n'
+      : '';
+
+    let md = `## ${icon} Bolletta analizzata\n\n`;
+    md += `✅ **${consumo} ${unit}/anno** · Zona **${params.zone}** · ${params.current_supplier || 'Fornitore attuale'}\n`;
+    md += lossNote;
     md += `\n---\n\n`;
 
-    const results = data.results || [];
-    if (results.length === 0) {
-      md += `*Nessuna offerta trovata per ${label} nella zona ${params.zone}.*\n`;
-    } else {
-      const badges = ['🥇', '🥈', '🥉'];
-      for (let i = 0; i < results.length; i++) {
-        const r = results[i];
-        md += `### ${badges[i]} ${r.supplier} — ${r.tariff_name}\n`;
-        md += `**${r.type === 'FISSO' ? '🔒 Prezzo Fisso' : '📊 Prezzo Variabile'}**`;
-        if (r.price_per_unit) md += ` | ${r.price_per_unit} ${unit === 'kWh' ? '€/kWh' : '€/Smc'}`;
-        if (r.fixed_fee_monthly) md += ` | Quota fissa ${r.fixed_fee_monthly} €/mese`;
-        md += `\n\n`;
+    // ── Spesa attuale + Risparmio (dominante) ────────────
+    md += `### 💰 La tua spesa attuale\n\n`;
+    md += `# ${spesa} €/anno\n\n`;
+    md += `---\n\n`;
 
-        md += `| | |\n|---|---|\n`;
-        md += `| Costo annuo | **${r.annual_cost_eur} €/anno** |\n`;
-        md += `| Risparmio | **${r.savings_eur} €/anno (${r.savings_pct}%)** |\n`;
-        md += `| Al mese | ~${Math.round(r.annual_cost_eur / 12)} €/mese |\n`;
+    // ── OFFERTA CONSIGLIATA (una sola, grande) ───────────
+    md += `## ⭐ Offerta consigliata\n\n`;
+    md += `### ${best.supplier} — ${best.tariff_name}\n`;
+    md += `**${best.type === 'FISSO' ? '🔒 Prezzo Fisso' : '📊 Prezzo Variabile'}**`;
+    if (best.price_per_unit) md += ` | ${best.price_per_unit} ${unit === 'kWh' ? '€/kWh' : '€/Smc'}`;
+    if (best.fixed_fee_monthly) md += ` | Quota fissa ${best.fixed_fee_monthly} €/mese`;
+    md += `\n\n`;
 
-        if (r.breakdown?.explanation) {
-          md += `\n${r.breakdown.explanation}\n`;
-        }
+    // Risparmio — il numero più importante
+    md += `| | |\n|---|---|\n`;
+    md += `| Costo stimato | **${best.annual_cost_eur} €/anno** |\n`;
+    md += `| 🔥 Risparmio | **${best.savings_eur} €/anno (${best.savings_pct}%)** |\n`;
+    md += `| Al mese risparmi | **~${savingsMonth} €/mese** |\n`;
 
-        // Build prefill URL
-        const baseUrl = r.subscription_url || `https://www.switchai.it/sottoscrizione?tariff=${r.tariff_id}&supplier=${encodeURIComponent(r.supplier)}&name=${encodeURIComponent(r.tariff_name)}&commodity=${commodity.toLowerCase()}&annualCost=${r.annual_cost_eur}`;
-        const prefillParams = {};
-        if (params.nome) prefillParams.nome = params.nome;
-        if (params.cognome) prefillParams.cognome = params.cognome;
-        if (params.cf) prefillParams.cf = params.cf;
-        if (params.email) prefillParams.email = params.email;
-        if (params.tel) prefillParams.tel = params.tel;
-        if (params.indirizzo) prefillParams.indirizzo = params.indirizzo;
-        if (params.civico) prefillParams.civico = params.civico;
-        if (params.citta) prefillParams.citta = params.citta;
-        if (params.provincia_sigla) prefillParams.provincia_sigla = params.provincia_sigla;
-        if (params.cap) prefillParams.cap = params.cap;
-        if (params.pod) prefillParams.pod = params.pod;
-        if (params.pdr) prefillParams.pdr = params.pdr;
-        if (params.consumi) prefillParams.consumi = params.consumi;
-        if (params.spesa) prefillParams.spesa = params.spesa;
-        const prefillUrl = buildPrefillUrl(baseUrl, prefillParams);
-
-        md += `\n🔗 [Attiva questa offerta](${prefillUrl})\n`;
-
-        if (r.price_warning) {
-          md += `\n⚠️ ${r.price_warning}\n`;
-        }
-
-        md += `\n`;
-      }
-
-      // Add prefill note
-      const hasPrefill = params.nome || params.cognome || params.email;
-      if (!hasPrefill) {
-        md += `---\n📝 **Per precompilare il form con i dati utente**, richiama questo tool aggiungendo i parametri opzionali: nome, cognome, cf, email, tel, indirizzo, civico, citta, provincia_sigla, cap, pod, pdr.\n`;
-      }
+    if (best.price_warning) {
+      md += `\n⚠️ ${best.price_warning}\n`;
     }
 
-    md += `\n---\n`;
-    md += `## ⚠️ DA COMUNICARE ALL'UTENTE (obbligatorio)\n\n`;
-    md += `Prima di attivare qualsiasi offerta, **devi** dire all'utente:\n\n`;
-    md += `> "Ti ricordo che per completare l'attivazione **riceverai una email di conferma** da SwitchAI. `
-      + `Dovrai cliccare sul link nell'email per confermare. `
-      + `Solo dopo la tua conferma i dati verranno inoltrati al fornitore. `
-      + `**Devi essere tu a verificare i dati e cliccare Invia** — io posso solo precompilare il modulo."\n`;
-    md += `\n*Dati aggiornati | switchai.it*`;
+    md += `\n`;
+
+    // ── CTA immediata ────────────────────────────────────
+    const hasFullData = prefillParams.nome && prefillParams.cognome && prefillParams.cf;
+    if (hasFullData) {
+      md += `✅ Ho già recuperato tutti i dati dalla bolletta.\n\n`;
+      md += `Per attivare servono solo:\n`;
+      md += `- 📧 Email: ${prefillParams.email || '_____'}\n`;
+      md += `- 📱 Telefono: ${prefillParams.tel || '_____'}\n\n`;
+    } else {
+      md += `Per attivare servono solo **email e telefono**. Gli altri dati li recupero dalla bolletta.\n\n`;
+      md += `Chiedi all'utente: 📧 Email e 📱 Telefono?\n\n`;
+    }
+
+    md += `### [🟢 ATTIVA ${best.supplier?.toUpperCase() || 'OFFERTA'}](${bestPrefillUrl})\n\n`;
+
+    if (best.type === 'FISSO') {
+      md += `🔒 Prezzo bloccato: la rata non cambia anche se il ${commodity === 'LUCE' ? 'PUN' : 'PSV'} sale.\n\n`;
+    }
+
+    md += `---\n\n`;
+
+    // ── Altre offerte (collassate) ───────────────────────
+    const others = results.slice(1);
+    if (others.length > 0) {
+      md += `<details>\n<summary>📋 Altre ${others.length} offerte (clicca per vedere)</summary>\n\n`;
+      const badges = ['🥈', '🥉'];
+      for (let i = 0; i < others.length; i++) {
+        const r = others[i];
+        const otherUrl = r.subscription_url || `https://www.switchai.it/sottoscrizione?tariff=${r.tariff_id}&supplier=${encodeURIComponent(r.supplier)}&name=${encodeURIComponent(r.tariff_name)}&commodity=${commodity.toLowerCase()}&annualCost=${r.annual_cost_eur}`;
+        const otherPrefill = buildPrefillUrl(otherUrl, prefillParams);
+        md += `**${badges[i]} ${r.supplier} — ${r.tariff_name}**\n`;
+        md += `${r.type === 'FISSO' ? '🔒 Fisso' : '📊 Variabile'} · ${r.annual_cost_eur} €/anno · Risparmio ${r.savings_eur} €/anno\n`;
+        md += `[Attiva](${otherPrefill})\n\n`;
+      }
+      md += `</details>\n\n`;
+    }
+
+    // ── Perché questa offerta (collassato) ───────────────
+    if (best.breakdown?.explanation) {
+      md += `<details>\n<summary>📐 Perché questa offerta?</summary>\n\n`;
+      md += `${best.breakdown.explanation}\n`;
+      if (best.type === 'FISSO') {
+        md += `\n🔒 Prezzo bloccato: protetto da aumenti del ${commodity === 'LUCE' ? 'PUN' : 'PSV'} per tutta la durata del contratto.\n`;
+      }
+      md += `\n</details>\n\n`;
+    }
+
+    // ── Footer ───────────────────────────────────────────
+    md += `---\n\n`;
+    md += `⚠️ **Simulazione valida con i prezzi di oggi.** I prezzi energia cambiano ogni giorno.\n\n`;
+    md += `📨 L'utente riceverà una **email di conferma** da SwitchAI. Deve cliccare sul link per completare.\n`;
+    md += `✏️ L'utente deve **verificare i dati e cliccare Invia** — tu puoi solo precompilare il modulo.\n`;
+    md += `\n*switchai.it · Dati ARERA · ${new Date().toISOString().slice(0, 10)}*`;
 
     return {
       content: [{
