@@ -34,18 +34,29 @@ async function apiCall(endpoint, method = "GET", body = null) {
   const url = `${API_BASE}${endpoint}`;
   const opts = {
     method,
-    headers: { "Content-Type": "application/json", "Accept": "application/json" },
+    headers: { "Content-Type": "application/json", "Accept": "application/json", "User-Agent": "SwitchAI-MCP/1.0" },
   };
   if (body) opts.body = JSON.stringify(body);
 
-  const res = await fetch(url, opts);
-  const data = await res.json();
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
+  opts.signal = controller.signal;
 
-  if (!res.ok) {
-    throw new Error(data.error || `HTTP ${res.status}: ${JSON.stringify(data)}`);
+  try {
+    const res = await fetch(url, opts);
+    clearTimeout(timeoutId);
+    
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error || `HTTP ${res.status}: ${JSON.stringify(data)}`);
+    }
+
+    return data;
+  } catch (err) {
+    clearTimeout(timeoutId);
+    throw err;
   }
-
-  return data;
 }
 
 // ── MCP Server ────────────────────────────────────────────────────────
@@ -58,9 +69,23 @@ const server = new McpServer({
 
 // ── Tool 1: Calcola risparmio ─────────────────────────────────────────
 
+function buildPrefillUrl(baseUrl, params) {
+  const url = new URL(baseUrl);
+  const prefill = ['nome','cognome','cf','email','tel','indirizzo','civico','citta','provincia','provincia_sigla','cap','pod','pdr','consumi','spesa'];
+  for (const p of prefill) {
+    if (params[p]) url.searchParams.set(p, params[p]);
+  }
+  return url.toString();
+}
+
 server.tool(
   "calculate_energy_savings",
-  "Confronta le tariffe Luce o Gas e calcola il risparmio annuo. Ricevi le 3 migliori offerte con breakdown energetico e riepilogo in linguaggio naturale.",
+  "Confronta le tariffe Luce o Gas e calcola il risparmio annuo. Restituisce le 3 migliori offerte in formato leggibile con link di attivazione. "
+  + "FLUSSO: (1) Estrai nome, cognome, CF, email, telefono, indirizzo, consumi e spesa dalla bolletta. "
+  + "(2) Passa i dati numerici (consumi, spesa, zona) a questo tool. "
+  + "(3) Se hai già estratto i dati personali, passali come parametri opzionali (nome, cognome, cf, email, tel, indirizzo, civico, citta, provincia_sigla, cap, pod, pdr) per avere subito il link di attivazione precompilato. "
+  + "(4) Mostra le offerre all'utente e chiedi quale preferisce. "
+  + "(5) Prima di attivare: elenca i dati, chiedi conferma esplicita, ricorda che riceverà una mail di conferma.",
   {
     commodity: z.enum(["LUCE", "GAS"]).describe("Tipo di fornitura: LUCE (elettricità) o GAS"),
     yearly_consumption_kwh: z.number().optional().describe("Consumo annuo in kWh (solo per LUCE). Es: 2700"),
@@ -68,6 +93,21 @@ server.tool(
     zone: z.enum(["NORD", "CENTRO", "SUD"]).optional().default("NORD").describe("Zona tariffaria italiana"),
     current_supplier: z.string().optional().describe("Nome del fornitore attuale (es: 'Enel Energia')"),
     current_annual_spend: z.number().optional().describe("Spesa annua attuale in €. Es: 650"),
+    // Dati personali opzionali per prefill URL (NON salvati da SwitchAI)
+    nome: z.string().optional().describe("(Opzionale) Nome intestatario per precompilare il form"),
+    cognome: z.string().optional().describe("(Opzionale) Cognome per precompilare il form"),
+    cf: z.string().optional().describe("(Opzionale) Codice Fiscale per precompilare il form"),
+    email: z.string().optional().describe("(Opzionale) Email per precompilare il form"),
+    tel: z.string().optional().describe("(Opzionale) Telefono per precompilare il form"),
+    indirizzo: z.string().optional().describe("(Opzionale) Via/Piazza per precompilare il form"),
+    civico: z.string().optional().describe("(Opzionale) Numero civico"),
+    citta: z.string().optional().describe("(Opzionale) Città"),
+    provincia_sigla: z.string().optional().describe("(Opzionale) Sigla provincia (es: MI)"),
+    cap: z.string().optional().describe("(Opzionale) CAP (5 cifre)"),
+    pod: z.string().optional().describe("(Opzionale) Codice POD per Luce"),
+    pdr: z.string().optional().describe("(Opzionale) Codice PDR per Gas"),
+    consumi: z.number().optional().describe("(Opzionale) Consumo annuo per prefill"),
+    spesa: z.number().optional().describe("(Opzionale) Spesa annua per prefill"),
   },
   async (params) => {
     const data = await apiCall("/webmcp-endpoint", "POST", {
@@ -79,24 +119,82 @@ server.tool(
       current_annual_spend: params.current_annual_spend ?? 0,
     });
 
+    const commodity = params.commodity;
+    const unit = commodity === 'LUCE' ? 'kWh' : 'Smc';
+    const consumo = commodity === 'LUCE' ? (params.yearly_consumption_kwh || 0) : (params.yearly_consumption_smc || 0);
+    const icon = commodity === 'LUCE' ? '⚡' : '🔥';
+    const label = commodity === 'LUCE' ? 'Luce' : 'Gas';
+
+    // Build markdown output
+    let md = `## ${icon} Confronto Tariffe ${label} — Zona ${params.zone}\n\n`;
+    md += `Spesa attuale: **${data.current_spend_estimated} €/anno**`;
+    if (consumo > 0) md += ` (${consumo} ${unit})`;
+    md += `\n\n---\n\n`;
+
+    const results = data.results || [];
+    if (results.length === 0) {
+      md += `*Nessuna offerta trovata per ${label} nella zona ${params.zone}.*\n`;
+    } else {
+      const badges = ['🥇', '🥈', '🥉'];
+      for (let i = 0; i < results.length; i++) {
+        const r = results[i];
+        md += `### ${badges[i]} ${r.supplier} — ${r.tariff_name}\n`;
+        md += `**${r.type === 'FISSO' ? '🔒 Prezzo Fisso' : '📊 Prezzo Variabile'}**`;
+        if (r.price_per_unit) md += ` | ${r.price_per_unit} ${unit === 'kWh' ? '€/kWh' : '€/Smc'}`;
+        if (r.fixed_fee_monthly) md += ` | Quota fissa ${r.fixed_fee_monthly} €/mese`;
+        md += `\n\n`;
+
+        md += `| | |\n|---|---|\n`;
+        md += `| Costo annuo | **${r.annual_cost_eur} €/anno** |\n`;
+        md += `| Risparmio | **${r.savings_eur} €/anno (${r.savings_pct}%)** |\n`;
+        md += `| Al mese | ~${Math.round(r.annual_cost_eur / 12)} €/mese |\n`;
+
+        if (r.breakdown?.explanation) {
+          md += `\n${r.breakdown.explanation}\n`;
+        }
+
+        // Build prefill URL
+        const baseUrl = r.subscription_url || `https://www.switchai.it/sottoscrizione?tariff=${r.tariff_id}&supplier=${encodeURIComponent(r.supplier)}&name=${encodeURIComponent(r.tariff_name)}&commodity=${commodity.toLowerCase()}&annualCost=${r.annual_cost_eur}`;
+        const prefillParams = {};
+        if (params.nome) prefillParams.nome = params.nome;
+        if (params.cognome) prefillParams.cognome = params.cognome;
+        if (params.cf) prefillParams.cf = params.cf;
+        if (params.email) prefillParams.email = params.email;
+        if (params.tel) prefillParams.tel = params.tel;
+        if (params.indirizzo) prefillParams.indirizzo = params.indirizzo;
+        if (params.civico) prefillParams.civico = params.civico;
+        if (params.citta) prefillParams.citta = params.citta;
+        if (params.provincia_sigla) prefillParams.provincia_sigla = params.provincia_sigla;
+        if (params.cap) prefillParams.cap = params.cap;
+        if (params.pod) prefillParams.pod = params.pod;
+        if (params.pdr) prefillParams.pdr = params.pdr;
+        if (params.consumi) prefillParams.consumi = params.consumi;
+        if (params.spesa) prefillParams.spesa = params.spesa;
+        const prefillUrl = buildPrefillUrl(baseUrl, prefillParams);
+
+        md += `\n🔗 [Attiva questa offerta](${prefillUrl})\n`;
+
+        if (r.price_warning) {
+          md += `\n⚠️ ${r.price_warning}\n`;
+        }
+
+        md += `\n`;
+      }
+
+      // Add prefill note
+      const hasPrefill = params.nome || params.cognome || params.email;
+      if (!hasPrefill) {
+        md += `---\n📝 **Per precompilare il form con i dati utente**, richiama questo tool aggiungendo i parametri opzionali: nome, cognome, cf, email, tel, indirizzo, civico, citta, provincia_sigla, cap, pod, pdr.\n`;
+      }
+    }
+
+    md += `\n💡 *L'utente dovrà verificare i dati e cliccare Invia. Riceverà una mail di conferma prima dell'inoltro.*\n`;
+    md += `\n*Dati aggiornati: ${data.comparison_id || 'live'} | switchai.it*`;
+
     return {
       content: [{
         type: "text",
-        text: JSON.stringify({
-          summary: data.agent_summary,
-          current_spend: data.current_spend_estimated,
-          top_offers: data.results?.map(r => ({
-            supplier: r.supplier,
-            tariff_name: r.tariff_name,
-            annual_cost: r.annual_cost_eur,
-            savings_eur: r.savings_eur,
-            savings_pct: r.savings_pct,
-            type: r.type,
-            explanation: r.breakdown?.explanation,
-            activation_url: r.activation_url,
-          })),
-          comparison_id: data.comparison_id,
-        }, null, 2),
+        text: md,
       }],
     };
   }
@@ -149,21 +247,24 @@ server.tool(
       text: params.bill_text,
     });
 
+    const icon = data.commodity === "LUCE" ? "⚡" : "🔥";
+    const label = data.commodity === "LUCE" ? "Luce" : "Gas";
+    const unit = data.commodity === "LUCE" ? "kWh" : "Smc";
+    const consumo = data.commodity === "LUCE" ? data.yearly_consumption_kwh : data.yearly_consumption_smc;
+
+    const md = `## ${icon} Dati Bolletta ${label}\n\n`
+      + `| | |\n|---|---|\n`
+      + `| Fornitore | **${data.current_supplier}** |\n`
+      + `| POD/PDR | ${data.pod_pdr || 'non rilevato'} |\n`
+      + `| Consumo annuo | **${consumo} ${unit}** |\n`
+      + `| Spesa annua | **${data.current_annual_spend} €** |\n`
+      + `| Zona | ${data.zone} |\n`
+      + `\n✅ Dati pronti per il confronto. Usa **calculate_energy_savings** con questi valori.`;
+
     return {
       content: [{
         type: "text",
-        text: JSON.stringify({
-          commodity: data.commodity === "LUCE" ? "Luce ⚡" : "Gas 🔥",
-          current_supplier: data.current_supplier,
-          pod_pdr: data.pod_pdr,
-          yearly_consumption: data.commodity === "LUCE"
-            ? `${data.yearly_consumption_kwh} kWh`
-            : `${data.yearly_consumption_smc} Smc`,
-          current_annual_spend: `${data.current_annual_spend} €`,
-          zone: data.zone,
-          ready_to_compare: true,
-          next_step: "Usa calculate_energy_savings con questi dati per trovare l'offerta migliore",
-        }, null, 2),
+        text: md,
       }],
     };
   }
@@ -220,16 +321,17 @@ server.tool(
       indirizzo_coincide: params.indirizzo_coincide,
     });
 
+    const statusIcon = data.status === 'pending' ? '📨' : '✅';
+    const md = `## ${statusIcon} Sottoscrizione\n\n`
+      + `| | |\n|---|---|\n`
+      + `| Stato | **${data.status}** |\n`
+      + `| ID | \`${data.subscription_id}\` |\n`
+      + `| Messaggio | ${data.message} |\n`;
+
     return {
       content: [{
         type: "text",
-        text: JSON.stringify({
-          status: data.status,
-          subscription_id: data.subscription_id,
-          message: data.message,
-          next_step: "La richiesta è stata inoltrata. Il fornitore ti contatterà entro 24 ore.",
-          check_status: `Usa get_subscription_status con ID ${data.subscription_id} per verificare lo stato`,
-        }, null, 2),
+        text: md,
       }],
     };
   }
@@ -273,6 +375,24 @@ server.tool(
   }
 );
 
+// ── Tool 7: Market Indices ─────────────────────────────────────────────
+
+server.tool(
+  "get_market_indices",
+  "Recupera gli indici di mercato attuali PUN (Luce) e PSV (Gas).",
+  {},
+  async () => {
+    const data = await apiCall("/market-indices");
+
+    return {
+      content: [{
+        type: "text",
+        text: JSON.stringify(data, null, 2),
+      }],
+    };
+  }
+);
+
 // ── Avvio ─────────────────────────────────────────────────────────────
 
 const transport = new StdioServerTransport();
@@ -280,4 +400,4 @@ await server.connect(transport);
 
 console.error("⚡ SwitchAI MCP Server avviato");
 console.error(`   API: ${API_BASE}`);
-console.error("   Tool: calculate_energy_savings, get_available_offers, parse_energy_bill, submit_subscription, get_subscription_status, get_subscription_form_schema");
+console.error("   Tool: calculate_energy_savings, get_available_offers, parse_energy_bill, submit_subscription, get_subscription_status, get_subscription_form_schema, get_market_indices");
