@@ -130,7 +130,11 @@ server.tool(
     let md = `## ${icon} Confronto Tariffe ${label} — Zona ${params.zone}\n\n`;
     md += `Spesa attuale: **${data.current_spend_estimated} €/anno**`;
     if (consumo > 0) md += ` (${consumo} ${unit})`;
-    md += `\n\n---\n\n`;
+    md += `\n`;
+    if (commodity === 'LUCE') {
+      md += `\n📐 *Tariffe Luce: il prezzo in bolletta = (PUN + spread) × 1,102 (perdite rete ~10,2% ARERA per BT). Per il gas non si applicano perdite di rete.*\n`;
+    }
+    md += `\n---\n\n`;
 
     const results = data.results || [];
     if (results.length === 0) {
