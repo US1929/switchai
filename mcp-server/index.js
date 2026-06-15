@@ -213,30 +213,31 @@ server.tool(
 
     md += `---\n\n`;
 
-    // ── Altre offerte (collassate) ───────────────────────
+    // ── Altre offerte (compact) ──────────────────────────
     const others = results.slice(1);
     if (others.length > 0) {
-      md += `<details>\n<summary>📋 Altre ${others.length} offerte (clicca per vedere)</summary>\n\n`;
+      md += `---\n\n`;
+      md += `### 📋 Altre offerte\n\n`;
       const badges = ['🥈', '🥉'];
       for (let i = 0; i < others.length; i++) {
         const r = others[i];
         const otherUrl = r.subscription_url || `https://www.switchai.it/sottoscrizione?tariff=${r.tariff_id}&supplier=${encodeURIComponent(r.supplier)}&name=${encodeURIComponent(r.tariff_name)}&commodity=${commodity.toLowerCase()}&annualCost=${r.annual_cost_eur}`;
         const otherPrefill = buildPrefillUrl(otherUrl, prefillParams);
-        md += `**${badges[i]} ${r.supplier} — ${r.tariff_name}**\n`;
-        md += `${r.type === 'FISSO' ? '🔒 Fisso' : '📊 Variabile'} · ${r.annual_cost_eur} €/anno · Risparmio ${r.savings_eur} €/anno\n`;
-        md += `[Attiva](${otherPrefill})\n\n`;
+        const warning = r.price_warning ? ' ⚠️' : '';
+        md += `**${badges[i]} ${r.supplier}** — ${r.tariff_name} · ${r.annual_cost_eur} €/anno · Risparmio **${r.savings_eur} €**${warning}\n`;
+        md += `[Attiva](${otherPrefill}) · "Se preferisci questa, chiedimi i dettagli e la espando"\n\n`;
       }
-      md += `</details>\n\n`;
     }
 
-    // ── Perché questa offerta (collassato) ───────────────
+    // ── Perché questa (compatto) ──────────────────────────
     if (best.breakdown?.explanation) {
-      md += `<details>\n<summary>📐 Perché questa offerta?</summary>\n\n`;
+      md += `---\n\n`;
+      md += `### 📐 Perché ${best.supplier}?\n\n`;
       md += `${best.breakdown.explanation}\n`;
       if (best.type === 'FISSO') {
         md += `\n🔒 Prezzo bloccato: protetto da aumenti del ${commodity === 'LUCE' ? 'PUN' : 'PSV'} per tutta la durata del contratto.\n`;
       }
-      md += `\n</details>\n\n`;
+      md += `\n`;
     }
 
     // ── Footer ───────────────────────────────────────────
