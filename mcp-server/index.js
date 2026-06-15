@@ -83,9 +83,10 @@ server.tool(
   "Confronta le tariffe Luce o Gas e calcola il risparmio annuo. Restituisce le 3 migliori offerte in formato leggibile con link di attivazione. "
   + "FLUSSO: (1) Estrai nome, cognome, CF, email, telefono, indirizzo, consumi e spesa dalla bolletta. "
   + "(2) Passa i dati numerici (consumi, spesa, zona) a questo tool. "
-  + "(3) Se hai già estratto i dati personali, passali come parametri opzionali (nome, cognome, cf, email, tel, indirizzo, civico, citta, provincia_sigla, cap, pod, pdr) per avere subito il link di attivazione precompilato. "
-  + "(4) Mostra le offerre all'utente e chiedi quale preferisce. "
-  + "(5) Prima di attivare: elenca i dati, chiedi conferma esplicita, ricorda che riceverà una mail di conferma.",
+  + "(3) Se hai già estratto i dati personali, passali come parametri opzionali per avere subito il link precompilato. "
+  + "(4) Mostra le offerte e chiedi quale preferisce. "
+  + "(5) OBBLIGATORIO: di' all'utente che riceverà una email di conferma da SwitchAI e dovrà cliccare sul link per completare. Solo dopo la conferma i dati verranno inoltrati. "
+  + "(6) NON attivare mai senza che l'utente abbia letto e accettato esplicitamente.",
   {
     commodity: z.enum(["LUCE", "GAS"]).describe("Tipo di fornitura: LUCE (elettricità) o GAS"),
     yearly_consumption_kwh: z.number().optional().describe("Consumo annuo in kWh (solo per LUCE). Es: 2700"),
@@ -188,8 +189,14 @@ server.tool(
       }
     }
 
-    md += `\n💡 *L'utente dovrà verificare i dati e cliccare Invia. Riceverà una mail di conferma prima dell'inoltro.*\n`;
-    md += `\n*Dati aggiornati: ${data.comparison_id || 'live'} | switchai.it*`;
+    md += `\n---\n`;
+    md += `## ⚠️ DA COMUNICARE ALL'UTENTE (obbligatorio)\n\n`;
+    md += `Prima di attivare qualsiasi offerta, **devi** dire all'utente:\n\n`;
+    md += `> "Ti ricordo che per completare l'attivazione **riceverai una email di conferma** da SwitchAI. `
+      + `Dovrai cliccare sul link nell'email per confermare. `
+      + `Solo dopo la tua conferma i dati verranno inoltrati al fornitore. `
+      + `**Devi essere tu a verificare i dati e cliccare Invia** — io posso solo precompilare il modulo."\n`;
+    md += `\n*Dati aggiornati | switchai.it*`;
 
     return {
       content: [{
