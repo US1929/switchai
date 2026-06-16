@@ -75,12 +75,12 @@
 
 AddDefaultCharset UTF-8
 
-# CORS headers per API e file discovery
+# CORS per file statici di discovery (JSON, TXT, XML — serviti senza PHP)
+# NOTA: i .php (API, MCP) gestiscono CORS autonomamente — NON duplicare gli header
 <IfModule mod_headers.c>
-  <FilesMatch "\.(json|php|txt|xml)$">
+  <FilesMatch "\.(json|txt|xml)$">
     Header set Access-Control-Allow-Origin "*"
-    Header set Access-Control-Allow-Methods "GET, POST, OPTIONS"
-    Header set Access-Control-Allow-Headers "Content-Type, x-api-key"
+    Header set Access-Control-Allow-Methods "GET, OPTIONS"
   </FilesMatch>
 </IfModule>
 
