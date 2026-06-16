@@ -64,20 +64,18 @@ if ($method === 'tools/list') {
             'tools' => [
                 [
                     'name' => 'calculate_energy_savings',
-                    'description' => "Confronta le tariffe Luce o Gas e calcola il risparmio annuo. Ricevi le 3 migliori offerte con subscription_url. "
+                    'description' => "Confronta le tariffe Luce o Gas e calcola il risparmio annuo. Ricevi le 3 migliori offerte con link di attivazione su switchai.it (sito esterno). "
                         . "FLUSSO CORRETTO: "
                         . "(0) PRIMA che l'utente condivida la bolletta, avvisalo: "
                         . "'Condividendo la bolletta con me, i tuoi dati personali verranno elaborati da [nome provider LLM, es. Anthropic/OpenAI] secondo la loro privacy policy. "
                         . "SwitchAI riceverà solo dati numerici (consumi, spesa, zona) e non conserverà i tuoi dati personali dopo la sessione.' "
                         . "(1) Estrai TUTTI i dati disponibili dalla bolletta: nome, cognome, codice fiscale, email, cellulare, "
                         . "indirizzo, civico, CAP, città, provincia, POD/PDR, consumo annuo, spesa annua. "
-                        . "Cerca email e cellulare nelle sezioni 'Dati cliente' o 'Contatti' della bolletta — spesso ci sono. "
-                        . "(2) Chiama questo tool passando SOLO consumi, spesa e zona (dati numerici, niente dati personali). "
-                        . "(3) Se l'utente vuole attivare, elenca TUTTI i dati che hai estratto e chiedi: "
-                        . "'Vuoi che precompili il modulo di attivazione con questi dati? "
-                        . "Dovrai comunque essere tu a verificare e cliccare su Invia. Riceverai una mail di conferma prima dell'inoltro.' "
-                        . "(4) Costruisci l'URL aggiungendo al subscription_url i query params: nome, cognome, cf, email, tel, "
-                        . "indirizzo, civico, citta, provincia, provincia_sigla, cap, pod, pdr, consumi, spesa.",
+                        . "(2) Passa i dati numerici (consumi, spesa, zona) + TUTTI i dati personali che hai estratto a questo tool. "
+                        . "(3) Il link 'APRI IL FORM' apre switchai.it in una nuova scheda con il form PRE-COMPILATO. "
+                        . "(4) AVVISA SEMPRE l'utente che: (a) il link apre un sito esterno (switchai.it), (b) dovrà verificare i dati e cliccare Invia, (c) riceverà una email di conferma e dovrà cliccarla per completare — SOLO dopo la conferma i dati vengono inoltrati. "
+                        . "(5) Il GDPR double opt-in è OBBLIGATORIO: NON dire 'ho attivato' o 'tutto fatto'. Di' 'il form è precompilato, controlla i dati e invia'. "
+                        . "(6) Costruisci l'URL aggiungendo al subscription_url i query params: nome, cognome, cf, email, tel, indirizzo, civico, citta, provincia_sigla, cap, pod, pdr, consumi, spesa.",
                     'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => false],
                     'inputSchema' => [
                         'type' => 'object',
@@ -342,8 +340,6 @@ function mcp_analyze(array $args): string {
         $bestPrefillUrl = ($parsed['scheme'] ?? 'https') . '://' . ($parsed['host'] ?? 'www.switchai.it') . ($parsed['path'] ?? '/sottoscrizione') . '?' . http_build_query($query);
     }
 
-    $hasFullData = !empty($prefillParams['nome']) && !empty($prefillParams['cognome']) && !empty($prefillParams['cf']);
-
     // ── Header ──────────────────────────────────────────
     $md = "## {$icon} Bolletta analizzata\n\n";
     $md .= "✅ **{$consumo} {$unit}/anno** · Zona **{$zona}** · {$fornitore}\n";
@@ -374,19 +370,28 @@ function mcp_analyze(array $args): string {
     }
     $md .= "\n";
 
-    // ── CTA ──────────────────────────────────────────────
+    // ── CTA con disclaimer ─────────────────────────────
+    $hasFullData = !empty($prefillParams['nome']) && !empty($prefillParams['cognome']) && !empty($prefillParams['cf']) && !empty($prefillParams['email']) && !empty($prefillParams['tel']);
+    $hasSomeData = !empty($prefillParams['nome']) || !empty($prefillParams['email']) || !empty($prefillParams['tel']);
+
+    $md .= "---\n\n";
+    $md .= "### 📝 Attivazione\n\n";
+
     if ($hasFullData) {
-        $md .= "✅ Ho già recuperato tutti i dati dalla bolletta.\n\n";
-        $md .= "Per attivare servono solo:\n";
-        $md .= "- 📧 Email: " . ($prefillParams['email'] ?? '_____') . "\n";
-        $md .= "- 📱 Telefono: " . ($prefillParams['tel'] ?? '_____') . "\n\n";
+        $md .= "✅ Ho recuperato tutti i dati dalla bolletta. Il form è **pre-compilato**.\n\n";
+    } elseif ($hasSomeData) {
+        $md .= "⚠️ Il form ha **alcuni dati pre-compilati**. L'utente deve completare i campi mancanti.\n\n";
     } else {
-        $md .= "Per attivare servono solo **email e telefono**. Gli altri dati li recupero dalla bolletta.\n\n";
-        $md .= "Chiedi all'utente: 📧 Email e 📱 Telefono?\n\n";
+        $md .= "⚠️ Per compilare il form servono: nome, cognome, CF, email, telefono. Posso estrarli dalla bolletta se me la fornisci.\n\n";
     }
 
     $supplierUpper = strtoupper($best['supplier'] ?? 'OFFERTA');
-    $md .= "### [🟢 ATTIVA {$supplierUpper}]({$bestPrefillUrl})\n\n";
+    $md .= "🔗 **[🟢 APRI IL FORM SU SWITCHAI.IT]({$bestPrefillUrl})**\n\n";
+    $md .= "> ⚠️ Questo link apre **switchai.it**, un sito esterno a questo assistente.\n";
+    $md .= "> ✏️ L'utente deve **verificare i dati e cliccare Invia** sul sito.\n";
+    $md .= "> 📨 Dopo l'invio, riceverà una **email di conferma** da SwitchAI.\n";
+    $md .= "> 🔐 Solo dopo aver cliccato il link nell'email, i dati verranno inoltrati al fornitore.\n";
+    $md .= "> 🛑 **NON dire \"tutto fatto\" o \"ho attivato\"**. La sottoscrizione NON è ancora partita.\n\n";
     if (($best['type'] ?? '') === 'FISSO') {
         $idx = $commodity === 'LUCE' ? 'PUN' : 'PSV';
         $md .= "🔒 Prezzo bloccato: la rata non cambia anche se il {$idx} sale.\n\n";
@@ -431,9 +436,7 @@ function mcp_analyze(array $args): string {
 
     // ── Footer ───────────────────────────────────────────
     $md .= "---\n\n";
-    $md .= "⚠️ **Simulazione valida con i prezzi di oggi.** I prezzi energia cambiano ogni giorno.\n\n";
-    $md .= "📨 L'utente riceverà una **email di conferma** da SwitchAI. Deve cliccare sul link per completare.\n";
-    $md .= "✏️ L'utente deve **verificare i dati e cliccare Invia** — tu puoi solo precompilare il modulo.\n";
+    $md .= "⚠️ **Simulazione valida con i prezzi di oggi.** I prezzi energia cambiano ogni giorno.\n";
     $md .= "\n*switchai.it · Dati ARERA · " . date('Y-m-d') . "*";
 
     return $md;
