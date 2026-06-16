@@ -1,73 +1,78 @@
 User-agent: *
-Allow: /
+Allow: /$
+Allow: /sottoscrizione
+Allow: /offerta/
 Allow: /llms.txt
 Allow: /webmcp.json
+Allow: /openapi.json
 Allow: /per-llm.html
 Allow: /come-funziona.html
 Allow: /privacy.html
 Allow: /cookie.html
-Allow: /offerta/
-Crawl-delay: 5
-
-# LLM crawler — accesso completo a file di discovery e API leggere
-User-agent: ClaudeBot
-Allow: /
-Allow: /llms.txt
-Allow: /webmcp.json
-Allow: /per-llm
-Allow: /mcp
-Allow: /api/health
-Allow: /api/tariffe/
-Allow: /api/market-indices
-
-User-agent: GPTBot
-Allow: /
-Allow: /llms.txt
-Allow: /mcp
-Allow: /webmcp.json
-Allow: /per-llm
-Allow: /api/health
-Allow: /api/tariffe/
-Allow: /api/market-indices
-
-User-agent: Google-Extended
-Allow: /
-Allow: /llms.txt
-Allow: /webmcp.json
-Allow: /per-llm
-Allow: /mcp
-Allow: /api/health
-Allow: /api/tariffe/
-Allow: /api/market-indices
-
-User-agent: anthropic-ai
-Allow: /
-Allow: /llms.txt
-Allow: /webmcp.json
-Allow: /per-llm
-Allow: /mcp
-
-User-agent: PerplexityBot
-Allow: /
-Allow: /llms.txt
-Allow: /webmcp.json
-Allow: /per-llm
-Allow: /mcp
-
-# Blocca accesso a dati interni (anche per LLM)
-Disallow: /api/subscription/
-Disallow: /api/auth/
-Disallow: /api/stats/
-Disallow: /api/trigger-scraper
-Disallow: /api/test-email
+Allow: /img/
+Disallow: /api/
+Disallow: /mcp
 Disallow: /inc/
 Disallow: /data/
 Disallow: /logs/
 Disallow: /activate
 Disallow: /conferma
-Disallow: /sottoscrizione
 Disallow: /login
 Disallow: /admin
 Disallow: /stats
+Disallow: /*.json$
+Disallow: /*.php$
+Crawl-delay: 5
+
+# LLM bots — accesso a file di discovery (non API)
+User-agent: ClaudeBot
+Allow: /llms.txt
+Allow: /webmcp.json
+Allow: /openapi.json
+Allow: /per-llm
+Allow: /mcp
+Disallow: /api/
+Disallow: /inc/
+Disallow: /data/
+
+User-agent: GPTBot
+Allow: /llms.txt
+Allow: /webmcp.json
+Allow: /openapi.json
+Allow: /per-llm
+Allow: /mcp
+Disallow: /api/
+Disallow: /inc/
+Disallow: /data/
+
+User-agent: Google-Extended
+Allow: /llms.txt
+Allow: /webmcp.json
+Allow: /openapi.json
+Allow: /per-llm
+Allow: /mcp
+Disallow: /api/
+Disallow: /inc/
+Disallow: /data/
+
+User-agent: anthropic-ai
+Allow: /llms.txt
+Allow: /webmcp.json
+Allow: /openapi.json
+Allow: /per-llm
+Allow: /mcp
+Disallow: /api/
+Disallow: /inc/
+Disallow: /data/
+
+User-agent: PerplexityBot
+Allow: /llms.txt
+Allow: /webmcp.json
+Allow: /openapi.json
+Allow: /per-llm
+Allow: /mcp
+Disallow: /api/
+Disallow: /inc/
+Disallow: /data/
 
 Sitemap: https://www.switchai.it/sitemap.xml
