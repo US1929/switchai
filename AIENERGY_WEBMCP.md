@@ -3,7 +3,7 @@
 > **Dominio**: [switchai.it](https://www.switchai.it) — attivo su OVH Pro Web Hosting  
 > **Stack**: React 19 + Vite 8 | PHP 8.5 API | WebMCP (Google Chrome Labs) | MCP Server (PHP + Node.js) | Tailwind CSS 4  
 > **Design**: ispirato a Switcho.it + Billoo.it, card allineate a ComparaSemplice  
-> **Ultimo aggiornamento**: 15 Giugno 2026
+> **Ultimo aggiornamento**: 16 Giugno 2026
 
 ---
 
@@ -137,7 +137,7 @@ Bollette: `/api/parse-bill-text`, `/api/parse-bill`, `/api/analyze-bill`
 
 Sottoscrizione: `/api/subscription/submit`, `/api/subscription/conferma`, `/api/subscription/status/{id}`, `/api/subscription/form-schema`
 
-Sistema: `/api/auth/login`, `/api/auth/verify`, `/api/stats/traffic`, `/api/test-email`, `/api/trigger-scraper`
+Sistema: `/api/auth/login`, `/api/auth/verify`, `/api/stats/traffic`, `/api/test-email`, `/api/trigger-scraper`, `/api/arera-constants`
 
 Admin B2B: `/api/admin/api-keys`, `/api/admin/api-keys/create`, `/api/admin/api-keys/{hash}`
 
@@ -319,13 +319,55 @@ Tutti i dati in `data/`:
 
 ### Rate Limiting
 
-- **B2C**: 30 richieste/ora per IP
+- **B2C**: 30 richieste/ora per IP — **solo su POST pesanti e write**. GET pubbliche (`/api/tariffe/*`, `/api/market-indices`, `/api/health`, `/api/status`, `/api/arera-constants`) esenti
 - **B2B**: quota mensile per chiave API (basic 1k, pro 5k, premium 20k)
 - Sistema a file con `flock()` per atomicità
 
 ---
 
-## 9. WebMCP Tools (4)
+## 9. Motore di Calcolo — Costanti Regolatorie ARERA
+
+### Architettura "Totale vs Totale" (Full Cost Approach)
+
+SwitchAI mostra il **costo totale stimato** della bolletta (materia energia + trasporto + oneri + imposte + IVA), non solo la componente energia. Questo evita il mismatch tra "risparmio di 500€" mostrato da altri comparatori e la bolletta reale di 80€/mese.
+
+### Costanti centralizzate
+
+Tutti i parametri ARERA sono in **un'unica fonte** per frontend e backend:
+
+| File | Scope |
+|------|-------|
+| `frontend/src/lib/constants.js` | JS: `LUCE`, `GAS`, `MERCATO` — importati da `calc.js`, `Home.jsx` |
+| `backend/php/inc/bill_parser.php` | PHP: 17 `define()` con guard `if (!defined(...))` + `getAreraConstants()` |
+| `GET /api/arera-constants` | API pubblica che espone i valori correnti in JSON |
+
+### Valori LUCE (aggiornati Giugno 2026)
+
+| Costante | Valore | Descrizione |
+|----------|--------|-------------|
+| `PERDITE_RETE_BT` | 1.102 | Coefficiente perdite Bassa Tensione (~10,2%) |
+| `ONERI_SISTEMA` | 0.038 €/kWh | Asos (rinnovabili) + Arim (altri oneri) |
+| `ACCISE` | 0.0227 €/kWh | Accisa erariale residenziale (>150 kWh/mese) |
+| `TRASPORTO_VAR` | 0.0089 €/kWh | Trasporto variabile distribuzione |
+| `COSTO_POTENZA_KW` | 21.48 €/kW/anno | Quota potenza impegnata |
+| `QUOTA_FISSA_RETI` | 24.00 €/anno | Trasporto fisso + gestione contatore |
+| `IVA` | 10% | IVA agevolata usi domestici |
+
+### Valori GAS
+
+| Costante | Valore | Descrizione |
+|----------|--------|-------------|
+| `TRASPORTO_VAR` | 0.15 €/Smc | Trasporto variabile distribuzione |
+| `ONERI_SISTEMA` | 0.03 €/Smc | Oneri sistema gas |
+| `ACCISE` | 0.15 €/Smc | Accisa gas usi civili |
+| `QUOTA_FISSA_RETI` | 23.00 €/anno | Trasporto fisso + gestione contatore |
+| `SOGLIA_IVA_10` | 480 Smc/anno | Soglia IVA agevolata (oltre → 22%) |
+
+> **Nota**: Questi valori vengono aggiornati periodicamente seguendo le delibere ARERA. Per modificarli basta toccare un solo file per lato (JS e PHP). L'endpoint `/api/arera-constants` permette di verificare i valori in produzione.
+
+---
+
+## 10. WebMCP Tools (4)
 
 Registrati in `webmcp.json` + `webmcp.js`:
 1. `calculate_energy_savings` — confronto tariffe + subscription_url
@@ -337,23 +379,53 @@ Registrati in `webmcp.json` + `webmcp.js`:
 
 ---
 
-## 10. MCP Server Pubblico
+## 11. MCP Server Pubblico
 
-**URL**: `POST https://www.switchai.it/mcp`
+**URL**: `POST https://www.switchai.it/mcp`  
+**Web**: `https://www.switchai.it/mcp` (registrabile come connettore in Claude web → Impostazioni → Connettori)
 
-4 tool, JSON-RPC 2.0, zero autenticazione.
+7 tool (PHP + Node.js), JSON-RPC 2.0, zero autenticazione.
 
 **Flusso LLM-nativo**: i tool istruiscono l'LLM a estrarre i dati personali dalla bolletta e a usarli per precompilare il form di sottoscrizione, con guardrail privacy integrato nella tool description.
 
+### Disclaimer GDPR nell'output
+
+Ogni risposta del tool `calculate_energy_savings` include nel CTA:
+
+```
+🔗 🟢 APRI IL FORM SU SWITCHAI.IT
+
+> ⚠️ Questo link apre switchai.it, un sito esterno a questo assistente.
+> ✏️ L'utente deve verificare i dati e cliccare Invia sul sito.
+> 📨 Dopo l'invio, riceverà una email di conferma da SwitchAI.
+> 🔐 Solo dopo aver cliccato il link nell'email, i dati verranno inoltrati al fornitore.
+> 🛑 NON dire "tutto fatto" o "ho attivato". La sottoscrizione NON è ancora partita.
+```
+
+Il tool description istruisce l'LLM a:
+- Avvisare che il link apre un sito esterno (switchai.it)
+- Spiegare il double opt-in (email di conferma obbligatoria)
+- NON dichiarare completata l'attivazione prima della conferma
+- Precompilare il form con tutti i dati estratti dalla bolletta
+
+### Tool disponibili (7)
+
+- `calculate_energy_savings` — confronto + risk + subscription_url + prefill_instructions
+- `parse_energy_bill` — analisi bolletta ARERA
+- `get_available_offers` — 25 luce + 19 gas
+- `get_market_indices` — PUN/PSV live con trend
+- `get_subscription_form_schema` — schema form 4 step
+- `submit_subscription` — invio con double opt-in GDPR
+- `get_subscription_status` — verifica stato sottoscrizione
+
 **Registrato su**:
 - npm: `@us1929/switchai-mcp`
-- Smithery: `smithery.ai/servers/us1929/switchai`
+- Glama: `glama.ai/mcp/servers/US1929/switchai` (in review)
 - GitHub: `github.com/US1929/switchai`
-- Reddit: `r/mcp`
 
 ---
 
-## 11. File per Crawler e LLM Discovery
+## 12. File per Crawler e LLM Discovery
 
 | File | URL | Scopo |
 |------|-----|-------|
@@ -366,7 +438,7 @@ Registrati in `webmcp.json` + `webmcp.js`:
 
 ---
 
-## 12. SEO e Indicizzazione Google
+## 13. SEO e Indicizzazione Google
 
 ### Struttura URL canonici
 
@@ -405,7 +477,7 @@ OVH ha MultiViews attivo di default. Gli rewrite interni (URL pulito → file `.
 
 ---
 
-## 13. UX — Tre Modalità di Interazione
+## 14. UX — Tre Modalità di Interazione
 
 La homepage guida l'utente con CTA chiare nell'hero:
 
@@ -453,23 +525,35 @@ Per bollette a tariffa variabile (PUN/PSV + spread), ricalcoliamo il costo con l
 
 ---
 
-## 14. UX — TariffCard e Confronto Offerte
+## 15. UX — TariffCard e Confronto Offerte
 
-### TariffCard (ridisegnata v5.0)
+### TariffCard (v5.1 — responsive + tooltip)
 
 La card di ogni offerta è progettata per rendere il confronto "prima/dopo" immediato:
 
+**Desktop (≥640px)**:
 1. **Header** — logo fornitore + nome offerta + tipo (Fisso/Variabile) + badge ranking (🥇🥈🥉)
 2. **Barra proporzionale** — segmento rosso (spesa attuale) vs verde (nuova spesa), con risparmio € e % al centro
-3. **Confronto per-riga** — tabella "Ora → Con questa offerta":
-   - Prezzo €/kWh (o €/Smc) — con ✅/↗ per ogni riga
+3. **Confronto per-riga** — tabella "Ora → Con questa offerta" con ℹ️ tooltip su ogni riga:
+   - Prezzo €/kWh (o €/Smc) — con ✅/↗
    - Quota fissa €/mese
-   - Totale anno (riga evidenziata)
+   - Totale anno (riga evidenziata) — ℹ️ mostra breakdown completo costi regolati ARERA
 4. **Risparmio mensile** — "≈ 22€/mese in meno · 0,72€/giorno"
 5. **CTA** — prezzo/mese + pulsante "Attiva Online"
 6. **Tag vincoli** — 🔒 Prezzo bloccato X mesi, ⚠️ Penale recesso, 📅 Valida fino al...
 7. **Warning prezzo anomalo** — alert quando prezzo < 0,05 €/kWh (luce) o < 0,20 €/Smc (gas)
-8. **Accordion "Dettagli tariffa"** — collassabile: tipologia, quota fissa, pagamento, breakdown testuale, nota costi regolati
+8. **Accordion "Dettagli tariffa"** — collassabile: tipologia, quota fissa, pagamento, breakdown testuale, nota costi regolati con ℹ️
+
+**Mobile (<640px)**: card compatta — barra + totale anno + accordion espandibile "Confronto per-riga e dettagli". Le righe tecniche sono collassate per non affollare lo schermo.
+
+### InfoTooltip ℹ️
+
+Componente inline riutilizzabile: icona ℹ️ grigia che al hover/click apre un popover con sfondo scuro, bordo e freccetta ▲. Usato su:
+- Righe del confronto per-riga (spiega la componente di costo)
+- "Oneri e Imposte" nell'accordion dettagli (spiega costi regolati ARERA)
+- "Totale anno" (breakdown completo: trasporto, oneri, accise, IVA, quota potenza, quota fissa reti)
+
+**Design del tooltip**: `max-width: min(380px, 85vw)` responsive, `z-index: 9999`, freccia CSS triangolare, sfondo `#0f172a` con bordo.
 
 ### Badge ranking (assegnati automaticamente)
 
@@ -494,7 +578,7 @@ Sopra le offerte, una barra informativa spiega:
 
 ---
 
-## 15. Pagine del Sito
+## 16. Pagine del Sito
 
 | URL | Tipo | Contenuto |
 |-----|------|-----------|
@@ -511,7 +595,7 @@ Sopra le offerte, una barra informativa spiega:
 
 ---
 
-## 16. Deploy
+## 17. Deploy
 
 ```bash
 cd /Users/djanc/Documents/Progetti_IA/AIenergywebmcp/frontend
@@ -535,7 +619,7 @@ STATS_PASSWORD_HASH=<bcrypt>
 
 ---
 
-## 17. GitHub Repository
+## 18. GitHub Repository
 
 **URL**: [github.com/US1929/switchai](https://github.com/US1929/switchai)
 
@@ -545,7 +629,7 @@ Topics: `mcp`, `webmcp`, `energy`, `tariffs`, `italy`, `ai-agent`, `llm`, `elect
 
 ---
 
-## 18. Riferimenti
+## 19. Riferimenti
 
 - **WebMCP Spec**: [GoogleChromeLabs/webmcp-tools](https://github.com/GoogleChromeLabs/webmcp-tools)
 - **MCP Spec**: [modelcontextprotocol.io](https://modelcontextprotocol.io)
@@ -555,9 +639,9 @@ Topics: `mcp`, `webmcp`, `energy`, `tariffs`, `italy`, `ai-agent`, `llm`, `elect
 
 ---
 
-> **Versione**: 5.1.0 — 15 Giugno 2026  
+> **Versione**: 5.2.0 — 16 Giugno 2026  
 > **Dominio**: switchai.it · **Hosting**: OVH Pro · **PHP**: 8.5.0  
-> **Tools**: 4 WebMCP + 4 MCP pubblici · **Endpoint API**: 21  
+> **Tools**: 4 WebMCP + 7 MCP pubblici · **Endpoint API**: 22  
 > **Parser**: ARERA 3.0 — 10/10 PDF testati  
 > **Modello**: API-first, LLM-native. Niente parsing PDF lato server.  
-> **Novità v5.1**: Form sottoscrizione precompilato via LLM (15 parametri URL) · Guardrail privacy integrato nei tool MCP · Flusso analyze_energy_bill LLM-nativo (LLM estrae dati personali) · SEO: canonical + OG + JSON-LD su tutte le pagine · Fix MultiViews OVH (301 espliciti) · Sitemap dinamica con lastmod/changefreq · Nuova pagina /cookie · X-Robots-Tag noindex su API
+> **Novità v5.2**: Costanti ARERA centralizzate (constants.js + PHP) con endpoint `/api/arera-constants` · Calcoli Full Cost Approach: oneri 0.038, quota fissa reti 24€, perdite BT ×1.102 · Rate limit esenta GET pubbliche · TariffCard v5.1 mobile responsive + InfoTooltip ℹ️ · Fix stale closure flusso "Analizza" · Auto-scroll a risultati · MCP: disclaimer sito esterno + GDPR double opt-in nell'output · 7 tool MCP · Glama submission · Dockerfile root
