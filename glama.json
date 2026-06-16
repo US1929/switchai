@@ -1,0 +1,39 @@
+{
+  "name": "io.github.US1929/switchai",
+  "description": "SwitchAI — AI agent for Italian energy tariff comparison. Analyzes electricity and gas bills, compares 44+ offers from 13 providers in real time, estimates savings with full ARERA regulated cost breakdown (transport, system charges, excise duties, VAT). Supports Claude Desktop MCP, ChatGPT GPT Actions, and WebMCP (Chrome 146+).",
+  "transport": {
+    "type": "streamable-http",
+    "url": "https://www.switchai.it/mcp"
+  },
+  "website": "https://www.switchai.it",
+  "docs": "https://www.switchai.it/per-llm",
+  "repository": "https://github.com/US1929/switchai",
+  "license": "MIT",
+  "categories": ["energy", "finance", "utilities"],
+  "tools": [
+    {
+      "name": "get_offers",
+      "description": "Get the best energy offers for a given commodity (LUCE/GAS), zone, and yearly consumption"
+    },
+    {
+      "name": "analyze_bill_text",
+      "description": "Extract structured data from an Italian ARERA 2.0 energy bill text (consumption, spend, zone, supplier)"
+    },
+    {
+      "name": "get_market_indices",
+      "description": "Get live PUN (electricity) and PSV (gas) market indices with 30-day trend analysis"
+    },
+    {
+      "name": "compare_offer",
+      "description": "Compare a specific offer against current spend with full cost breakdown"
+    },
+    {
+      "name": "start_subscription",
+      "description": "Initiate GDPR double opt-in subscription flow for an energy offer"
+    },
+    {
+      "name": "get_subscription_status",
+      "description": "Check the status of a pending subscription by ID"
+    }
+  ]
+}

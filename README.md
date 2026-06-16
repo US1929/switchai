@@ -2,6 +2,8 @@
 
 > **Sito**: [switchai.it](https://www.switchai.it) · **Mercato**: Italia · **Stack**: React 19 + PHP 8.5 + WebMCP + MCP Server
 
+[![Glama MCP Server](https://glama.ai/mcp/servers/US1929/switchai/badges/score.svg)](https://glama.ai/mcp/servers/US1929/switchai)
+
 SwitchAI è un agente AI nativo per il confronto e il cambio automatico del fornitore energia nel mercato libero italiano. Non è un comparatore tradizionale: l'utente fornisce la sua bolletta, e l'AI analizza i dati, confronta **44+ offerte attive** di Luce e Gas, e attiva la tariffa migliore — tutto in linguaggio naturale.
 
 ---
