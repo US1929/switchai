@@ -80,12 +80,12 @@ function buildPrefillUrl(baseUrl, params) {
 
 server.tool(
   "calculate_energy_savings",
-  "Confronta le tariffe Luce o Gas e calcola il risparmio annuo. Restituisce le 3 migliori offerte in formato leggibile con link di attivazione. "
+  "Confronta le tariffe Luce o Gas e calcola il risparmio annuo. Restituisce le 3 migliori offerte con link di attivazione su switchai.it (sito esterno). "
   + "FLUSSO: (1) Estrai nome, cognome, CF, email, telefono, indirizzo, consumi e spesa dalla bolletta. "
-  + "(2) Passa i dati numerici (consumi, spesa, zona) a questo tool. "
-  + "(3) Se hai già estratto i dati personali, passali come parametri opzionali per avere subito il link precompilato. "
-  + "(4) Mostra le offerte e chiedi quale preferisce. "
-  + "(5) OBBLIGATORIO: di' all'utente che riceverà una email di conferma da SwitchAI e dovrà cliccare sul link per completare. Solo dopo la conferma i dati verranno inoltrati. "
+  + "(2) Passa i dati numerici (consumi, spesa, zona) + TUTTI i dati personali che hai estratto a questo tool. "
+  + "(3) Il link 'Attiva' apre switchai.it in una nuova scheda con il form PRE-COMPILATO. "
+  + "(4) AVVISA SEMPRE l'utente che: (a) il link apre un sito esterno (switchai.it), (b) dovrà verificare i dati e cliccare Invia, (c) riceverà una email di conferma e dovrà cliccarla per completare — SOLO dopo la conferma i dati vengono inoltrati al fornitore. "
+  + "(5) Il GDPR double opt-in è OBBLIGATORIO: NON dire 'ho attivato' o 'tutto fatto'. Di' 'il form è precompilato, controlla i dati e invia'. "
   + "(6) NON attivare mai senza che l'utente abbia letto e accettato esplicitamente.",
   {
     commodity: z.enum(["LUCE", "GAS"]).describe("Tipo di fornitura: LUCE (elettricità) o GAS"),
@@ -193,25 +193,27 @@ server.tool(
 
     md += `\n`;
 
-    // ── CTA immediata ────────────────────────────────────
-    const hasFullData = prefillParams.nome && prefillParams.cognome && prefillParams.cf;
-    if (hasFullData) {
-      md += `✅ Ho già recuperato tutti i dati dalla bolletta.\n\n`;
-      md += `Per attivare servono solo:\n`;
-      md += `- 📧 Email: ${prefillParams.email || '_____'}\n`;
-      md += `- 📱 Telefono: ${prefillParams.tel || '_____'}\n\n`;
-    } else {
-      md += `Per attivare servono solo **email e telefono**. Gli altri dati li recupero dalla bolletta.\n\n`;
-      md += `Chiedi all'utente: 📧 Email e 📱 Telefono?\n\n`;
-    }
-
-    md += `### [🟢 ATTIVA ${best.supplier?.toUpperCase() || 'OFFERTA'}](${bestPrefillUrl})\n\n`;
-
-    if (best.type === 'FISSO') {
-      md += `🔒 Prezzo bloccato: la rata non cambia anche se il ${commodity === 'LUCE' ? 'PUN' : 'PSV'} sale.\n\n`;
-    }
+    // ── CTA con disclaimer ─────────────────────────────
+    const hasFullData = prefillParams.nome && prefillParams.cognome && prefillParams.cf && prefillParams.email && prefillParams.tel;
+    const hasSomeData = prefillParams.nome || prefillParams.email || prefillParams.tel;
 
     md += `---\n\n`;
+    md += `### 📝 Attivazione\n\n`;
+
+    if (hasFullData) {
+      md += `✅ Ho recuperato tutti i dati dalla bolletta. Il form è **pre-compilato**.\n\n`;
+    } else if (hasSomeData) {
+      md += `⚠️ Il form ha **alcuni dati pre-compilati**. L'utente deve completare i campi mancanti.\n\n`;
+    } else {
+      md += `⚠️ Per compilare il form servono: nome, cognome, CF, email, telefono. Posso estrarli dalla bolletta se me la fornisci.\n\n`;
+    }
+
+    md += `🔗 **[🟢 APRI IL FORM SU SWITCHAI.IT](${bestPrefillUrl})**\n\n`;
+    md += `> ⚠️ Questo link apre **switchai.it**, un sito esterno a Claude.\n`;
+    md += `> ✏️ L'utente deve **verificare i dati e cliccare Invia** sul sito.\n`;
+    md += `> 📨 Dopo l'invio, riceverà una **email di conferma** da SwitchAI.\n`;
+    md += `> 🔐 Solo dopo aver cliccato il link nell'email, i dati verranno inoltrati al fornitore.\n`;
+    md += `> 🛑 **NON dire \"tutto fatto\" o \"ho attivato\"**. La sottoscrizione NON è ancora partita.\n\n`;
 
     // ── Altre offerte (compact) ──────────────────────────
     const others = results.slice(1);
@@ -242,9 +244,7 @@ server.tool(
 
     // ── Footer ───────────────────────────────────────────
     md += `---\n\n`;
-    md += `⚠️ **Simulazione valida con i prezzi di oggi.** I prezzi energia cambiano ogni giorno.\n\n`;
-    md += `📨 L'utente riceverà una **email di conferma** da SwitchAI. Deve cliccare sul link per completare.\n`;
-    md += `✏️ L'utente deve **verificare i dati e cliccare Invia** — tu puoi solo precompilare il modulo.\n`;
+    md += `⚠️ **Simulazione valida con i prezzi di oggi.** I prezzi energia cambiano ogni giorno.\n`;
     md += `\n*switchai.it · Dati ARERA · ${new Date().toISOString().slice(0, 10)}*`;
 
     return {
