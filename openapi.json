@@ -1,0 +1,380 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "SwitchAI — Energy Tariff Comparison API",
+    "description": "AI agent per confronto e attivazione tariffe Luce e Gas nel mercato libero italiano. 44+ offerte da 13 fornitori. WebMCP e MCP compatibile.",
+    "version": "2.0.0",
+    "contact": { "email": "attivazioni@switchai.it", "url": "https://www.switchai.it" },
+    "license": { "name": "Proprietary", "url": "https://www.switchai.it/privacy" }
+  },
+  "servers": [{ "url": "https://www.switchai.it/api", "description": "SwitchAI Production API" }],
+  "tags": [
+    { "name": "Tariffs", "description": "Offerte e confronto tariffe" },
+    { "name": "Bills", "description": "Analisi bollette" },
+    { "name": "Subscription", "description": "Sottoscrizione e attivazione" },
+    { "name": "Market", "description": "Dati di mercato (PUN/PSV)" },
+    { "name": "System", "description": "Health, stats, auth" }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": ["System"],
+        "summary": "Health check",
+        "operationId": "healthCheck",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Health" } } }
+          }
+        }
+      }
+    },
+    "/status": {
+      "get": {
+        "tags": ["System"],
+        "summary": "Statistiche tariffe (conteggio offerte, fornitori)",
+        "operationId": "getStatus",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Status" } } }
+          }
+        }
+      }
+    },
+    "/tariffe/luce": {
+      "get": {
+        "tags": ["Tariffs"],
+        "summary": "Lista completa offerte LUCE (25+)",
+        "description": "Restituisce tutte le offerte di energia elettrica disponibili con prezzi, tipo contratto, quota fissa, spread, PUN e campi extra.",
+        "operationId": "getLuceOffers",
+        "responses": {
+          "200": {
+            "description": "Lista offerte LUCE",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OfferList" } } }
+          }
+        }
+      }
+    },
+    "/tariffe/gas": {
+      "get": {
+        "tags": ["Tariffs"],
+        "summary": "Lista completa offerte GAS (19+)",
+        "description": "Restituisce tutte le offerte di gas naturale disponibili con prezzi, tipo contratto, quota fissa, spread, PSV e campi extra.",
+        "operationId": "getGasOffers",
+        "responses": {
+          "200": {
+            "description": "Lista offerte GAS",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OfferList" } } }
+          }
+        }
+      }
+    },
+    "/fornitori": {
+      "get": {
+        "tags": ["Tariffs"],
+        "summary": "Lista fornitori disponibili",
+        "operationId": "getSuppliers",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Supplier" } } } }
+          }
+        }
+      }
+    },
+    "/webmcp-endpoint": {
+      "post": {
+        "tags": ["Tariffs"],
+        "summary": "Confronta tariffe e calcola risparmio (per AI agent)",
+        "description": "Tool principale per LLM. Riceve consumi e spesa attuale, restituisce top 3 offerte con breakdown energetico e agent_summary in italiano pronto da mostrare all'utente.",
+        "operationId": "calculateEnergySavings",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SavingsRequest" } } }
+        },
+        "responses": {
+          "200": {
+            "description": "Top 3 offerte con risparmio e agent_summary",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SavingsResponse" } } }
+          },
+          "400": { "description": "Parametri non validi" }
+        }
+      }
+    },
+    "/calculate-savings": {
+      "post": {
+        "tags": ["Tariffs"],
+        "summary": "Calcola risparmio (versione web)",
+        "operationId": "calculateSavingsWeb",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SavingsRequest" } } }
+        },
+        "responses": {
+          "200": { "description": "Risultati confronto" }
+        }
+      }
+    },
+    "/parse-bill-text": {
+      "post": {
+        "tags": ["Bills"],
+        "summary": "Analizza testo bolletta italiana",
+        "description": "Estrae dati strutturati da una bolletta: fornitore, POD/PDR, consumo annuo, spesa annua stimata, zona tariffaria. Usare come primo step prima di calculate_energy_savings.",
+        "operationId": "parseEnergyBill",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/BillParseRequest" } } }
+        },
+        "responses": {
+          "200": {
+            "description": "Dati bolletta estratti",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/BillData" } } }
+          },
+          "400": { "description": "Testo bolletta non valido" }
+        }
+      }
+    },
+    "/analyze-bill": {
+      "post": {
+        "tags": ["Bills"],
+        "summary": "Upload PDF bolletta + calcolo risparmio",
+        "operationId": "analyzeBill",
+        "responses": {
+          "200": { "description": "Dati bolletta + offerte migliori" }
+        }
+      }
+    },
+    "/market-indices": {
+      "get": {
+        "tags": ["Market"],
+        "summary": "PUN e PSV correnti",
+        "description": "Prezzo Unico Nazionale (energia elettrica) e Punto di Scambio Virtuale (gas) aggiornati. Cache 1 ora.",
+        "operationId": "getMarketIndices",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MarketIndices" } } }
+          }
+        }
+      }
+    },
+    "/subscription/submit": {
+      "post": {
+        "tags": ["Subscription"],
+        "summary": "Invia richiesta di attivazione (double opt-in)",
+        "description": "Step 1 del double opt-in GDPR. Salva in pending e invia email di conferma all'utente. La sottoscrizione viene inoltrata solo dopo la conferma. Supporta dry_run:true per anteprima payload.",
+        "operationId": "submitSubscription",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SubscriptionRequest" } } }
+        },
+        "responses": {
+          "201": { "description": "Pending — email conferma inviata" },
+          "400": { "description": "Campi mancanti o consenso GDPR non dato" }
+        }
+      }
+    },
+    "/subscription/conferma": {
+      "get": {
+        "tags": ["Subscription"],
+        "summary": "Conferma sottoscrizione via token (step 2)",
+        "description": "Step 2 del double opt-in. Verifica il token e conferma la sottoscrizione. Solo dopo questo step i dati vengono inoltrati.",
+        "operationId": "confirmSubscription",
+        "parameters": [
+          { "name": "token", "in": "query", "required": true, "schema": { "type": "string" }, "description": "Token di conferma ricevuto via email" }
+        ],
+        "responses": {
+          "200": { "description": "Confermata" },
+          "404": { "description": "Token non valido o scaduto" }
+        }
+      }
+    },
+    "/subscription/status/{id}": {
+      "get": {
+        "tags": ["Subscription"],
+        "summary": "Stato sottoscrizione",
+        "operationId": "getSubscriptionStatus",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "OK" }
+        }
+      }
+    },
+    "/subscription/form-schema": {
+      "get": {
+        "tags": ["Subscription"],
+        "summary": "Schema JSON del form di sottoscrizione",
+        "description": "Restituisce la struttura completa del form: step, campi, enum validi. Utile per LLM che devono sapere quali dati raccogliere.",
+        "operationId": "getSubscriptionFormSchema",
+        "responses": {
+          "200": { "description": "Schema form" }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Health": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string", "example": "ok" },
+          "version": { "type": "string", "example": "2.0.0" },
+          "server": { "type": "string", "example": "PHP 8.5.0" },
+          "db_mode": { "type": "string", "example": "json_remote" }
+        }
+      },
+      "Status": {
+        "type": "object",
+        "properties": {
+          "luce_tariffs": { "type": "integer", "example": 25 },
+          "gas_tariffs": { "type": "integer", "example": 19 },
+          "suppliers": { "type": "integer", "example": 13 }
+        }
+      },
+      "OfferList": {
+        "type": "object",
+        "properties": {
+          "commodity": { "type": "string", "example": "LUCE" },
+          "count": { "type": "integer", "example": 25 },
+          "offers": { "type": "array", "items": { "$ref": "#/components/schemas/Offer" } }
+        }
+      },
+      "Offer": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "supplier_name": { "type": "string", "example": "Edison" },
+          "name": { "type": "string", "example": "DINAMYC" },
+          "type": { "type": "string", "enum": ["FISSO", "VARIABILE"] },
+          "price_mono_kwh": { "type": "number", "nullable": true },
+          "price_smc": { "type": "number", "nullable": true },
+          "fixed_fee_monthly": { "type": "number" },
+          "fixed_fee_annual": { "type": "number", "nullable": true },
+          "spread": { "type": "number", "nullable": true },
+          "pun": { "type": "number", "nullable": true, "description": "PUN di riferimento" },
+          "psv": { "type": "number", "nullable": true, "description": "PSV di riferimento" },
+          "promo_active": { "type": "boolean" },
+          "brand": { "type": "string" },
+          "logo": { "type": "string", "nullable": true },
+          "extra": { "$ref": "#/components/schemas/OfferExtra" }
+        }
+      },
+      "OfferExtra": {
+        "type": "object",
+        "properties": {
+          "prezzo_bloccato_mesi": { "type": "string", "description": "Mesi di prezzo bloccato" },
+          "modalita_pagamento": { "type": "string", "example": "SDD" },
+          "vantaggi": { "type": "string" },
+          "note": { "type": "string" },
+          "validita_offerta": { "type": "string" },
+          "costo_profili": { "type": "object", "description": "Costo per profilo basso/medio/alto" }
+        }
+      },
+      "Supplier": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string", "example": "Edison" },
+          "slug": { "type": "string", "example": "edison" },
+          "logo": { "type": "string", "nullable": true }
+        }
+      },
+      "SavingsRequest": {
+        "type": "object",
+        "required": ["commodity"],
+        "properties": {
+          "commodity": { "type": "string", "enum": ["LUCE", "GAS"], "description": "Tipo fornitura" },
+          "yearly_consumption_kwh": { "type": "number", "description": "Consumo annuo kWh (LUCE). Tipico: 2500-3500" },
+          "yearly_consumption_smc": { "type": "number", "description": "Consumo annuo Smc (GAS). Tipico: 700-1200" },
+          "zone": { "type": "string", "enum": ["NORD", "CENTRO", "SUD"], "description": "Zona tariffaria" },
+          "current_supplier": { "type": "string", "description": "Fornitore attuale" },
+          "current_annual_spend": { "type": "number", "description": "Spesa annua attuale in €" }
+        }
+      },
+      "SavingsResponse": {
+        "type": "object",
+        "properties": {
+          "results": { "type": "array", "items": { "$ref": "#/components/schemas/SavingsResult" } },
+          "comparison_id": { "type": "string" },
+          "current_spend_estimated": { "type": "number" },
+          "agent_summary": { "type": "string", "description": "Riepilogo in italiano per l'utente finale" }
+        }
+      },
+      "SavingsResult": {
+        "type": "object",
+        "properties": {
+          "tariff_id": { "type": "string" },
+          "supplier": { "type": "string" },
+          "tariff_name": { "type": "string" },
+          "annual_cost_eur": { "type": "number" },
+          "savings_eur": { "type": "number" },
+          "savings_pct": { "type": "number" },
+          "type": { "type": "string", "enum": ["FISSO", "VARIABILE"] },
+          "activation_url": { "type": "string" },
+          "breakdown": { "type": "object" }
+        }
+      },
+      "BillParseRequest": {
+        "type": "object",
+        "required": ["bill_text"],
+        "properties": {
+          "bill_text": { "type": "string", "description": "Testo completo della bolletta italiana" }
+        }
+      },
+      "BillData": {
+        "type": "object",
+        "properties": {
+          "commodity": { "type": "string", "enum": ["LUCE", "GAS"] },
+          "current_supplier": { "type": "string", "example": "Enel Energia" },
+          "pod_pdr": { "type": "string", "example": "IT001E123456789" },
+          "yearly_consumption_kwh": { "type": "number" },
+          "yearly_consumption_smc": { "type": "number" },
+          "current_annual_spend": { "type": "number" },
+          "zone": { "type": "string", "enum": ["NORD", "CENTRO", "SUD"] }
+        }
+      },
+      "MarketIndices": {
+        "type": "object",
+        "properties": {
+          "pun": { "type": "number", "description": "PUN in €/kWh" },
+          "psv": { "type": "number", "description": "PSV in €/Smc" },
+          "pun_display": { "type": "string", "example": "125,0 €/MWh (0,1250 €/kWh)" },
+          "psv_display": { "type": "string", "example": "0,5000 €/Smc" },
+          "source": { "type": "string", "example": "GME" },
+          "updated": { "type": "string", "format": "date-time" }
+        }
+      },
+      "SubscriptionRequest": {
+        "type": "object",
+        "required": ["tariff_id", "nome", "cognome", "codice_fiscale", "email", "cellulare", "gdpr_privacy_accepted"],
+        "properties": {
+          "tariff_id": { "type": "string", "description": "ID offerta da attivare" },
+          "tariff_name": { "type": "string" },
+          "supplier": { "type": "string" },
+          "commodity": { "type": "string", "enum": ["luce", "gas"] },
+          "nome": { "type": "string" },
+          "cognome": { "type": "string" },
+          "codice_fiscale": { "type": "string" },
+          "email": { "type": "string", "format": "email" },
+          "cellulare": { "type": "string" },
+          "titolo_immobile": { "type": "string", "enum": ["Proprietario", "Affittuario", "Comodatario", "Usufruttuario"] },
+          "indirizzo": { "type": "string" },
+          "civico": { "type": "string" },
+          "citta": { "type": "string" },
+          "provincia_sigla": { "type": "string" },
+          "cap": { "type": "string" },
+          "codice_pod": { "type": "string" },
+          "codice_pdr": { "type": "string" },
+          "modalita_pagamento": { "type": "string", "enum": ["SDD", "Bollettino"] },
+          "iban": { "type": "string" },
+          "gdpr_privacy_accepted": { "type": "boolean", "description": "DEVE essere true. Consenso esplicito obbligatorio." },
+          "consent_source": { "type": "string", "description": "webmcp_chrome | mcp_claude_desktop | api_direct" },
+          "dry_run": { "type": "boolean", "description": "Se true, restituisce il payload senza inviare" }
+        }
+      }
+    }
+  }
+}

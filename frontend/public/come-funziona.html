@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="canonical" href="https://www.switchai.it/come-funziona.html" />
+<meta name="description" content="Come funziona SwitchAI — l'AI agent che analizza la bolletta, trova l'offerta migliore e ti guida fino all'attivazione.">
+<meta name="robots" content="index, follow">
+<meta name="theme-color" content="#0a0d14">
+<link rel="icon" type="image/png" sizes="32x32" href="/img/favicon-32x32.png">
+    <link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
+    <title>Come funziona — SwitchAI</title>
+<meta property="og:title" content="Come funziona SwitchAI — Confronta le tariffe con l'AI" />
+<meta property="og:description" content="L'AI agent che analizza la bolletta, trova l'offerta migliore e ti guida fino all'attivazione." />
+<meta property="og:url" content="https://www.switchai.it/come-funziona.html" />
+<meta property="og:type" content="website" />
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "Come funziona SwitchAI",
+  "description": "Guida all'uso di SwitchAI per cambiare fornitore energia con l'AI.",
+  "step": [
+    {"@type": "HowToStep", "position": 1, "name": "Carica la bolletta", "text": "L'utente carica il PDF o il testo della bolletta."},
+    {"@type": "HowToStep", "position": 2, "name": "L'AI analizza", "text": "L'AI estrae consumi, spesa e zona tariffaria."},
+    {"@type": "HowToStep", "position": 3, "name": "SwitchAI confronta", "text": "Confronto in tempo reale di 44+ offerte Luce e Gas."},
+    {"@type": "HowToStep", "position": 4, "name": "Attivazione", "text": "L'utente conferma e la tariffa viene attivata."}
+  ]
+}
+</script>
+<style>
+  :root { --bg: #0a0d14; --surface: #111620; --border: rgba(255,255,255,0.06); --text: #f1f5f9; --text2: #94a3b8; --text3: #64748b; --amber: #f59e0b; --green: #10b981; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); line-height: 1.8; -webkit-font-smoothing: antialiased; }
+  nav { position: sticky; top:0; z-index:100; background: rgba(10,13,20,0.9); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); padding: 14px 24px; }
+  nav a { color: var(--text2); text-decoration: none; font-weight: 600; font-size: 14px; }
+  nav a:hover { color: var(--text); }
+  nav .logo { color: var(--text); font-weight: 800; font-size: 16px; }
+  nav .logo span { color: var(--amber); }
+  .container { max-width: 800px; margin: 0 auto; padding: 3rem 1.5rem; }
+  h1 { font-size: 2rem; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 0.5rem; }
+  h2 { font-size: 1.2rem; font-weight: 700; margin-top: 2.5rem; padding-bottom: 0.3rem; border-bottom: 1px solid var(--border); }
+  .step { display: flex; gap: 1rem; margin: 1.2rem 0; }
+  .step-num { width: 42px; height: 42px; border-radius: 10px; background: rgba(245,158,11,0.12); color: var(--amber); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.1rem; flex-shrink: 0; }
+  .step-content strong { display: block; font-size: 0.95rem; margin-bottom: 2px; }
+  .step-content p { color: var(--text2); font-size: 0.9rem; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; margin: 1rem 0; }
+  th { text-align: left; padding: 10px 12px; background: rgba(255,255,255,0.03); border-bottom: 1px solid var(--border); color: var(--text3); font-weight: 600; }
+  td { padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.04); color: var(--text2); }
+  a { color: #60a5fa; }
+  .cta { display: inline-block; padding: 12px 28px; background: var(--amber); color: #000; font-weight: 700; border-radius: 8px; text-decoration: none; margin-top: 1rem; }
+  footer { text-align: center; padding: 2rem; border-top: 1px solid var(--border); font-size: 0.8rem; color: var(--text3); }
+  footer a { color: var(--text2); }
+</style>
+</head>
+<body>
+
+<nav>
+  <div style="max-width:800px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;">
+    <a href="/" class="logo">Switch<span>AI</span></a>
+    <div style="display:flex;gap:20px;">
+      <a href="/">Confronta</a>
+      <a href="/come-funziona">Come funziona</a>
+      <a href="/per-llm">Per LLM</a>
+    </div>
+  </div>
+</nav>
+
+<div class="container">
+<h1>Come funziona SwitchAI</h1>
+<p style="color:var(--text2);margin-bottom:2rem;">SwitchAI non è un comparatore tradizionale. È un <strong>decision engine</strong>: l'utente dà la bolletta, l'AI fa tutto il resto.</p>
+
+<h2>Architettura dell'agente</h2>
+<div class="step">
+  <div class="step-num">1</div>
+  <div class="step-content">
+    <strong>INPUT — L'utente carica la bolletta</strong>
+    <p>PDF o testo. L'AI agent (Claude, Gemini, ChatGPT) legge il documento ed estrae: fornitore, POD/PDR, consumo annuo kWh o Smc, spesa annuale, zona tariffaria.</p>
+  </div>
+</div>
+<div class="step">
+  <div class="step-num">2</div>
+  <div class="step-content">
+    <strong>ANALYSIS — L'AI chiama SwitchAI via WebMCP</strong>
+    <p>L'agente invoca calculate_energy_savings. SwitchAI carica 44+ offerte in tempo reale e restituisce le 3 migliori con breakdown energetico.</p>
+  </div>
+</div>
+<div class="step">
+  <div class="step-num">3</div>
+  <div class="step-content">
+    <strong>DECISION — L'AI spiega il risparmio</strong>
+    <p>"Risparmi 410€ perché il prezzo fisso di Fastweb è molto più basso del tuo attuale". L'utente decide.</p>
+  </div>
+</div>
+<div class="step">
+  <div class="step-num">4</div>
+  <div class="step-content">
+    <strong>ACTION — L'utente conferma, l'AI attiva</strong>
+    <p>L'agente chiama submit_subscription. Richiesta inviata. Contratto attivo in 24 ore.</p>
+  </div>
+</div>
+
+<h2>Comparatore tradizionale vs SwitchAI</h2>
+<table>
+  <thead><tr><th></th><th style="color:#f87171">Comparatore</th><th style="color:#34d399">SwitchAI</th></tr></thead>
+  <tbody>
+    <tr><td>Inserimento dati</td><td>Manuale: decine di campi</td><td>Automatico: l'AI legge la bolletta</td></tr>
+    <tr><td>Confronto</td><td>Lista di prezzi</td><td>Spiegazione in italiano</td></tr>
+    <tr><td>Attivazione</td><td>Form da compilare</td><td>L'AI compila, l'utente conferma</td></tr>
+    <tr><td>Errori</td><td>Campi sbagliati</td><td>Validazione AI prima dell'invio</td></tr>
+    <tr><td>Tempo</td><td>20-30 minuti</td><td>30 secondi</td></tr>
+  </tbody>
+</table>
+
+<p style="margin-top:2rem;">
+  <a href="/per-llm" style="color:#60a5fa">📖 Documentazione tecnica per LLM →</a>
+</p>
+</div>
+
+<footer>
+  <a href="/">SwitchAI</a> · <a href="/come-funziona">Come funziona</a> · <a href="/privacy">Privacy</a> · switchai.it
+</footer>
+</body>
+</html>

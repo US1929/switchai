@@ -1,0 +1,57 @@
+{
+  "name": "SwitchAI",
+  "description": "AI agent for Italian energy tariff comparison. Analyzes ARERA 2.0 utility bills, compares 44+ live offers for electricity (Luce) and gas, live PUN/PSV market indices. Includes honesty system and bill attualization. switchai.it",
+  "version": "4.2.0",
+  "vendor": "SwitchAI",
+  "homepage": "https://www.switchai.it",
+  "contact": "attivazioni@switchai.it",
+  "license": "MIT",
+  "repository": "https://github.com/US1929/switchai",
+  "mcp": {
+    "endpoint": "https://www.switchai.it/mcp",
+    "transport": "http",
+    "protocol": "json-rpc-2.0",
+    "authentication": "none"
+  },
+  "tools": [
+    {
+      "name": "calculate_energy_savings",
+      "description": "Compare Italian energy tariffs and calculate annual savings. Returns top 3 offers with cost breakdown and subscription URL in markdown format.",
+      "annotations": { "readOnlyHint": true, "destructiveHint": false, "idempotentHint": false }
+    },
+    {
+      "name": "parse_energy_bill",
+      "description": "Extract structured data from Italian ARERA 2.0 energy bills: supplier, POD/PDR, annual consumption, annual spend, tariff zone.",
+      "annotations": { "readOnlyHint": true, "destructiveHint": false, "idempotentHint": true }
+    },
+    {
+      "name": "get_available_offers",
+      "description": "List all available electricity (25) and gas (19) offers in the Italian free market with pricing and contract details.",
+      "annotations": { "readOnlyHint": true, "destructiveHint": false, "idempotentHint": true }
+    },
+    {
+      "name": "get_market_indices",
+      "description": "Current PUN (electricity) and PSV (gas) market indices, updated daily from public source.",
+      "annotations": { "readOnlyHint": true, "destructiveHint": false, "idempotentHint": true }
+    },
+    {
+      "name": "get_subscription_form_schema",
+      "description": "JSON schema of the subscription form: required fields, valid enums, 4-step wizard structure.",
+      "annotations": { "readOnlyHint": true, "destructiveHint": false, "idempotentHint": true }
+    },
+    {
+      "name": "submit_subscription",
+      "description": "Submit a tariff activation request. Supports dry_run: true for preview. GDPR double opt-in: user must confirm via email link.",
+      "annotations": { "readOnlyHint": false, "destructiveHint": true, "idempotentHint": false }
+    },
+    {
+      "name": "get_subscription_status",
+      "description": "Check the status of a submitted subscription by ID.",
+      "annotations": { "readOnlyHint": true, "destructiveHint": false, "idempotentHint": true }
+    }
+  ],
+  "categories": ["energy", "utilities", "finance", "comparison"],
+  "tags": ["energy", "tariffs", "italy", "electricity", "gas", "arera", "pun", "psv", "bolletta", "utilities"],
+  "language": "it",
+  "market": "Italy"
+}

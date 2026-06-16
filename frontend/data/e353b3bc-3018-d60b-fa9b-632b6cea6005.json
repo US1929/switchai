@@ -1,0 +1,39 @@
+{
+    "subscription_id": "e353b3bc-3018-d60b-fa9b-632b6cea6005",
+    "form_data": {
+        "nome": "Mario",
+        "cognome": "Rossi",
+        "codice_fiscale": "RSSMRA80A01H501U",
+        "email": "mario.rossi@email.it",
+        "cellulare": "+393401234567",
+        "titolo_immobile": "Proprietario",
+        "indirizzo": "Via Roma",
+        "civico": "15",
+        "citta": "Milano",
+        "provincia_sigla": "MI",
+        "cap": "20121",
+        "codice_pod": "IT001E123456789",
+        "codice_pdr": "",
+        "modalita_pagamento": "SDD",
+        "iban": "IT60X0542811101000000123456",
+        "indirizzo_coincide": "si",
+        "indirizzo_residenza": "",
+        "civico_residenza": "",
+        "citta_residenza": "",
+        "provincia_residenza_sigla": "",
+        "cap_residenza": "",
+        "fornitore_attuale": "Enel Energia",
+        "consumo_kwh": "2700",
+        "consumo_smc": ""
+    },
+    "offer_data": {
+        "tariff_id": "test-edison-dinamyc",
+        "tariff_name": "DINAMYC",
+        "commodity": "luce",
+        "tipo_offerta": "switch"
+    },
+    "ws_response": null,
+    "status": "dry_run",
+    "created_at": "2026-06-09T12:55:31+00:00",
+    "ip": "::1"
+}

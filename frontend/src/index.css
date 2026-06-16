@@ -1,0 +1,331 @@
+@import "tailwindcss";
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SwitchAI Design System v2.0
+   Inspirato a Switcho (pulizia, gradienti) e Billoo (vivacità, personalità)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Design Tokens ──────────────────────────────────────────────────────── */
+
+:root {
+  /* Primary palette */
+  --color-electric: #f59e0b;
+  --color-electric-50: #fffbeb;
+  --color-electric-100: #fef3c7;
+  --color-electric-400: #fbbf24;
+  --color-electric-500: #f59e0b;
+  --color-electric-600: #d97706;
+
+  --color-gas: #3b82f6;
+  --color-gas-50: #eff6ff;
+  --color-gas-100: #dbeafe;
+  --color-gas-400: #60a5fa;
+  --color-gas-500: #3b82f6;
+  --color-gas-600: #2563eb;
+
+  --color-save: #10b981;
+  --color-save-50: #ecfdf5;
+  --color-save-400: #34d399;
+  --color-save-500: #10b981;
+  --color-save-600: #059669;
+
+  /* Neutral */
+  --gray-200: #e5e7eb;
+  --gray-400: #9ca3af;
+  --gray-500: #6b7280;
+  --gray-600: #4b5563;
+  --gray-700: #374151;
+  --gray-800: #1f2937;
+  --gray-900: #111827;
+  --gray-950: #030712;
+
+  /* Surfaces */
+  --bg-base: #0a0d14;
+  --bg-surface: #111620;
+  --bg-card: #161b26;
+  --bg-card-hover: #1c2332;
+  --bg-input: #0f131c;
+
+  /* Borders */
+  --border: rgba(255, 255, 255, 0.06);
+  --border-light: rgba(255, 255, 255, 0.10);
+  --border-focus: rgba(245, 158, 11, 0.4);
+
+  /* Text */
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+
+  /* Radius */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-full: 9999px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.4);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.5);
+  --shadow-glow-electric: 0 0 40px rgba(245,158,11,0.12);
+  --shadow-glow-gas: 0 0 40px rgba(59,130,246,0.12);
+  --shadow-glow-save: 0 0 40px rgba(16,185,129,0.12);
+
+  /* Transitions */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+}
+
+/* ── Reset & Base ───────────────────────────────────────────────────────── */
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  line-height: 1.6;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Ambient background glow */
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: -2;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% -20%, rgba(245,158,11,0.04), transparent),
+    radial-gradient(ellipse 60% 50% at 80% 80%, rgba(59,130,246,0.03), transparent),
+    radial-gradient(ellipse 50% 40% at 20% 50%, rgba(16,185,129,0.02), transparent);
+  pointer-events: none;
+}
+
+a { color: inherit; text-decoration: none; }
+button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+input { font-family: inherit; color: inherit; }
+
+::selection { background: rgba(245,158,11,0.3); color: #fff; }
+
+/* ── Scrollbar ──────────────────────────────────────────────────────────── */
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-base); }
+::-webkit-scrollbar-thumb { background: var(--gray-700); border-radius: var(--radius-full); }
+::-webkit-scrollbar-thumb:hover { background: var(--gray-600); }
+
+/* ── Layout Utilities ───────────────────────────────────────────────────── */
+
+.container { max-width: 1040px; margin: 0 auto; padding: 0 24px; }
+
+/* ── Typography ─────────────────────────────────────────────────────────── */
+
+.text-gradient {
+  background: linear-gradient(135deg, #f0f4ff 30%, #93c5fd 60%, #fbbf24 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+
+.text-gradient-electric {
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #fef3c7 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+
+.text-gradient-gas {
+  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 50%, #dbeafe 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+
+/* ── Glass Card ─────────────────────────────────────────────────────────── */
+
+.glass-card {
+  background: linear-gradient(135deg, rgba(22,27,38,0.9), rgba(17,22,32,0.95));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  box-shadow: var(--shadow-md);
+  transition: all var(--duration-normal) var(--ease-out);
+}
+.glass-card:hover {
+  border-color: var(--border-light);
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
+}
+.glass-card.best-offer {
+  background: linear-gradient(135deg, rgba(16,185,129,0.08), rgba(5,150,105,0.03));
+  border-color: rgba(16,185,129,0.25);
+}
+.glass-card.best-offer:hover {
+  border-color: rgba(16,185,129,0.4);
+  box-shadow: var(--shadow-glow-save);
+}
+
+/* ── Buttons ────────────────────────────────────────────────────────────── */
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 14px 28px; font-size: 15px; font-weight: 700;
+  border-radius: var(--radius-md);
+  transition: all var(--duration-fast) var(--ease-out);
+  position: relative; overflow: hidden; white-space: nowrap;
+}
+.btn::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(135deg, transparent 40%, rgba(255,255,255,0.08));
+  pointer-events: none;
+}
+.btn-electric {
+  background: linear-gradient(135deg, var(--color-electric-500), var(--color-electric-600));
+  color: #fff; box-shadow: 0 4px 20px rgba(245,158,11,0.3);
+}
+.btn-electric:hover { transform: translateY(-1px); box-shadow: 0 8px 30px rgba(245,158,11,0.4); }
+.btn-gas {
+  background: linear-gradient(135deg, var(--color-gas-500), var(--color-gas-600));
+  color: #fff; box-shadow: 0 4px 20px rgba(59,130,246,0.3);
+}
+.btn-gas:hover { transform: translateY(-1px); box-shadow: 0 8px 30px rgba(59,130,246,0.4); }
+.btn-success {
+  background: linear-gradient(135deg, var(--color-save-500), var(--color-save-600));
+  color: #fff; box-shadow: 0 4px 20px rgba(16,185,129,0.3);
+}
+.btn-success:hover { transform: translateY(-1px); box-shadow: 0 8px 30px rgba(16,185,129,0.4); }
+.btn-outline {
+  background: transparent; border: 1px solid var(--border-light);
+  color: var(--text-secondary);
+}
+.btn-outline:hover {
+  border-color: var(--gray-500); color: var(--text-primary);
+  background: rgba(255,255,255,0.03);
+}
+.btn-lg { padding: 18px 36px; font-size: 17px; border-radius: var(--radius-lg); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; box-shadow: none !important; }
+
+/* ── Toggle Switch ──────────────────────────────────────────────────────── */
+
+.toggle-group {
+  display: flex; background: var(--bg-input);
+  border-radius: var(--radius-lg); padding: 4px;
+  border: 1px solid var(--border); gap: 4px;
+}
+.toggle-btn {
+  flex: 1; padding: 14px 24px; font-size: 16px; font-weight: 700;
+  border-radius: var(--radius-md); color: var(--text-muted);
+  transition: all var(--duration-fast) var(--ease-out);
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.toggle-btn:hover { color: var(--text-secondary); }
+.toggle-btn.active {
+  background: var(--bg-surface); color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+.toggle-btn.luce.active { color: var(--color-electric-400); }
+.toggle-btn.gas.active { color: var(--color-gas-400); }
+
+/* ── Range Slider ───────────────────────────────────────────────────────── */
+
+.range-value {
+  font-size: 28px; font-weight: 800; font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+.range-value span {
+  font-size: 14px; font-weight: 500; color: var(--text-muted); margin-left: 4px;
+}
+.range-slider {
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: 6px; border-radius: var(--radius-full);
+  background: var(--gray-800); outline: none; cursor: pointer;
+}
+.range-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 24px; height: 24px; border-radius: 50%; background: #fff;
+  border: 3px solid var(--color-electric-500); cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+.range-slider::-webkit-slider-thumb:hover { transform: scale(1.15); }
+.range-slider.gas::-webkit-slider-thumb { border-color: var(--color-gas-500); }
+
+/* ── Form Inputs ────────────────────────────────────────────────────────── */
+
+.input-field {
+  width: 100%; padding: 14px 16px; font-size: 15px;
+  background: var(--bg-input); border: 1px solid var(--border);
+  border-radius: var(--radius-md); color: var(--text-primary);
+  outline: none; transition: all var(--duration-fast) var(--ease-out);
+}
+.input-field::placeholder { color: var(--text-muted); }
+.input-field:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px rgba(245,158,11,0.1);
+}
+
+/* ── Badges ─────────────────────────────────────────────────────────────── */
+
+.badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 12px; font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.5px;
+  border-radius: var(--radius-full);
+}
+.badge-best {
+  background: linear-gradient(135deg, rgba(16,185,129,0.2), rgba(5,150,105,0.1));
+  color: var(--color-save-400); border: 1px solid rgba(16,185,129,0.3);
+}
+.badge-save {
+  background: rgba(16,185,129,0.15); color: var(--color-save-400);
+  border: 1px solid rgba(16,185,129,0.25);
+}
+.badge-tag {
+  background: rgba(148,163,184,0.1); color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+/* ── Animations ─────────────────────────────────────────────────────────── */
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.animate-fade-in-up { animation: fadeInUp 0.5s var(--ease-out) both; }
+.animate-fade-in { animation: fadeIn 0.4s var(--ease-out) both; }
+.animate-scale-in { animation: scaleIn 0.3s var(--ease-out) both; }
+
+/* Stagger children */
+.stagger > * { opacity: 0; animation: fadeInUp 0.4s var(--ease-out) forwards; }
+.stagger > *:nth-child(1) { animation-delay: 0.05s; }
+.stagger > *:nth-child(2) { animation-delay: 0.10s; }
+.stagger > *:nth-child(3) { animation-delay: 0.15s; }
+.stagger > *:nth-child(4) { animation-delay: 0.20s; }
+.stagger > *:nth-child(5) { animation-delay: 0.25s; }
+.stagger > *:nth-child(6) { animation-delay: 0.30s; }
+
+/* Shimmer loading */
+.shimmer {
+  background: linear-gradient(90deg, var(--bg-card) 25%, var(--bg-card-hover) 50%, var(--bg-card) 75%);
+  background-size: 200% 100%; animation: shimmer 1.5s infinite;
+}
+
+/* ── Responsive ─────────────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .container { padding: 0 16px; }
+  .btn-lg { padding: 16px 28px; font-size: 16px; }
+  .toggle-btn { padding: 12px 16px; font-size: 14px; }
+}

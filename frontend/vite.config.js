@@ -1,0 +1,69 @@
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
+import { mkdirSync, cpSync, existsSync } from 'fs'
+import { resolve, dirname } from 'path'
+import { fileURLToPath } from 'url'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
+
+// webmcp.json è un file statico in public/ — copiato da migliorie/webmcp.json
+// (descrizioni ricche, parameter descriptions, suggested_flows con descriptions)
+
+/**
+ * Copia i file PHP del backend nella cartella dist/ dopo il build.
+ * Cerca i file in ../backend/php/ rispetto alla root del frontend.
+ */
+function copyBackendPlugin() {
+  return {
+    name: 'copy-backend-php',
+    closeBundle() {
+      const backendDir = resolve(__dirname, '..', 'backend', 'php')
+      const distDir = resolve(__dirname, 'dist')
+
+      const toCopy = [
+        { src: 'api/index.php', dest: 'api/index.php' },
+        { src: 'mcp/index.php', dest: 'mcp/index.php' },
+        { src: 'inc/tariff_loader.php', dest: 'inc/tariff_loader.php' },
+        { src: 'inc/bill_parser.php', dest: 'inc/bill_parser.php' },
+        { src: 'inc/subscription_handler.php', dest: 'inc/subscription_handler.php' },
+        { src: 'inc/llm_logger.php', dest: 'inc/llm_logger.php' },
+        { src: 'inc/api_auth.php', dest: 'inc/api_auth.php' },
+        { src: 'router.php', dest: 'router.php' },
+      ]
+
+      for (const { src, dest } of toCopy) {
+        const srcPath = resolve(backendDir, src)
+        const destPath = resolve(distDir, dest)
+        if (existsSync(srcPath)) {
+          try { mkdirSync(dirname(destPath), { recursive: true }) } catch {}
+          cpSync(srcPath, destPath)
+          console.log(`  ✅ Copiato ${src} → dist/${dest}`)
+        } else {
+          console.warn(`  ⚠️  File backend non trovato: ${src}`)
+        }
+      }
+      console.log('  📦 Backend PHP copiato in dist/')
+    }
+  }
+}
+
+// https://vite.dev/config/
+export default defineConfig({
+  plugins: [react(), tailwindcss(), copyBackendPlugin()],
+  server: {
+    proxy: {
+      // Proxy per sviluppo: chiamate /api/* al backend PHP
+      '/api': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
+      '/proxy': {
+        target: process.env.VITE_PROXY_TARGET || 'http://localhost:8080',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/proxy/, ''),
+        secure: true,
+      },
+    },
+  },
+})

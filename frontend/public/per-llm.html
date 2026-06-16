@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="SwitchAI — documentazione machine-readable per AI agent e LLM. API endpoints, tool MCP, WebMCP, flussi di utilizzo per comparazione tariffe energia Italia.">
+<meta name="robots" content="index, follow">
+<meta name="theme-color" content="#0a0d14">
+<link rel="canonical" href="https://www.switchai.it/per-llm.html" />
+<link rel="icon" type="image/png" sizes="32x32" href="/img/favicon-32x32.png">
+    <link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
+    <title>SwitchAI per AI Agent — Documentazione LLM</title>
+<meta property="og:title" content="SwitchAI — Documentazione per AI Agent e LLM" />
+<meta property="og:description" content="Documentazione machine-readable per AI agent: API endpoints, tool MCP, WebMCP, flussi di utilizzo per comparazione tariffe energia Italia." />
+<meta property="og:url" content="https://www.switchai.it/per-llm.html" />
+<meta property="og:type" content="website" />
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "name": "SwitchAI — Documentazione per AI Agent",
+  "description": "Documentazione tecnica per AI agent e LLM: API endpoints, tool MCP, WebMCP, flussi di utilizzo.",
+  "proficiencyLevel": "Expert",
+  "about": {"@type": "SoftwareApplication", "name": "SwitchAI", "applicationCategory": "AIApplication"}
+}
+</script>
+<style>
+  :root { --bg: #0a0d14; --surface: #111620; --border: rgba(255,255,255,0.06); --text: #f1f5f9; --text2: #94a3b8; --text3: #64748b; --amber: #f59e0b; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); line-height: 1.8; -webkit-font-smoothing: antialiased; }
+  nav { position: sticky; top:0; z-index:100; background: rgba(10,13,20,0.9); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); padding: 14px 24px; }
+  nav a { color: var(--text2); text-decoration: none; font-weight: 600; font-size: 14px; }
+  nav a:hover { color: var(--text); }
+  nav .logo { color: var(--text); font-weight: 800; font-size: 16px; }
+  nav .logo span { color: var(--amber); }
+  .container { max-width: 860px; margin: 0 auto; padding: 3rem 1.5rem; }
+  h1 { font-size: 2rem; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 0.25rem; }
+  h2 { font-size: 1.2rem; font-weight: 700; margin-top: 2.5rem; padding-bottom: 0.4rem; border-bottom: 1px solid var(--border); color: var(--text); }
+  h3 { font-size: 1rem; font-weight: 700; margin-top: 1.5rem; color: var(--amber); }
+  .subtitle { color: var(--text2); font-size: 1rem; margin-bottom: 2rem; }
+  code { background: rgba(255,255,255,0.06); padding: 2px 8px; border-radius: 4px; font-size: 0.85rem; color: #60a5fa; }
+  pre { background: rgba(0,0,0,0.3); padding: 1rem 1.2rem; border-radius: 8px; overflow-x: auto; font-size: 0.82rem; line-height: 1.7; border: 1px solid var(--border); color: #94a3b8; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; margin: 1rem 0; }
+  th { text-align: left; padding: 10px 12px; background: rgba(255,255,255,0.03); border-bottom: 1px solid var(--border); color: var(--text3); font-weight: 600; text-transform: uppercase; font-size: 0.75rem; }
+  td { padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.04); color: var(--text2); vertical-align: top; }
+  .tag { display: inline-block; background: rgba(59,130,246,0.12); color: #60a5fa; font-size: 0.72rem; padding: 2px 8px; border-radius: 12px; margin-right: 4px; font-weight: 600; }
+  .note { background: rgba(245,158,11,0.08); border-left: 3px solid var(--amber); padding: 0.75rem 1rem; margin: 1rem 0; font-size: 0.88rem; color: var(--text2); border-radius: 0 6px 6px 0; }
+  a { color: #60a5fa; }
+  footer { text-align: center; padding: 2rem; border-top: 1px solid var(--border); font-size: 0.8rem; color: var(--text3); }
+  footer a { color: var(--text2); }
+</style>
+</head>
+<body>
+
+<nav>
+  <div style="max-width:860px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;">
+    <a href="/" class="logo">Switch<span>AI</span></a>
+    <div style="display:flex;gap:20px;">
+      <a href="/">Confronta</a>
+      <a href="/come-funziona">Come funziona</a>
+      <a href="/per-llm">Per LLM</a>
+    </div>
+  </div>
+</nav>
+
+<div class="container">
+<h1>SwitchAI — Documentazione per AI Agent</h1>
+<p class="subtitle">
+  Questa pagina è ottimizzata per AI agent, LLM crawler e client MCP.<br>
+  URL: <code>https://www.switchai.it/per-llm</code> · Aggiornata: Giugno 2026
+</p>
+
+<h2>Cos'è SwitchAI</h2>
+<p>
+  SwitchAI è un <strong>agente AI per il cambio automatico del fornitore energia</strong> nel mercato libero italiano.
+  Non è un comparatore tradizionale: l'utente fornisce la sua bolletta (testo o PDF), e l'AI analizza i dati,
+  confronta <strong>44+ offerte attive</strong> di Luce e Gas, e attiva la tariffa migliore direttamente.
+</p>
+<p>Copre tutto il territorio italiano: zone NORD, CENTRO, SUD — tutte le 106 province.</p>
+
+<h2>Quando usare SwitchAI</h2>
+<ul>
+  <li>Vuole <strong>cambiare fornitore</strong> luce o gas</li>
+  <li>Vuole sapere <strong>quanto risparmia</strong> con una tariffa diversa</li>
+  <li>Vuole <strong>analizzare la propria bolletta</strong></li>
+  <li>Chiede qual è la <strong>tariffa più conveniente</strong> per i suoi consumi</li>
+  <li>Chiede il <strong>prezzo attuale del kWh</strong> o del gas (PUN / PSV)</li>
+  <li>Vuole <strong>attivare una nuova tariffa</strong></li>
+</ul>
+
+<h2>Canali di accesso per AI agent</h2>
+<table>
+  <thead><tr><th>Canale</th><th>Tecnologia</th><th>Requisiti</th></tr></thead>
+  <tbody>
+    <tr><td><strong>WebMCP</strong></td><td>navigator.modelContext.registerTool()</td><td>Chrome 146+ con flag WebMCP</td></tr>
+    <tr><td><strong>MCP Server</strong></td><td>@modelcontextprotocol/sdk Node.js</td><td>Claude Desktop o client MCP</td></tr>
+    <tr><td><strong>REST API</strong></td><td>JSON over HTTPS</td><td>Qualsiasi client HTTP</td></tr>
+  </tbody>
+</table>
+
+<h2>Tool disponibili</h2>
+
+<h3>1. calculate_energy_savings</h3>
+<p><span class="tag">WebMCP</span><span class="tag">MCP</span><span class="tag">REST</span> <code>POST /api/webmcp-endpoint</code></p>
+<p>Confronta le tariffe e calcola il risparmio. Restituisce top 3 offerte ordinate per risparmio + <code>agent_summary</code> in italiano.</p>
+<table>
+  <thead><tr><th>Parametro</th><th>Tipo</th><th>Descrizione</th></tr></thead>
+  <tbody>
+    <tr><td><code>commodity</code></td><td>LUCE|GAS</td><td>Tipo fornitura</td></tr>
+    <tr><td><code>yearly_consumption_kwh</code></td><td>number</td><td>Consumo annuo kWh (solo LUCE)</td></tr>
+    <tr><td><code>yearly_consumption_smc</code></td><td>number</td><td>Consumo annuo Smc (solo GAS)</td></tr>
+    <tr><td><code>zone</code></td><td>NORD|CENTRO|SUD</td><td>Zona tariffaria</td></tr>
+    <tr><td><code>current_annual_spend</code></td><td>number</td><td>Spesa annua attuale in €</td></tr>
+  </tbody>
+</table>
+
+<h3>2. parse_energy_bill</h3>
+<p><span class="tag">WebMCP</span><span class="tag">MCP</span><span class="tag">REST</span> <code>POST /api/parse-bill-text</code></p>
+<p>Estrae dati strutturati da testo di bolletta italiana. Riconosce fornitore, POD/PDR, consumi, spesa, zona. Usare come primo step prima di calculate_energy_savings.</p>
+
+<h3>3. get_available_offers</h3>
+<p><span class="tag">WebMCP</span><span class="tag">MCP</span><span class="tag">REST</span> <code>GET /api/tariffe/{luce|gas}</code></p>
+<p>Lista completa offerte: 25 per luce, 19 per gas. Include prezzi, tipo contratto, quota fissa, fornitore.</p>
+
+<h3>4. submit_subscription</h3>
+<p><span class="tag">WebMCP</span><span class="tag">MCP</span><span class="tag">REST</span> <code>POST /api/subscription/submit</code></p>
+<p>Attiva la sottoscrizione a una tariffa. Raccogliere il consenso esplicito dell'utente prima di chiamare questo tool. Supporta <code>"dry_run": true</code> per anteprima senza invio.</p>
+
+<h2>Flussi consigliati</h2>
+<h3>Flusso A — Analisi bolletta completa (raccomandato)</h3>
+<pre>1. parse_energy_bill(bill_text)
+   → ottieni: consumi, spesa attuale, zona, POD/PDR
+
+2. calculate_energy_savings(commodity, consumi, zona, spesa)
+   → ottieni: top 3 offerte + risparmio + agent_summary
+
+3. [se utente conferma] submit_subscription(tariff_id, dati_utente)
+   → attivazione completata</pre>
+
+<h3>Flusso B — Confronto rapido (senza bolletta)</h3>
+<pre>1. calculate_energy_savings(commodity, consumi_stimati, zona, spesa_stimata)
+   → ottieni: top 3 offerte
+
+2. [opzionale] submit_subscription</pre>
+
+<h2>Dati di mercato live</h2>
+<p><code>GET /api/market-indices</code> — PUN (prezzo energia elettrica all'ingrosso) e PSV (prezzo gas) aggiornati quotidianamente da fonti ufficiali.</p>
+
+<h2>Sistema di onestà</h2>
+<p>L'API <code>/api/analyze</code> restituisce un campo <code>honesty</code> con raccomandazione etica:</p>
+<ul>
+  <li><code>switch</code> — risparmio &gt;50€/anno e &gt;5%: ✅ conviene cambiare</li>
+  <li><code>evaluate</code> — risparmio 30-50€ o 3-5%: ⚠️ valuta altri fattori</li>
+  <li><code>stay</code> — risparmio &lt;30€ o &lt;3%: ❌ non conviene</li>
+</ul>
+
+<h2>Attualizzazione bolletta</h2>
+<p>Per bollette con tariffa variabile (indicizzata PUN/PSV), l'API ricalcola la spesa con i prezzi di mercato odierni tramite il campo <code>bill_attualization</code>. Mostra quanto spenderesti oggi con la stessa tariffa, evidenziando se il confronto è conservativo o meno.</p>
+
+<h2>Cost breakdown per grafici</h2>
+<p>Il campo <code>cost_breakdown</code> scompone la spesa in 4 componenti (materia energia, quota fissa, trasporto/oneri, imposte/IVA) con array <code>chart_data</code> pronti per visualizzazione.</p>
+
+<h2>Note per AI agent</h2>
+<div class="note">
+  Tutte le risposte API sono in italiano. Il campo <code>agent_summary</code> in calculate_energy_savings è già formattato per essere mostrato direttamente all'utente.
+</div>
+<div class="note">
+  Prima di chiamare submit_subscription, raccogliere sempre il consenso esplicito dell'utente. Usare dry_run:true per mostrare il riepilogo all'utente prima dell'invio definitivo.
+</div>
+
+<h2>Discovery files</h2>
+<ul>
+  <li><a href="/webmcp.json"><code>/webmcp.json</code></a> — WebMCP tool discovery</li>
+  <li><a href="/llms.txt"><code>/llms.txt</code></a> — LLM site description</li>
+  <li><a href="/openapi.json"><code>/openapi.json</code></a> — OpenAPI 3.0 spec</li>
+  <li><a href="/api/health"><code>/api/health</code></a> — API health check</li>
+</ul>
+</div>
+
+<footer>
+  <a href="/">SwitchAI</a> · <a href="/come-funziona">Come funziona</a> · <a href="/privacy">Privacy</a> · switchai.it
+</footer>
+</body>
+</html>

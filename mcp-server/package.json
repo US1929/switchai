@@ -1,15 +1,41 @@
 {
-  "name": "switchai-mcp-server",
-  "version": "1.0.0",
-  "description": "MCP Server che collega Claude/ChatGPT all'API SwitchAI (switchai.it) per confronto tariffe e sottoscrizione energia",
+  "name": "@us1929/switchai-mcp",
+  "version": "2.1.0",
+  "description": "SwitchAI MCP Server — Italian energy tariff comparison with 4 tools",
+  "mcpName": "io.github.US1929/switchai",
+  "license": "MIT",
   "type": "module",
   "main": "index.js",
+  "bin": {
+    "switchai-mcp": "index.js"
+  },
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0"
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.0.0"
   },
-  "keywords": ["mcp", "energy", "tariffs", "claude", "ai"],
-  "license": "MIT"
+  "keywords": [
+    "mcp",
+    "energy",
+    "tariffs",
+    "italy",
+    "electricity",
+    "gas",
+    "switchai",
+    "luce",
+    "arera"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/US1929/switchai"
+  },
+  "homepage": "https://www.switchai.it",
+  "files": [
+    "index.js",
+    "server.json",
+    "package.json",
+    "Dockerfile"
+  ]
 }

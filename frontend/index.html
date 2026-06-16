@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="it" dir="ltr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SwitchAI — Confronta Tariffe Luce e Gas con l'AI</title>
+    <meta name="description" content="Confronta le tariffe energia elettrica e gas in Italia. SwitchAI usa l'intelligenza artificiale per analizzare la tua bolletta, confrontare 44+ offerte e attivare la migliore. Compatibile WebMCP per AI agent." />
+    <meta name="theme-color" content="#0a0d14" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/img/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/img/favicon-16x16.png" />
+    <link rel="apple-touch-icon" href="/img/apple-touch-icon.png" />
+    <link rel="manifest" href="/img/site.webmanifest" />
+
+    <!-- WebMCP Discovery -->
+    <link rel="webmcp" href="/webmcp.json" />
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="SwitchAI — Confronta Tariffe Luce e Gas con l'AI" />
+    <meta property="og:description" content="Confronta le tariffe energia in Italia con l'intelligenza artificiale. Analizza la bolletta, confronta 44+ offerte, attiva la migliore." />
+    <meta property="og:url" content="https://www.switchai.it/" />
+    <meta property="og:type" content="website" />
+    <link rel="canonical" href="https://www.switchai.it/" />
+
+    <!-- JSON-LD Structured Data for AI crawlers and search engines -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "SwitchAI",
+      "description": "AI agent per cambio automatico fornitore energia. Legge la bolletta, confronta 44+ offerte Luce e Gas, attiva la tariffa migliore.",
+      "url": "https://www.switchai.it",
+      "applicationCategory": "AIApplication",
+      "browserRequirements": "Chrome 146+ with WebMCP",
+      "operatingSystem": "Web",
+      "author": { "@type": "Organization", "name": "SwitchAI" },
+      "offers": {
+        "@type": "Offer",
+        "description": "Confronto e attivazione tariffe Luce e Gas in Italia",
+        "areaServed": { "@type": "Country", "name": "IT" }
+      },
+      "potentialAction": [
+        { "@type": "SearchAction", "target": { "@type": "EntryPoint", "urlTemplate": "https://switchai.it/per-llm" }, "description": "Documentazione per AI agent e LLM" },
+        { "@type": "SearchAction", "target": { "@type": "EntryPoint", "urlTemplate": "https://switchai.it/come-funziona" }, "description": "Come funziona l'AI agent SwitchAI" }
+      ]
+    }
+    </script>
+  </head>
+  <body>
+    <div id="root">
+      <!-- ══════════════════════════════════════════════════════════ -->
+      <!-- CONTENUTO STATICO (per crawler e no-JS)                     -->
+      <!-- React lo sostituisce completamente quando JS si carica     -->
+      <!-- ══════════════════════════════════════════════════════════ -->
+      <header style="padding:20px 24px;border-bottom:1px solid rgba(255,255,255,0.06);background:#0a0d14;font-family:sans-serif">
+        <strong style="color:#f1f5f9;font-size:18px">Switch<span style="color:#f59e0b">AI</span></strong>
+        <nav style="float:right"><a href="/come-funziona" style="color:#94a3b8;margin-left:16px;text-decoration:none;font-size:14px">Come funziona</a> <a href="/per-llm" style="color:#94a3b8;margin-left:16px;text-decoration:none;font-size:14px">Per LLM</a></nav>
+      </header>
+      <main role="main" style="max-width:800px;margin:0 auto;padding:50px 24px;font-family:system-ui,sans-serif;background:#0a0d14;color:#f1f5f9;line-height:1.8">
+        <p style="color:#f59e0b;font-weight:700;font-size:14px">🤖 Progettato per funzionare con Claude, ChatGPT e Gemini</p>
+        <h1 style="font-size:36px;font-weight:900;margin:12px 0;line-height:1.2">
+          <span style="background:linear-gradient(135deg,#f0f4ff,#93c5fd,#fbbf24);-webkit-background-clip:text;-webkit-text-fill-color:transparent">Chiedi alla tua AI</span><br>
+          <span>di analizzare la bolletta</span><br>
+          <span style="color:#f59e0b">con SwitchAI</span>
+        </h1>
+        <p style="color:#94a3b8;font-size:18px;max-width:560px;margin:20px 0 30px">
+          <strong style="color:#f1f5f9">SwitchAI</strong> è un motore di confronto tariffe che si usa <strong style="color:#f59e0b">parlando con la tua AI</strong>. Dai la bolletta a Claude, ChatGPT o Gemini: l'AI la legge, chiama SwitchAI, e ti dice quanto risparmi.<br><br>
+          <span style="font-size:16px;color:#64748b">Se non vuoi usare un LLM, compila i campi qui sotto per verificare se puoi risparmiare.</span>
+        </p>
+        <div style="display:flex;gap:40px;margin:40px 0;flex-wrap:wrap">
+          <div><span style="font-size:28px;font-weight:800">44+</span><br><span style="color:#64748b;font-size:13px">Offerte Luce e Gas</span></div>
+          <div><span style="font-size:28px;font-weight:800">&lt;30 sec</span><br><span style="color:#64748b;font-size:13px">Per cambiare fornitore</span></div>
+          <div><span style="font-size:28px;font-weight:800">500€</span><br><span style="color:#64748b;font-size:13px">Risparmio medio/anno</span></div>
+        </div>
+        <h2 style="font-size:22px;margin:30px 0 15px">🤖 Come usare SwitchAI con la tua AI (consigliato)</h2>
+        <div style="background:#111620;border:1px solid rgba(59,130,246,0.2);border-radius:14px;padding:24px;margin-bottom:30px">
+          <p style="color:#94a3b8;font-size:14px;line-height:1.8;margin-bottom:12px">
+            <strong style="color:#60a5fa">1. Claude (web, Desktop, mobile)</strong> — Impostazioni → Connettori → Aggiungi connettore personalizzato → incolla <code style="background:rgba(0,0,0,0.3);padding:2px 8px;border-radius:4px;font-size:12px;color:#60a5fa">https://www.switchai.it/mcp</code> (gratuito, nessuna auth)
+          </p>
+          <p style="color:#94a3b8;font-size:14px;line-height:1.8;margin-bottom:12px">
+            <strong style="color:#60a5fa">2. ChatGPT</strong> — Esplora GPT → Crea → Azioni → Importa da URL <code style="background:rgba(0,0,0,0.3);padding:2px 8px;border-radius:4px;font-size:12px;color:#60a5fa">https://www.switchai.it/openapi.json</code>
+          </p>
+          <p style="color:#94a3b8;font-size:14px;line-height:1.8">
+            <strong style="color:#60a5fa">3. Senza connettori</strong> — Chiedi all'AI di estrarre consumo e spesa annua dalla bolletta, poi inserisci i due numeri nel form qui sotto. L'AI legge, SwitchAI calcola.<br>
+            <span style="font-size:12px;color:#64748b">📌 Con WebMCP (Chrome 146+), in futuro basterà visitare il sito.</span>
+          </p>
+        </div>
+
+<h2 style="font-size:22px;margin:30px 0 15px">📄 Dove trovo i dati nella bolletta ARERA 2.0</h2>
+        <div style="background:#111620;border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:24px;margin-bottom:30px">
+
+          <p style="color:#f59e0b;font-weight:700;font-size:14px;margin-bottom:12px">① Consumo annuale (kWh o Smc)</p>
+          <p style="color:#94a3b8;font-size:13px;line-height:1.8;margin-bottom:16px">
+            Si trova nella sezione <strong style="color:#f1f5f9">"Consumi"</strong> dello Scontrino dell'energia (seconda pagina).<br>
+            Il campo <strong style="color:#f59e0b">"Consumo annuo stimato"</strong> è <strong>obbligatorio per legge ARERA</strong> — usalo direttamente, senza fare calcoli.<br>
+            È già calcolato dal distributore in base ai tuoi consumi storici su 12 mesi.<br>
+            <span style="color:#64748b">Attenzione: non usare il "consumo del periodo" (che è bimestrale o trimestrale). Cerca "Consumo annuo".</span>
+          </p>
+
+          <p style="color:#f59e0b;font-weight:700;font-size:14px;margin-bottom:12px">② Spesa annuale (€)</p>
+          <p style="color:#94a3b8;font-size:13px;line-height:1.8;margin-bottom:16px">
+            Si trova nel <strong style="color:#f1f5f9">frontespizio</strong> (prima pagina) della bolletta, sotto "Totale da pagare".<br>
+            <strong style="color:#f59e0b">Moltiplica l'importo per il numero di bollette all'anno:</strong><br>
+            · Bolletta <strong>bimestrale</strong> (ogni 2 mesi): importo × <strong>6</strong><br>
+            · Bolletta <strong>trimestrale</strong> (ogni 3 mesi): importo × <strong>4</strong><br>
+            · Bolletta <strong>mensile</strong>: importo × <strong>12</strong><br>
+            <span style="color:#64748b">Esempio: bolletta bimestrale da 145,50€ → 145,50 × 6 = 873€/anno</span>
+          </p>
+
+          <p style="color:#64748b;font-size:12px;margin-top:12px">
+            💡 <strong>Consumi tipici:</strong> appartamento 2 persone = ~2.000-2.700 kWh/anno | villetta = ~3.500-4.500 kWh/anno | gas riscaldamento = ~700-1.400 Smc/anno<br>
+            💡 <strong>Gas:</strong> il consumo è in Smc (standard metro cubo). Se hai il valore in kWh, dividi per 10,7 per ottenere Smc.
+          </p>
+        </div>
+        <h2 style="font-size:22px;margin:30px 0 15px">⚡ Confronta le tariffe</h2>
+        <div style="background:#111620;border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:24px;margin-bottom:30px">
+          <div style="display:flex;gap:12px;margin-bottom:20px">
+            <button style="flex:1;padding:14px;border-radius:10px;background:rgba(245,158,11,0.1);border:2px solid rgba(245,158,11,0.3);color:#f59e0b;font-weight:700;font-size:16px;cursor:pointer">⚡ Luce</button>
+            <button style="flex:1;padding:14px;border-radius:10px;background:transparent;border:1px solid rgba(255,255,255,0.1);color:#64748b;font-weight:700;font-size:16px;cursor:pointer">🔥 Gas</button>
+          </div>
+          <div style="margin-bottom:16px">
+            <span style="color:#64748b;font-size:12px;text-transform:uppercase;letter-spacing:0.5px">Consumo annuo</span>
+            <div style="font-size:28px;font-weight:800">2.700 <span style="font-size:14px;color:#64748b">kWh</span></div>
+            <input type="range" style="width:100%;margin-top:8px" aria-label="Consumo annuo" min="100" max="20000">
+          </div>
+          <button style="width:100%;padding:16px;background:linear-gradient(135deg,#f59e0b,#d97706);border:none;border-radius:10px;color:#fff;font-size:16px;font-weight:800;cursor:pointer">🔍 Confronta le tariffe Luce</button>
+        </div>
+        <h2 style="font-size:22px;margin:40px 0 15px">Come funziona (con l'AI)</h2>
+        <p style="color:#94a3b8;font-size:14px;margin-bottom:20px">Il modo migliore per usare SwitchAI: <strong style="color:#f1f5f9">chiedi al tuo assistente AI</strong> (Claude, ChatGPT, Gemini) di analizzare la bolletta. L'AI estrae i dati e chiama la nostra API.</p>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px">
+          <div style="background:#111620;border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:24px;text-align:center">
+            <div style="font-size:32px;margin-bottom:12px">💬</div>
+            <h3 style="font-size:16px;font-weight:700;margin-bottom:8px">1. Chiedi al tuo AI</h3>
+            <p style="color:#94a3b8;font-size:13px">"Ehi Claude, ho questa bolletta Enel da 650€/anno. Trovami l'offerta migliore."</p>
+          </div>
+          <div style="background:#111620;border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:24px;text-align:center">
+            <div style="font-size:32px;margin-bottom:12px">⚡</div>
+            <h3 style="font-size:16px;font-weight:700;margin-bottom:8px">2. L'AI chiama SwitchAI</h3>
+            <p style="color:#94a3b8;font-size:13px">L'AI invia i tuoi consumi alla nostra API. SwitchAI confronta 44+ offerte in tempo reale e restituisce la migliore.</p>
+          </div>
+          <div style="background:#111620;border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:24px;text-align:center">
+            <div style="font-size:32px;margin-bottom:12px">✅</div>
+            <h3 style="font-size:16px;font-weight:700;margin-bottom:8px">3. Vedi il risparmio e decidi</h3>
+            <p style="color:#94a3b8;font-size:13px">L'AI ti dice quanto risparmi e perché. Se vuoi attivare, ti guida alla sottoscrizione. Sei tu a decidere.</p>
+          </div>
+        </div>
+        <h2 style="font-size:22px;margin:40px 0 15px">Fornitori disponibili</h2>
+        <p style="color:#94a3b8;font-size:14px">Enel Energia · Eni Plenitude · Edison · A2A Energia · Iren · Hera Comm · Sorgenia · Engie · Fastweb · Illumia · Acea · Octopus Energy · NeN Energia</p>
+        <h2 style="font-size:22px;margin:40px 0 15px">Per AI agent e LLM</h2>
+        <p style="color:#94a3b8;font-size:14px;margin-bottom:8px">SwitchAI è compatibile con WebMCP (Chrome 146+) e MCP Server (Claude Desktop). 4 tool disponibili: calculate_energy_savings, parse_energy_bill, get_available_offers, submit_subscription.</p>
+        <p style="color:#64748b;font-size:12px;margin-bottom:16px">
+          File per AI discovery:
+          <a href="/llms.txt" style="color:#60a5fa">llms.txt</a> ·
+          <a href="/webmcp.json" style="color:#60a5fa">webmcp.json</a> ·
+          <a href="/openapi.json" style="color:#60a5fa">openapi.json</a> ·
+          <a href="/sitemap.xml" style="color:#60a5fa">sitemap.xml</a> ·
+          <a href="/robots.txt" style="color:#60a5fa">robots.txt</a>
+        </p>
+        <p style="color:#94a3b8;font-size:14px">
+          <a href="/per-llm" style="color:#60a5fa">📖 Documentazione per AI agent</a> ·
+          <a href="/come-funziona" style="color:#60a5fa">🤖 Come funziona</a> ·
+          <a href="/privacy" style="color:#60a5fa">🔒 Privacy</a>
+        </p>
+        <h2 style="font-size:22px;margin:40px 0 15px">📊 Come calcoliamo il risparmio</h2>
+        <div style="background:#111620;border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:24px;margin-bottom:30px">
+          <p style="color:#94a3b8;font-size:14px;line-height:1.8">
+            Il risparmio è calcolato confrontando la <strong style="color:#f1f5f9">tua spesa annua attuale</strong> con il <strong style="color:#f59e0b">costo annuo stimato della nuova offerta</strong>, usando questa formula:
+          </p>
+          <div style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:16px;margin:12px 0;font-family:monospace;font-size:13px;color:#94a3b8;line-height:2">
+            <strong style="color:#f1f5f9">Costo annuale nuova offerta =</strong><br>
+            (Consumo annuo × Prezzo materia energia) + (Quota fissa mensile × 12) + Oneri + IVA 10%<br><br>
+            <strong style="color:#10b981">Risparmio = Spesa attuale − Costo annuale nuova offerta</strong>
+          </div>
+          <p style="color:#94a3b8;font-size:13px;line-height:1.8">
+            <strong style="color:#64748b">Esempio GAS con 400 Smc/anno e spesa attuale 404€:</strong><br>
+            Nuova offerta: 400 Smc × 0,4840 €/Smc = 193,60€ + quota fissa 84€/anno + oneri + IVA = <strong style="color:#f1f5f9">278€/anno</strong><br>
+            Risparmio: 404€ − 278€ = <strong style="color:#10b981">126€/anno (31%)</strong>
+          </p>
+          <p style="color:#64748b;font-size:12px;margin-top:8px">I prezzi di riferimento usati per la tua tariffa attuale sono: 0,16 €/kWh (luce) e 0,55 €/Smc (gas) con quota fissa 10€/mese, basati sulle tariffe di maggior tutela ARERA. Se inserisci la tua spesa annua reale, il calcolo è ancora più preciso.</p>
+        </div>
+        <h2 style="font-size:22px;margin:40px 0 15px">Domande frequenti (FAQ)</h2>
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div style="background:#111620;border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:18px 20px">
+            <h3 style="font-size:15px;font-weight:700;margin-bottom:6px">Quanto posso risparmiare cambiando fornitore luce?</h3>
+            <p style="color:#94a3b8;font-size:13px">In media 300-500€ all'anno per una famiglia tipo con consumi di 2.700 kWh. Il risparmio dipende dalla tua tariffa attuale e dai tuoi consumi. SwitchAI confronta in tempo reale 44+ offerte e ti mostra il risparmio esatto.</p>
+          </div>
+          <div style="background:#111620;border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:18px 20px">
+            <h3 style="font-size:15px;font-weight:700;margin-bottom:6px">Quali fornitori di energia confronta SwitchAI?</h3>
+            <p style="color:#94a3b8;font-size:13px">Enel Energia, Eni Plenitude, Edison, A2A Energia, Iren Luce Gas e Servizi, Hera Comm, Sorgenia, Engie, Fastweb Energia, Illumia, ACEA Energia, Octopus Energy, NeN Energia, Volty e altri. Le offerte sono caricate in tempo reale dai database ufficiali dei fornitori.</p>
+          </div>
+          <div style="background:#111620;border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:18px 20px">
+            <h3 style="font-size:15px;font-weight:700;margin-bottom:6px">Come funziona l'analisi della bolletta con l'AI?</h3>
+            <p style="color:#94a3b8;font-size:13px">Carichi il PDF della bolletta o incolli il testo. L'AI agent (Claude, ChatGPT, Gemini) estrae automaticamente fornitore, POD, consumo annuo in kWh o Smc, spesa annuale e zona tariffaria. Poi chiama SwitchAI che confronta le offerte e restituisce la migliore con il risparmio calcolato.</p>
+          </div>
+          <div style="background:#111620;border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:18px 20px">
+            <h3 style="font-size:15px;font-weight:700;margin-bottom:6px">SwitchAI è gratis?</h3>
+            <p style="color:#94a3b8;font-size:13px">Sì, il servizio di confronto e analisi bolletta è completamente gratuito. SwitchAI viene remunerato dai fornitori quando un utente attiva una tariffa tramite la piattaforma.</p>
+          </div>
+          <div style="background:#111620;border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:18px 20px">
+            <h3 style="font-size:15px;font-weight:700;margin-bottom:6px">Cosa mi serve per cambiare fornitore?</h3>
+            <p style="color:#94a3b8;font-size:13px">Ti serve una bolletta recente (per trovare POD o PDR, consumi e spesa), il tuo codice fiscale, un documento d'identità e l'IBAN se vuoi la domiciliazione bancaria. Il cambio fornitore è gratuito e non comporta interruzioni della fornitura.</p>
+          </div>
+        </div>
+        <h2 style="font-size:22px;margin:40px 0 15px">Mercato</h2>
+        <p style="color:#94a3b8;font-size:14px">Italia — Mercato Libero Energia — zone NORD, CENTRO, SUD — 106 province — 44+ offerte ARERA — PUN/PSV aggiornati quotidianamente</p>
+      </main>
+      <footer style="text-align:center;padding:24px;border-top:1px solid rgba(255,255,255,0.04);background:#0a0d14;font-family:sans-serif;font-size:12px;color:#64748b">
+        <p style="margin-bottom:8px;font-size:11px;color:#475569;max-width:600px;margin-left:auto;margin-right:auto;line-height:1.6">
+          ⚠️ SwitchAI è un'intelligenza artificiale: i prezzi e le offerte possono variare. Controlla sempre le condizioni del contratto prima di sottoscrivere — puoi farti aiutare dalla tua AI (Claude, ChatGPT, Gemini) per verificare la coerenza con quanto ti abbiamo mostrato.
+        </p>
+        <a href="/privacy" style="color:#94a3b8">Privacy</a> · <a href="/cookie" style="color:#94a3b8">Cookie</a> · <a href="https://smithery.ai/servers/us1929/switchai" style="color:#94a3b8">Smithery</a> · switchai.it
+      </footer>
+    </div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

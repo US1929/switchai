@@ -1,0 +1,14 @@
+# .htaccess — Riscrittura URL per OVH
+# Tutte le richieste /api/* vengono instradate a api/index.php
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    
+    # Non riscrivere file esistenti
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    
+    # Instrada tutto /api/* a api/index.php
+    RewriteRule ^api/?(.*)$ api/index.php [QSA,L]
+</IfModule>
+
