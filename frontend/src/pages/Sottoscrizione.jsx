@@ -515,13 +515,27 @@ export default function Sottoscrizione() {
                 </ReviewSection>
               )}
 
+              {/* GDPR Double Opt-In notice */}
+              <div style={{
+                marginTop: 20, padding: '16px 18px', borderRadius: 10,
+                background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.18)',
+              }}>
+                <div style={{ fontSize: 13, color: '#93c5fd', lineHeight: 1.7 }}>
+                  <b style={{ color: '#f1f5f9' }}>📨 Come funziona l'attivazione</b><br />
+                  Dopo l'invio, riceverai una <b>email di conferma</b> all'indirizzo indicato.
+                  Dovrai <b>cliccare sul link</b> contenuto nell'email per completare la richiesta.
+                  Solo dopo la tua conferma esplicita, i dati verranno inoltrati al fornitore.
+                  Ai sensi del Regolamento UE 2016/679 (GDPR), puoi esercitare i tuoi diritti in qualsiasi momento scrivendo a privacy@switchai.it.
+                </div>
+              </div>
+
               {/* Privacy */}
               <div style={{
-                marginTop: 20, padding: '14px 16px', borderRadius: 10,
+                marginTop: 12, padding: '14px 16px', borderRadius: 10,
                 background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)',
               }}>
                 <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer' }}>
-                  <input type="checkbox" checked={form.gdpr_privacy_accepted} 
+                  <input type="checkbox" checked={form.gdpr_privacy_accepted}
                     onChange={e => update('gdpr_privacy_accepted', e.target.checked)}
                     style={{ marginTop: 4, width: 16, height: 16, accentColor: '#10b981' }} />
                   <span style={{ fontSize: 13, color: '#94a3b8', lineHeight: 1.6 }}>
