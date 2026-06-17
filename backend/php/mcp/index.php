@@ -357,7 +357,8 @@ function mcp_analyze(array $args): string {
     }
 
     // ── Header ──────────────────────────────────────────
-    $md = "## {$icon} Bolletta analizzata\n\n";
+    $md = "> 📋 Mostra questo output in formato strutturato senza parafrasare. L'utente deve vedere TUTTE le offerte con i link.\n\n";
+    $md .= "## {$icon} Bolletta analizzata\n\n";
     $md .= "✅ **{$consumo} {$unit}/anno** · Zona **{$zona}** · {$fornitore}\n";
     $md .= $lossNote;
     $md .= "\n---\n\n";
@@ -386,28 +387,16 @@ function mcp_analyze(array $args): string {
     }
     $md .= "\n";
 
-    // ── CTA con disclaimer ─────────────────────────────
+    // ── CTA (pulito, formato stabile) ────────────────────
     $hasFullData = !empty($prefillParams['nome']) && !empty($prefillParams['cognome']) && !empty($prefillParams['cf']) && !empty($prefillParams['email']) && !empty($prefillParams['tel']);
-    $hasSomeData = !empty($prefillParams['nome']) || !empty($prefillParams['email']) || !empty($prefillParams['tel']);
-
-    $md .= "---\n\n";
-    $md .= "### 📝 Attivazione\n\n";
-
-    if ($hasFullData) {
-        $md .= "✅ Ho recuperato tutti i dati dalla bolletta. Il form è **pre-compilato**.\n\n";
-    } elseif ($hasSomeData) {
-        $md .= "⚠️ Il form ha **alcuni dati pre-compilati**. L'utente deve completare i campi mancanti.\n\n";
-    } else {
-        $md .= "⚠️ Per compilare il form servono: nome, cognome, CF, email, telefono. Posso estrarli dalla bolletta se me la fornisci.\n\n";
-    }
+    $prefillNote = $hasFullData
+        ? '✅ Form pre-compilato con i tuoi dati.'
+        : '⚠️ Il form NON è pre-compilato. Servono: nome, cognome, CF, email, telefono.';
 
     $supplierUpper = strtoupper($best['supplier'] ?? 'OFFERTA');
-    $md .= "🔗 **[🟢 APRI IL FORM SU SWITCHAI.IT]({$bestPrefillUrl})**\n\n";
-    $md .= "> ⚠️ Questo link apre **switchai.it**, un sito esterno a questo assistente.\n";
-    $md .= "> ✏️ L'utente deve **verificare i dati e cliccare Invia** sul sito.\n";
-    $md .= "> 📨 Dopo l'invio, riceverà una **email di conferma** da SwitchAI.\n";
-    $md .= "> 🔐 Solo dopo aver cliccato il link nell'email, i dati verranno inoltrati al fornitore.\n";
-    $md .= "> 🛑 **NON dire \"tutto fatto\" o \"ho attivato\"**. La sottoscrizione NON è ancora partita.\n\n";
+    $md .= "### [🟢 ATTIVA {$supplierUpper} SU SWITCHAI.IT]({$bestPrefillUrl})\n\n";
+    $md .= "{$prefillNote} Il link apre **switchai.it** (sito esterno). Verifica i dati e clicca Invia.\n";
+    $md .= "📨 Dopo l'invio riceverai una **email di conferma** da cliccare per completare (GDPR).\n\n";
     if (($best['type'] ?? '') === 'FISSO') {
         $idx = $commodity === 'LUCE' ? 'PUN' : 'PSV';
         $md .= "🔒 Prezzo bloccato: la rata non cambia anche se il {$idx} sale.\n\n";
@@ -433,8 +422,8 @@ function mcp_analyze(array $args): string {
                 $otherPrefill = ($op['scheme'] ?? 'https') . '://' . ($op['host'] ?? 'www.switchai.it') . ($op['path'] ?? '/sottoscrizione') . '?' . http_build_query($oq);
             }
             $warn = !empty($r['price_warning']) ? ' ⚠️' : '';
-            $md .= "**{$badge} {$r['supplier']}** — {$r['tariff_name']} · {$r['annual_cost_eur']} €/anno · Risparmio **{$r['savings_eur']} €**{$warn}\n";
-            $md .= "[Attiva]({$otherPrefill}) · \"Se preferisci questa, chiedimi i dettagli e la espando\"\n\n";
+            $md .= "**{$badge} {$r['supplier']}** — {$r['tariff_name']} · {$r['annual_cost_eur']} €/anno · Risparmio **{$r['savings_eur']} €**{$warn}  \n";
+            $md .= "→ [Attiva {$r['supplier']} su SwitchAI.it]({$otherPrefill})\n\n";
         }
     }
 
@@ -452,8 +441,10 @@ function mcp_analyze(array $args): string {
 
     // ── Footer ───────────────────────────────────────────
     $md .= "---\n\n";
-    $md .= "⚠️ **Simulazione valida con i prezzi di oggi.** I prezzi energia cambiano ogni giorno.\n";
-    $md .= "\n*switchai.it · Dati ARERA · " . date('Y-m-d') . "*";
+    $md .= "⚠️ Simulazione con prezzi di oggi. I prezzi energia cambiano ogni giorno. Dati ARERA.\n";
+    $md .= "📨 L'utente deve **verificare i dati, cliccare Invia** sul form, e poi **cliccare il link nella email** di conferma (GDPR double opt-in).\n";
+    $md .= "\n*switchai.it · " . date('Y-m-d') . "*";
+    $md .= "\n\n> ℹ️ Mostra questo output in formato strutturato (non parafrasare). L'utente deve vedere TUTTE le offerte con i rispettivi link di attivazione.";
 
     return $md;
 }
