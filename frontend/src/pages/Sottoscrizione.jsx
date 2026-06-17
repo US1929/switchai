@@ -220,14 +220,27 @@ export default function Sottoscrizione() {
     return (
       <main style={{ padding: '80px 24px', textAlign: 'center' }}>
         <div className="glass-card animate-scale-in" style={{ maxWidth: 500, margin: '0 auto', padding: '48px 32px' }}>
-          <div style={{ fontSize: 56, marginBottom: 16 }}>🎉</div>
-          <h2 style={{ fontSize: 24, fontWeight: 800, marginBottom: 8 }}>Sottoscrizione inviata!</h2>
-          <p style={{ color: '#94a3b8', fontSize: 14, lineHeight: 1.7, marginBottom: 8 }}>
-            Abbiamo inviato la richiesta per <b style={{ color: '#f1f5f9' }}>{tariffName}</b> di <b style={{ color: '#f1f5f9' }}>{supplier}</b>.
+          <div style={{ fontSize: 56, marginBottom: 16 }}>📨</div>
+          <h2 style={{ fontSize: 24, fontWeight: 800, marginBottom: 8 }}>Richiesta registrata</h2>
+          <p style={{ color: '#94a3b8', fontSize: 14, lineHeight: 1.7, marginBottom: 16 }}>
+            Abbiamo registrato la richiesta per <b style={{ color: '#f1f5f9' }}>{tariffName}</b> di <b style={{ color: '#f1f5f9' }}>{supplier}</b>.
           </p>
-          <p style={{ color: '#64748b', fontSize: 13, marginBottom: 24 }}>
-            Entro 24 ore ti contatteremo per completare l'attivazione.
-          </p>
+
+          <div style={{
+            padding: '18px 20px', borderRadius: 10, marginBottom: 20, textAlign: 'left',
+            background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.18)',
+          }}>
+            <p style={{ color: '#93c5fd', fontSize: 13, lineHeight: 1.7, margin: 0 }}>
+              <b style={{ color: '#f1f5f9' }}>📧 Controlla la tua email</b><br />
+              Ti abbiamo inviato un'email di conferma all'indirizzo che hai indicato.
+              <b> Clicca sul link nell'email per completare la richiesta.</b>
+            </p>
+            <p style={{ color: '#64748b', fontSize: 12, lineHeight: 1.6, margin: '10px 0 0 0' }}>
+              Solo dopo la tua conferma esplicita i tuoi dati verranno inoltrati al fornitore per l'attivazione.
+              Se non trovi l'email, controlla la cartella spam o le email promozionali.
+            </p>
+          </div>
+
           {resultId && (
             <div className="badge badge-tag" style={{ marginBottom: 24, fontSize: 11 }}>
               ID: {resultId}
