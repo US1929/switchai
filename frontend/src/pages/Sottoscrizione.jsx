@@ -123,7 +123,7 @@ export default function Sottoscrizione() {
         }
         break;
       case 3:
-        if (isLuce && !isValidPOD(form.codice_pod)) errors.codice_pod = 'POD non valido (IT001E...)';
+        if (isLuce && !isValidPOD(form.codice_pod)) errors.codice_pod = 'POD non valido (IT + 3 cifre + E + 8-9 cifre)';
         if (!isLuce && !isValidPDR(form.codice_pdr)) errors.codice_pdr = 'PDR non valido (14 cifre)';
         if (!form.modalita_pagamento) errors.modalita_pagamento = 'Seleziona modalità';
         if (form.modalita_pagamento === 'SDD' && !isValidIBAN(form.iban)) errors.iban = 'IBAN non valido';
@@ -425,7 +425,7 @@ export default function Sottoscrizione() {
                   <Field label="Codice POD (14 cifre)" error={fieldError('codice_pod')}>
                     <input className={fieldClass('codice_pod')} value={form.codice_pod}
                       onChange={e => update('codice_pod', e.target.value.toUpperCase())}
-                      placeholder="IT001E123456789" style={{ textTransform: 'uppercase' }} />
+                      placeholder="IT012E00550124" style={{ textTransform: 'uppercase' }} />
                   </Field>
                 ) : (
                   <Field label="Codice PDR (14 cifre)" error={fieldError('codice_pdr')}>

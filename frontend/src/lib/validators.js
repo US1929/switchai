@@ -52,10 +52,10 @@ export function formatIBAN(iban) {
   return iban.replace(/\s/g, '').toUpperCase().match(/.{1,4}/g)?.join(' ') || iban;
 }
 
-/** Valida codice POD (LUCE): IT + numeri + E + numeri */
+/** Valida codice POD (LUCE): IT + 3 cifre + E + 8-9 cifre (standard ARERA) */
 export function isValidPOD(pod) {
   if (!pod) return false;
-  return /^IT\d{3}[Ee]\d{9}$/.test(pod.trim());
+  return /^IT\d{3}[Ee]\d{8,9}$/.test(pod.trim());
 }
 
 /** Valida codice PDR (GAS): 14 cifre */
