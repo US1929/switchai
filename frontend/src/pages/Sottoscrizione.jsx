@@ -78,8 +78,35 @@ export default function Sottoscrizione() {
   // ── Helpers ──────────────────────────────────────────────────────────
   const update = useCallback((field, value) => {
     setForm(f => ({ ...f, [field]: value }));
-    setFieldErrors(e => ({ ...e, [field]: null }));
+    setFieldErrors(e => ({ ...e, [field]: null })); // pulisce errore mentre scrivi
   }, []);
+
+  // Validazione inline onBlur per ogni campo obbligatorio
+  const validateField = useCallback((field, value) => {
+    let error = null;
+    const v = value?.trim?.() ?? value;
+    switch (field) {
+      case 'nome': if (!v || v.length < 2) error = 'Inserisci il nome'; break;
+      case 'cognome': if (!v || v.length < 2) error = 'Inserisci il cognome'; break;
+      case 'codice_fiscale': if (!v || !isValidCF(v)) error = 'Codice fiscale non valido'; break;
+      case 'email': if (!v || !isValidEmail(v)) error = 'Email non valida'; break;
+      case 'cellulare': if (!v || !isValidPhone(v)) error = 'Cellulare non valido (es. +393401234567)'; break;
+      case 'titolo_immobile': if (!v) error = 'Seleziona il titolo'; break;
+      case 'indirizzo': if (!v) error = 'Inserisci indirizzo'; break;
+      case 'civico': if (!v) error = 'Inserisci civico'; break;
+      case 'citta': if (!v) error = 'Inserisci città'; break;
+      case 'provincia': if (!form.provincia_sigla) error = 'Seleziona provincia dalla lista'; break;
+      case 'cap': if (!v || !isValidCAP(v)) error = 'CAP non valido (5 cifre)'; break;
+      case 'codice_pod': if (isLuce && !isValidPOD(v)) error = 'POD non valido (IT + 3 cifre + E + 8-9 cifre)'; break;
+      case 'codice_pdr': if (!isLuce && !isValidPDR(v)) error = 'PDR non valido (14 cifre)'; break;
+      case 'modalita_pagamento': if (!v) error = 'Seleziona modalità'; break;
+      case 'iban': if (form.modalita_pagamento === 'SDD' && !isValidIBAN(v)) error = 'IBAN non valido'; break;
+    }
+    if (error) {
+      setFieldErrors(e => ({ ...e, [field]: error }));
+    }
+    return !error;
+  }, [form.provincia_sigla, form.modalita_pagamento, isLuce]);
 
   const handleProvInput = useCallback((value, isResidenza = false) => {
     const fieldName = isResidenza ? 'provincia_residenza' : 'provincia';
@@ -264,30 +291,31 @@ export default function Sottoscrizione() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
                 <Row2>
                   <Field label="Nome" error={fieldError('nome')}>
-                    <input className={fieldClass('nome')} value={form.nome} onChange={e => update('nome', e.target.value)} placeholder="Mario" />
+                    <input className={fieldClass('nome')} value={form.nome} onChange={e => update('nome', e.target.value)} onBlur={e => validateField('nome', e.target.value)} placeholder="Mario" />
                   </Field>
                   <Field label="Cognome" error={fieldError('cognome')}>
-                    <input className={fieldClass('cognome')} value={form.cognome} onChange={e => update('cognome', e.target.value)} placeholder="Rossi" />
+                    <input className={fieldClass('cognome')} value={form.cognome} onChange={e => update('cognome', e.target.value)} onBlur={e => validateField('cognome', e.target.value)} placeholder="Rossi" />
                   </Field>
                 </Row2>
                 <Field label="Codice Fiscale" error={fieldError('codice_fiscale')}>
                   <input className={fieldClass('codice_fiscale')} value={form.codice_fiscale}
                     onChange={e => update('codice_fiscale', e.target.value.toUpperCase())}
+                    onBlur={e => validateField('codice_fiscale', e.target.value)}
                     placeholder="RSSMRA80A01H501U" maxLength={16} style={{ textTransform: 'uppercase' }} />
                 </Field>
                 <Row2>
                   <Field label="Email" error={fieldError('email')}>
                     <input type="email" className={fieldClass('email')} value={form.email}
-                      onChange={e => update('email', e.target.value)} placeholder="mario.rossi@email.com" />
+                      onChange={e => update('email', e.target.value)} onBlur={e => validateField('email', e.target.value)} placeholder="mario.rossi@email.com" />
                   </Field>
                   <Field label="Cellulare" error={fieldError('cellulare')}>
                     <input type="tel" className={fieldClass('cellulare')} value={form.cellulare}
-                      onChange={e => update('cellulare', e.target.value)} placeholder="+39 340 1234567" />
+                      onChange={e => update('cellulare', e.target.value)} onBlur={e => validateField('cellulare', e.target.value)} placeholder="+39 340 1234567" />
                   </Field>
                 </Row2>
                 <Field label="Titolo sull'immobile" error={fieldError('titolo_immobile')}>
                   <select className={fieldClass('titolo_immobile')} value={form.titolo_immobile}
-                    onChange={e => update('titolo_immobile', e.target.value)}>
+                    onChange={e => update('titolo_immobile', e.target.value)} onBlur={e => validateField('titolo_immobile', e.target.value)}>
                     <option value="">Seleziona...</option>
                     {TITOLI_IMMOBILE.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                   </select>
@@ -304,23 +332,23 @@ export default function Sottoscrizione() {
                 <Row2 w1="65%" w2="35%">
                   <Field label="Indirizzo" error={fieldError('indirizzo')}>
                     <input className={fieldClass('indirizzo')} value={form.indirizzo}
-                      onChange={e => update('indirizzo', e.target.value)} placeholder="Via Roma" />
+                      onChange={e => update('indirizzo', e.target.value)} onBlur={e => validateField('indirizzo', e.target.value)} placeholder="Via Roma" />
                   </Field>
                   <Field label="Civico" error={fieldError('civico')}>
                     <input className={fieldClass('civico')} value={form.civico}
-                      onChange={e => update('civico', e.target.value)} placeholder="15" />
+                      onChange={e => update('civico', e.target.value)} onBlur={e => validateField('civico', e.target.value)} placeholder="15" />
                   </Field>
                 </Row2>
                 <Field label="Città" error={fieldError('citta')}>
                   <input className={fieldClass('citta')} value={form.citta}
-                    onChange={e => update('citta', e.target.value)} placeholder="Milano" />
+                    onChange={e => update('citta', e.target.value)} onBlur={e => validateField('citta', e.target.value)} placeholder="Milano" />
                 </Field>
                 <Row2 w1="55%" w2="45%">
                   <Field label="Provincia" error={fieldError('provincia')}>
                     <div style={{ position: 'relative' }}>
                       <input className={fieldClass('provincia')} value={form.provincia}
                         onChange={e => handleProvInput(e.target.value)}
-                        onBlur={() => setTimeout(() => setProvSuggestions([]), 200)}
+                        onBlur={() => { setTimeout(() => setProvSuggestions([]), 200); validateField('provincia', form.provincia); }}
                         placeholder="Milano" autoComplete="off" />
                       {provSuggestions.length > 0 && (
                         <div style={{
@@ -340,7 +368,7 @@ export default function Sottoscrizione() {
                   </Field>
                   <Field label="CAP" error={fieldError('cap')}>
                     <input className={fieldClass('cap')} value={form.cap}
-                      onChange={e => update('cap', e.target.value)} placeholder="20121" maxLength={5} />
+                      onChange={e => update('cap', e.target.value)} onBlur={e => validateField('cap', e.target.value)} placeholder="20121" maxLength={5} />
                   </Field>
                 </Row2>
 
@@ -425,25 +453,27 @@ export default function Sottoscrizione() {
                   <Field label="Codice POD (14 cifre)" error={fieldError('codice_pod')}>
                     <input className={fieldClass('codice_pod')} value={form.codice_pod}
                       onChange={e => update('codice_pod', e.target.value.toUpperCase())}
+                      onBlur={e => validateField('codice_pod', e.target.value)}
                       placeholder="IT012E00550124" style={{ textTransform: 'uppercase' }} />
                   </Field>
                 ) : (
                   <Field label="Codice PDR (14 cifre)" error={fieldError('codice_pdr')}>
                     <input className={fieldClass('codice_pdr')} value={form.codice_pdr}
                       onChange={e => update('codice_pdr', e.target.value)}
+                      onBlur={e => validateField('codice_pdr', e.target.value)}
                       placeholder="12345678901234" maxLength={14} />
                   </Field>
                 )}
                 <Field label="Modalità di pagamento" error={fieldError('modalita_pagamento')}>
                   <select className={fieldClass('modalita_pagamento')} value={form.modalita_pagamento}
-                    onChange={e => update('modalita_pagamento', e.target.value)}>
+                    onChange={e => update('modalita_pagamento', e.target.value)} onBlur={e => validateField('modalita_pagamento', e.target.value)}>
                     <option value="">Seleziona...</option>
                     {MODALITA_PAGAMENTO.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
                   </select>
                 </Field>
                 {form.modalita_pagamento === 'SDD' && (
                   <Field label="IBAN" error={fieldError('iban')}>
-                    <input className={fieldClass('iban')} value={form.iban}
+                    <input className={fieldClass('iban')} value={form.iban} onBlur={e => validateField('iban', e.target.value)}
                       onChange={e => update('iban', formatIBAN(e.target.value))}
                       placeholder="IT60 X054 2811 1010 0000 0123 456" />
                   </Field>
