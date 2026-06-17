@@ -22,7 +22,13 @@ export default function Sottoscrizione() {
   const commodity = params.get('commodity') || 'luce';
   const annualCost = params.get('annualCost') || '';
 
+  // Reverse lookup PROVINCE: sigla → nome
+  const SIGLA_TO_NOME = {};
+  for (const [nome, sigla] of Object.entries(PROVINCE)) SIGLA_TO_NOME[sigla] = nome;
+
   // Dati utente da URL (precompilazione via LLM/MCP)
+  const prefillProvSigla = params.get('provincia_sigla') || '';
+  const prefillProvNome = params.get('provincia') || SIGLA_TO_NOME[prefillProvSigla] || '';
   const prefill = {
     nome: params.get('nome') || '',
     cognome: params.get('cognome') || '',
@@ -32,8 +38,8 @@ export default function Sottoscrizione() {
     indirizzo: params.get('indirizzo') || '',
     civico: params.get('civico') || '',
     citta: params.get('citta') || '',
-    provincia: params.get('provincia') || '',
-    provincia_sigla: params.get('provincia_sigla') || '',
+    provincia: prefillProvNome,
+    provincia_sigla: prefillProvSigla,
     cap: params.get('cap') || '',
     pod: params.get('pod') || '',
     pdr: params.get('pdr') || '',
@@ -114,8 +120,12 @@ export default function Sottoscrizione() {
     update(fieldName, value);
     const suggestions = suggestProvince(value);
     (isResidenza ? setProvResSuggestions : setProvSuggestions)(suggestions);
-    // Se match esatto, imposta sigla
-    if (PROVINCE[value]) update(siglaField, PROVINCE[value]);
+    // Se match esatto, imposta sigla; altrimenti RESETTA la sigla
+    if (PROVINCE[value]) {
+      update(siglaField, PROVINCE[value]);
+    } else {
+      update(siglaField, ''); // reset sigla se il testo non matcha esattamente
+    }
   }, [update]);
 
   const selectProvince = useCallback((nome, sigla, isResidenza = false) => {

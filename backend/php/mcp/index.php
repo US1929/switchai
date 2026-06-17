@@ -70,13 +70,14 @@ if ($method === 'tools/list') {
                         . "'Condividendo la bolletta con me, i tuoi dati personali verranno elaborati da [nome provider LLM, es. Anthropic/OpenAI] secondo la loro privacy policy. "
                         . "SwitchAI riceverà solo dati numerici (consumi, spesa, zona) e non conserverà i tuoi dati personali dopo la sessione.' "
                         . "(1) Estrai TUTTI i dati dalla bolletta — OBBLIGATORIO: nome, cognome, codice fiscale, email, cellulare, "
-                        . "indirizzo, civico, CAP, città, provincia, POD/PDR, consumo annuo, spesa annua. "
+                        . "indirizzo, civico, CAP, città, provincia (nome e sigla, es: Milano/MI), POD/PDR, consumo annuo, spesa annua. "
                         . "Cerca nella sezione 'Dati cliente' o 'Dati fornitura'. Se non trovi nome/cognome/indirizzo, chiedili all'utente PRIMA di chiamare questo tool. "
+                        . "PASSA SEMPRE sia 'provincia' (nome) che 'provincia_sigla' (sigla) — il form ne ha bisogno di entrambi per il prefill."
                         . "(2) Passa i dati numerici (consumi, spesa, zona) + TUTTI i dati personali che hai estratto a questo tool. "
                         . "(3) Il link 'APRI IL FORM' apre switchai.it in una nuova scheda con il form PRE-COMPILATO. "
                         . "(4) AVVISA SEMPRE l'utente che: (a) il link apre un sito esterno (switchai.it), (b) dovrà verificare i dati e cliccare Invia, (c) riceverà una email di conferma e dovrà cliccarla per completare — SOLO dopo la conferma i dati vengono inoltrati. "
                         . "(5) Il GDPR double opt-in è OBBLIGATORIO: NON dire 'ho attivato' o 'tutto fatto'. Di' 'il form è precompilato, controlla i dati e invia'. "
-                        . "(6) PASSA nome, cognome, cf, email, tel, indirizzo, civico, citta, provincia_sigla, cap, pod, pdr, consumi, spesa come parametri del tool. Il tool genera automaticamente l'URL precompilato.",
+                        . "(6) PASSA nome, cognome, cf, email, tel, indirizzo, civico, citta, provincia, provincia_sigla, cap, pod, pdr, consumi, spesa come parametri del tool. Il tool genera automaticamente l'URL precompilato.",
                     'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => false],
                     'inputSchema' => [
                         'type' => 'object',
@@ -96,6 +97,7 @@ if ($method === 'tools/list') {
                             'indirizzo'         => ['type' => 'string', 'description' => 'Via/Piazza della fornitura.'],
                             'civico'            => ['type' => 'string', 'description' => 'Numero civico.'],
                             'citta'             => ['type' => 'string', 'description' => 'Città della fornitura.'],
+                            'provincia'         => ['type' => 'string', 'description' => 'Nome provincia (es: Milano).'],
                             'provincia_sigla'   => ['type' => 'string', 'description' => 'Sigla provincia (2 lettere, es: MI).'],
                             'cap'               => ['type' => 'string', 'description' => 'CAP (5 cifre).'],
                             'pod'               => ['type' => 'string', 'description' => 'Codice POD per Luce (IT001E...).'],
@@ -329,7 +331,7 @@ function mcp_analyze(array $args): string {
 
     // Build prefill params from optional args
     $prefillParams = [];
-    $prefillKeys = ['nome','cognome','cf','email','tel','indirizzo','civico','citta','provincia_sigla','cap','pod','pdr','consumi','spesa'];
+    $prefillKeys = ['nome','cognome','cf','email','tel','indirizzo','civico','citta','provincia','provincia_sigla','cap','pod','pdr','consumi','spesa'];
     foreach ($prefillKeys as $k) {
         if (!empty($args[$k])) $prefillParams[$k] = $args[$k];
     }
