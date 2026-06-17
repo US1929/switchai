@@ -75,7 +75,7 @@ if ($method === 'tools/list') {
                         . "(3) Il link 'APRI IL FORM' apre switchai.it in una nuova scheda con il form PRE-COMPILATO. "
                         . "(4) AVVISA SEMPRE l'utente che: (a) il link apre un sito esterno (switchai.it), (b) dovrà verificare i dati e cliccare Invia, (c) riceverà una email di conferma e dovrà cliccarla per completare — SOLO dopo la conferma i dati vengono inoltrati. "
                         . "(5) Il GDPR double opt-in è OBBLIGATORIO: NON dire 'ho attivato' o 'tutto fatto'. Di' 'il form è precompilato, controlla i dati e invia'. "
-                        . "(6) Costruisci l'URL aggiungendo al subscription_url i query params: nome, cognome, cf, email, tel, indirizzo, civico, citta, provincia_sigla, cap, pod, pdr, consumi, spesa.",
+                        . "(6) PASSA nome, cognome, cf, email, tel, indirizzo, civico, citta, provincia_sigla, cap, pod, pdr, consumi, spesa come parametri del tool. Il tool genera automaticamente l'URL precompilato.",
                     'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => false],
                     'inputSchema' => [
                         'type' => 'object',
