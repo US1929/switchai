@@ -58,10 +58,10 @@ export function isValidPOD(pod) {
   return /^IT\d{3}[Ee]\d{8,9}$/.test(pod.trim());
 }
 
-/** Valida codice PDR (GAS): 14 cifre */
+/** Valida codice PDR (GAS): 14 cifre (ARERA standard) */
 export function isValidPDR(pdr) {
   if (!pdr) return false;
-  return /^\d{14}$/.test(pdr.trim());
+  return /^\d{14}$/.test(pdr.replace(/\s/g, ''));
 }
 
 /** Valida CAP italiano */
