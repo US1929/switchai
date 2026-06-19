@@ -44,6 +44,7 @@ export default function Navbar() {
         <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
           <NavLink to="/">Confronta</NavLink>
           <NavLink to="/come-funziona">Come funziona</NavLink>
+          <a href="/per-llm" style={{ padding:'8px 16px', borderRadius:8, fontSize:13, fontWeight:600, color:'#94a3b8', textDecoration:'none' }}>Per LLM</a>
           <a href="/faq.html" style={{ padding:'8px 16px', borderRadius:8, fontSize:13, fontWeight:600, color:'#94a3b8', textDecoration:'none' }}>FAQ</a>
         </div>
       </div>
