@@ -31,6 +31,7 @@
   nav { position:sticky; top:0; z-index:100; background:rgba(10,13,20,0.85); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border-bottom:1px solid rgba(255,255,255,0.06); }
   nav .links a { color: var(--text2); text-decoration: none; font-weight: 600; font-size: 13px; padding: 8px 16px; border-radius: 8px; transition: all 0.15s; }
   nav .links a:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+  nav .links a.active { color: #f1f5f9 !important; background: rgba(255,255,255,0.06); }
   nav .logo { color: var(--text); font-weight: 800; font-size: 16px; }
   nav .logo span { color: var(--amber); }
   .container { max-width: 860px; margin: 0 auto; padding: 3rem 1.5rem; }
@@ -61,7 +62,7 @@
     <div style="display:flex;gap:4px;align-items:center;">
       <a href="/" style="padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;color:#94a3b8;text-decoration:none;">Confronta</a>
       <a href="/come-funziona" style="padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;color:#94a3b8;text-decoration:none;">Come funziona</a>
-      <a href="/per-llm" style="padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;color:#94a3b8;text-decoration:none;">Per LLM</a>
+      <a href="/per-llm" class="active" style="padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;color:#94a3b8;text-decoration:none;">Per LLM</a>
       <a href="/faq.html" style="padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;color:#94a3b8;text-decoration:none;">FAQ</a>
     </div>
   </div>
