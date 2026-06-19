@@ -183,8 +183,13 @@ export default function Home() {
       <section style={{ padding: '60px 24px 50px', textAlign: 'center', position: 'relative' }}>
         <div style={{ position: 'absolute', top: '10%', left: '50%', translate: '-50%', width: 600, height: 400, background: `radial-gradient(ellipse, ${accentColor}15, transparent 70%)`, pointerEvents: 'none' }} />
         <div className="container" style={{ position: 'relative' }}>
-          <div className="badge badge-tag animate-fade-in" style={{ marginBottom: 24, fontSize: 12, padding: '6px 16px' }}>
-            🤖 Progettato per funzionare con Claude, ChatGPT e Gemini
+          <div className="animate-fade-in" style={{ display: 'flex', justifyContent: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 24 }}>
+            <div className="badge badge-tag" style={{ fontSize: 12, padding: '6px 16px' }}>
+              🤖 Progettato per Claude, ChatGPT e Gemini
+            </div>
+            <a href="/mcp.html" className="badge badge-tag" style={{ fontSize: 12, padding: '6px 16px', textDecoration: 'none', background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', color: '#6ee7b7' }}>
+              🧠 Connetti la tua AI in 1 minuto →
+            </a>
           </div>
           <h1 className="animate-fade-in-up" style={{ fontSize: 'clamp(36px, 6vw, 56px)', fontWeight: 900, lineHeight: 1.08, letterSpacing: '-2px', marginBottom: 20 }}>
             <span className="text-gradient">Chiedi alla tua AI</span><br/>
