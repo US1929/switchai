@@ -32,12 +32,12 @@
   :root { --bg: #0a0d14; --surface: #111620; --border: rgba(255,255,255,0.06); --text: #f1f5f9; --text2: #94a3b8; --text3: #64748b; --amber: #f59e0b; --green: #10b981; }
   * { margin:0; padding:0; box-sizing:border-box; }
   body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); line-height: 1.8; -webkit-font-smoothing: antialiased; }
-  nav { position:sticky; top:0; z-index:100; background:rgba(10,13,20,0.85); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border-bottom:1px solid rgba(255,255,255,0.06); }
-  nav .links a { color: var(--text2); text-decoration: none; font-weight: 600; font-size: 13px; padding: 8px 16px; border-radius: 8px; transition: all 0.15s; }
-  nav .links a:hover { color: var(--text); background: rgba(255,255,255,0.04); }
-  nav .links a.active { color: #f1f5f9 !important; background: rgba(255,255,255,0.06); }
-  nav .logo { color: var(--text); font-weight: 800; font-size: 16px; }
-  nav .logo span { color: var(--amber); }
+
+
+
+
+
+
   .container { max-width: 800px; margin: 0 auto; padding: 3rem 1.5rem; }
   h1 { font-size: 2rem; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 0.5rem; }
   h2 { font-size: 1.2rem; font-weight: 700; margin-top: 2.5rem; padding-bottom: 0.3rem; border-bottom: 1px solid var(--border); }
@@ -56,20 +56,7 @@
 </head>
 <body>
 
-<nav>
-  <div style="max-width:1040px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;padding:14px 24px;">
-    <a href="/" style="display:flex;align-items:center;gap:10px;text-decoration:none;">
-      <img src="/img/logo-76.png" alt="SwitchAI" width="38" height="38" style="border-radius:10px;box-shadow:0 4px 12px rgba(245,158,11,0.3);" />
-      <span style="font-size:18px;font-weight:800;color:#f1f5f9;letter-spacing:-0.5px;">Switch<span style="color:#f59e0b;">AI</span></span>
-    </a>
-    <div style="display:flex;gap:4px;align-items:center;">
-      <a href="/" style="padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;color:#94a3b8;text-decoration:none;">Confronta</a>
-      <a href="/come-funziona" class="active" style="padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;color:#f1f5f9;background:rgba(255,255,255,0.06);text-decoration:none;">Come funziona</a>
-      <a href="/per-llm" style="padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;color:#94a3b8;text-decoration:none;">Per LLM</a>
-      <a href="/faq.html" style="padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;color:#94a3b8;text-decoration:none;">FAQ</a>
-    </div>
-  </div>
-</nav>
+<!--#include virtual="/nav.html" -->
 
 <div class="container">
 <h1>Come funziona SwitchAI</h1>

@@ -71,6 +71,10 @@ RewriteRule ^connettori$ /faq.html [R=301,L]
   RewriteRule . /index.html [L]
 </IfModule>
 
+# Server-Side Includes per file .html (nav centralizzata)
+Options +Includes
+AddOutputFilter INCLUDES .html
+
 # Forza UTF-8 su tutti i file
 # MIME type per JavaScript modules (.mjs)
 <IfModule mod_mime.c>
