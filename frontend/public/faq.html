@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="canonical" href="https://www.switchai.it/faq.html" />
+<meta name="description" content="Domande frequenti su SwitchAI — come connettere la tua AI, come funziona l'MCP Server, privacy, offerte, compatibilità.">
+<meta name="robots" content="index, follow">
+<meta name="theme-color" content="#0a0d14">
+<link rel="icon" type="image/png" sizes="32x32" href="/img/favicon-32x32.png">
+<link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
+<title>FAQ — SwitchAI</title>
+<meta property="og:title" content="FAQ — SwitchAI" />
+<meta property="og:description" content="Come connettere la tua AI a SwitchAI, domande frequenti su MCP, privacy, offerte e compatibilità." />
+<meta property="og:url" content="https://www.switchai.it/faq.html" />
+<meta property="og:type" content="website" />
+<style>
+  :root { --bg: #0a0d14; --surface: #111620; --border: rgba(255,255,255,0.06); --text: #f1f5f9; --text2: #94a3b8; --text3: #64748b; --amber: #f59e0b; --green: #10b981; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); line-height: 1.8; -webkit-font-smoothing: antialiased; }
+
+  nav { position:sticky; top:0; z-index:100; background:rgba(10,13,20,0.85); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border-bottom:1px solid rgba(255,255,255,0.06); }
+  nav .nav-inner { max-width:1040px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; padding:14px 24px; }
+  nav .logo { display:flex; align-items:center; gap:10px; text-decoration:none; }
+  nav .logo img { width:38px; height:38px; border-radius:10px; box-shadow:0 4px 12px rgba(245,158,11,0.3); }
+  nav .logo span { font-size:18px; font-weight:800; color:#f1f5f9; letter-spacing:-0.5px; }
+  nav .logo span b { color:var(--amber); }
+  nav .links { display:flex; gap:4px; align-items:center; }
+  nav .links a { padding:8px 16px; border-radius:8px; font-size:13px; font-weight:600; color:var(--text2); text-decoration:none; transition:all 0.15s; }
+  nav .links a:hover { color:var(--text); background:rgba(255,255,255,0.04); }
+  nav .links a.active { color:var(--text); background:rgba(255,255,255,0.06); }
+
+  .container { max-width: 860px; margin: 0 auto; padding: 2rem 1.5rem 3rem; }
+
+  h1 { font-size: 2rem; font-weight: 900; text-align: center; margin-bottom: 0.5rem; letter-spacing: -1px; }
+  h1 span { color: var(--amber); }
+  .subtitle { text-align: center; color: var(--text2); font-size: 1rem; margin-bottom: 2.5rem; }
+
+  h2 { font-size: 1.3rem; font-weight: 800; margin-bottom: 1.25rem; }
+  .section { margin: 2.5rem 0; }
+
+  .integrations { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.85rem; }
+  .integ-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; text-align: center; transition: border-color 0.2s; }
+  .integ-card:hover { border-color: rgba(245,158,11,0.3); }
+  .integ-card .tool-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+  .integ-card h4 { font-size: 0.9rem; font-weight: 700; margin-bottom: 0.25rem; }
+  .integ-card .tag { display: inline-block; font-size: 0.65rem; padding: 2px 8px; border-radius: 4px; background: rgba(245,158,11,0.08); color: var(--amber); font-weight: 600; margin-bottom: 0.5rem; }
+  .integ-card .steps { font-size: 0.75rem; color: var(--text3); line-height: 1.6; }
+  .integ-card .steps code { background: rgba(255,255,255,0.04); padding: 1px 5px; border-radius: 3px; font-size: 0.7rem; color: var(--amber); }
+
+  .why { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 2rem 2rem 1.5rem; }
+  .why h2 { font-size: 1.2rem; text-align: center; }
+  .why h2 span { color: var(--green); }
+  .why-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+  @media (max-width: 600px) { .why-grid { grid-template-columns: 1fr; } }
+  .why-col h3 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text3); margin-bottom: 0.75rem; }
+  .why-col .item { display: flex; gap: 10px; margin-bottom: 0.85rem; align-items: flex-start; }
+  .why-col .item .check { color: var(--green); font-weight: 700; flex-shrink: 0; }
+  .why-col .item .cross { color: #f87171; font-weight: 700; flex-shrink: 0; }
+  .why-col .item span { font-size: 0.88rem; color: var(--text2); line-height: 1.5; }
+
+  .faq details { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.1rem 1.4rem; margin-bottom: 0.6rem; cursor: pointer; transition: border-color 0.2s; }
+  .faq details:hover { border-color: rgba(255,255,255,0.12); }
+  .faq details summary { font-weight: 700; font-size: 0.95rem; color: var(--text); list-style: none; display: flex; justify-content: space-between; align-items: center; }
+  .faq details summary::after { content: '+'; font-size: 1.2rem; color: var(--text3); }
+  .faq details[open] summary::after { content: '−'; }
+  .faq details .answer { margin-top: 0.75rem; font-size: 0.88rem; color: var(--text2); line-height: 1.7; }
+  .faq details .answer code { background: rgba(255,255,255,0.04); padding: 1px 6px; border-radius: 3px; font-size: 0.8rem; color: var(--amber); }
+
+  footer { text-align: center; padding: 2rem 1.5rem; border-top: 1px solid var(--border); color: var(--text3); font-size: 0.8rem; }
+  footer a { color: var(--text2); text-decoration: none; }
+  footer a:hover { color: var(--text); }
+
+  .btn-outline { display: inline-block; padding: 10px 22px; border-radius: 10px; font-weight: 700; font-size: 0.85rem; text-decoration: none; border: 1px solid var(--border); color: var(--text); transition: all 0.2s; }
+  .btn-outline:hover { border-color: rgba(255,255,255,0.2); background: rgba(255,255,255,0.03); }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="logo">
+      <img src="/img/logo-76.png" alt="SwitchAI" width="38" height="38" />
+      <span>Switch<b>AI</b></span>
+    </a>
+    <div class="links">
+      <a href="/">Confronta</a>
+      <a href="/come-funziona">Come funziona</a>
+      <a href="/per-llm">Per LLM</a>
+      <a href="/faq.html" class="active">FAQ</a>
+    </div>
+  </div>
+</nav>
+
+<div class="container">
+  <h1>Domande <span>frequenti</span></h1>
+  <p class="subtitle">Tutto quello che devi sapere per connettere la tua AI a SwitchAI e risparmiare sulla bolletta.</p>
+
+  <div class="section">
+    <h2>🔌 Connetti la tua AI</h2>
+    <div class="integrations">
+      <div class="integ-card">
+        <div class="tool-icon">🧠</div>
+        <h4>Claude Web</h4>
+        <div class="tag">Consigliato</div>
+        <div class="steps">Impostazioni → Connettori → Aggiungi connettore → <code>switchai.it/mcp</code></div>
+      </div>
+      <div class="integ-card">
+        <div class="tool-icon">💻</div>
+        <h4>Claude Desktop</h4>
+        <div class="tag">Locale</div>
+        <div class="steps">Apri <code>claude_desktop_config.json</code> e aggiungi <code>switchai.it/mcp</code></div>
+      </div>
+      <div class="integ-card">
+        <div class="tool-icon">🧩</div>
+        <h4>ChatGPT</h4>
+        <div class="tag">Plus/Pro</div>
+        <div class="steps">Esplora GPT → Azioni → Importa da URL <code>switchai.it/openapi.json</code></div>
+      </div>
+      <div class="integ-card">
+        <div class="tool-icon">📋</div>
+        <h4>Copia e incolla</h4>
+        <div class="tag">Tutti i LLM</div>
+        <div class="steps">Funziona con Gemini, DeepSeek, e qualsiasi AI. <a href="/" style="color:var(--amber);font-size:0.75rem">Vai alla home →</a></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="why">
+      <h2><span>✓</span> Perché SwitchAI è diverso</h2>
+      <div class="why-grid" style="margin-top:1.25rem">
+        <div class="why-col">
+          <h3>Con SwitchAI</h3>
+          <div class="item"><span class="check">✓</span><span>URL pubblico già hosted — <b>zero installazione</b></span></div>
+          <div class="item"><span class="check">✓</span><span>Funziona su <b>qualsiasi dispositivo</b></span></div>
+          <div class="item"><span class="check">✓</span><span><b>7 tool</b> pronti all'uso</span></div>
+          <div class="item"><span class="check">✓</span><span><b>Nessuna API key</b> richiesta</span></div>
+          <div class="item"><span class="check">✓</span><span>Streamable HTTP — <b>niente Docker</b></span></div>
+        </div>
+        <div class="why-col">
+          <h3>Tipico server MCP self-hosted</h3>
+          <div class="item"><span class="cross">✗</span><span>Clonare repo, installare dipendenze</span></div>
+          <div class="item"><span class="cross">✗</span><span>Funziona solo su un dispositivo</span></div>
+          <div class="item"><span class="cross">✗</span><span>Aggiornamenti manuali</span></div>
+          <div class="item"><span class="cross">✗</span><span>API key da configurare</span></div>
+          <div class="item"><span class="cross">✗</span><span>Serve Docker o runtime attivo</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>📋 Domande frequenti</h2>
+    <div class="faq">
+      <details>
+        <summary>Cos'è un MCP Server?</summary>
+        <div class="answer">MCP (Model Context Protocol) è lo standard aperto che permette alle AI di connettersi a servizi esterni. Un MCP Server come SwitchAI espone dei <b>tool</b> che l'AI può chiamare — nel nostro caso, confrontare tariffe energia, analizzare bollette, e avviare sottoscrizioni.</div>
+      </details>
+      <details>
+        <summary>Come funziona SwitchAI con la mia AI?</summary>
+        <div class="answer">L'AI riceve la tua bolletta, estrae consumi e spesa, e chiama i tool SwitchAI via HTTP. SwitchAI confronta <b>44+ offerte</b> in tempo reale, calcola il risparmio con tutti i costi regolati ARERA, e restituisce le migliori 3 offerte con link di attivazione. <b>Tutto senza uscire dalla chat.</b></div>
+      </details>
+      <details>
+        <summary>Serve un account o una API key?</summary>
+        <div class="answer"><b>No.</b> Per usare i tool di analisi e confronto non serve registrarsi né configurare API key. Solo per la sottoscrizione finale servono i tuoi dati — e vengono usati esclusivamente per compilare il form di attivazione.</div>
+      </details>
+      <details>
+        <summary>I miei dati sono al sicuro?</summary>
+        <div class="answer">Sì. SwitchAI riceve dalla tua AI solo <b>dati numerici</b> (consumo annuo, spesa, zona). I dati personali restano nella conversazione con l'AI. L'attivazione segue il <b>double opt-in GDPR</b>: ricevi una email di conferma e devi cliccare il link per completare.</div>
+      </details>
+      <details>
+        <summary>Quali offerte vengono confrontate?</summary>
+        <div class="answer">SwitchAI confronta <b>44+ offerte</b> di luce e gas da 13 fornitori del mercato libero italiano (Enel, Eni, Edison, A2A, Iren, Hera, Sorgenia, Engie, Fastweb, Illumia, Acea, Octopus, NeN). I prezzi sono aggiornati in tempo reale.</div>
+      </details>
+      <details>
+        <summary>Il risparmio mostrato è affidabile?</summary>
+        <div class="answer">Sì. SwitchAI usa l'approccio <b>"Totale vs Totale"</b>: calcola il costo completo includendo materia energia, trasporto, oneri di sistema, accise e IVA. Se il risparmio è inferiore a <b>50€/anno o al 5%</b>, SwitchAI consiglia di <b>non cambiare</b>.</div>
+      </details>
+      <details>
+        <summary>Posso usarlo su mobile?</summary>
+        <div class="answer">Sì. SwitchAI MCP usa <b>Streamable HTTP</b>, quindi funziona con qualsiasi client MCP su qualsiasi dispositivo. Su Claude mobile, aggiungi il connettore come faresti su web.</div>
+      </details>
+      <details>
+        <summary>Mi conviene il fisso o il variabile?</summary>
+        <div class="answer">SwitchAI analizza il trend PUN/PSV degli ultimi 30 giorni e ti dice se il mercato è stabile o volatile. Il tool <code>get_market_indices</code> restituisce i dati live con una raccomandazione automatica basata sulla volatilità.</div>
+      </details>
+    </div>
+  </div>
+
+  <div style="text-align:center;margin-top:2rem">
+    <a href="/" class="btn-outline">⚡ Torna al confronto</a>
+    <a href="https://glama.ai/mcp/servers/US1929/switchai" class="btn-outline" style="margin-left:8px">Vedi su Glama ↗</a>
+  </div>
+</div>
+
+<footer>
+  <a href="/">Home</a> · <a href="/privacy">Privacy</a> · <a href="/come-funziona">Come funziona</a> · <a href="/per-llm">Per LLM</a> · <a href="/faq.html">FAQ</a><br><br>
+  © 2026 SwitchAI — switchai.it
+</footer>
+</body>
+</html>
