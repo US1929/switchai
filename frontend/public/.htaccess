@@ -27,6 +27,7 @@
   RewriteRule ^privacy\.html$ - [L,NC]
   RewriteRule ^come-funziona\.html$ - [L,NC]
   RewriteRule ^cookie\.html$ - [L,NC]
+RewriteRule ^mcp\.html$ - [L,NC]
 
   # Redirect SEO-friendly: URL pulito → .html (301 esplicito)
   # NOTA: 301 esplicito viene processato PRIMA di MultiViews, quindi niente loop
@@ -34,6 +35,7 @@
   RewriteRule ^privacy$ /privacy.html [R=301,L]
   RewriteRule ^come-funziona$ /come-funziona.html [R=301,L]
   RewriteRule ^cookie$ /cookie.html [R=301,L]
+RewriteRule ^connettori$ /mcp.html [R=301,L]
 
   # Pagine offerta generate dinamicamente (per crawler/SEO)
   RewriteRule ^offerta/([a-zA-Z0-9\-]+)$ api/index.php [QSA,L]
