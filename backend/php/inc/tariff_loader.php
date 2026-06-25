@@ -124,6 +124,11 @@ function normalizeLuceOffer(array $offer): ?array {
 
     if ($prezzo === null || $prezzo <= 0) return null;
 
+    // Se tariffa VARIABILE ma spread non disponibile, stima da prezzo - PUN
+    if ($tipo === 'VARIABILE' && $spread === null && $pun !== null) {
+        $spread = max(0, round($prezzo - $pun, 6));
+    }
+
     $costoFissoAnnuale = parseItalianNumber($offer['costo_fisso'] ?? null) ?? 0.0;
 
     // Campi aggiuntivi (solo se valorizzati)
@@ -191,6 +196,11 @@ function normalizeGasOffer(array $offer): ?array {
     }
 
     if ($prezzo === null || $prezzo <= 0) return null;
+
+    // Se tariffa VARIABILE ma spread non disponibile, stima da prezzo - PSV
+    if ($tipo === 'VARIABILE' && $spread === null && $psv !== null) {
+        $spread = max(0, round($prezzo - $psv, 6));
+    }
 
     $costoFissoAnnuale = parseItalianNumber($offer['costo_fisso'] ?? null) ?? 0.0;
 

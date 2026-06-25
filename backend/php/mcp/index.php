@@ -93,6 +93,9 @@ if ($method === 'tools/list') {
                             'spesa_materia_energia' => ['type' => 'number', 'description' => 'Spesa annua MATERIA ENERGIA in € (solo componente energia/gas, ESCLUDI trasporto, oneri, imposte, IVA, Canone RAI). Dal dettaglio costi bolletta.'],
                             'quota_fissa_mensile' => ['type' => 'number', 'description' => 'Quota fissa mensile in €/mese dal Box Offerta o dettaglio costi. Es: "12,00 €/mese".'],
                             'tipo_cliente'      => ['type' => 'string', 'enum' => ['residenziale', 'business'], 'description' => 'Tipo cliente: "residenziale" (uso domestico/residenziale) o "business" (Partita IVA, non domestico, azienda). Default: residenziale.'],
+                            'tariff_type'       => ['type' => 'string', 'enum' => ['fisso', 'variabile'], 'description' => '(Opzionale) Tipo tariffa attuale: "fisso" o "variabile". Per tariffe variabili il confronto usa PUN simmetrico.'],
+                            'spread_eur_kwh'    => ['type' => 'number', 'description' => '(Opzionale) Spread attuale in €/kWh per tariffe LUCE variabili. Dal Box Offerta.'],
+                            'spread_eur_smc'    => ['type' => 'number', 'description' => '(Opzionale) Spread attuale in €/Smc per tariffe GAS variabili. Dal Box Offerta.'],
                             'zona'              => ['type' => 'string', 'enum' => ['NORD', 'CENTRO', 'SUD'], 'description' => 'Zona tariffaria: NORD (Lombardia, Piemonte, Veneto...), CENTRO (Toscana, Lazio, Marche...), SUD (Campania, Sicilia, Calabria...).'],
                             // ── Dati personali per prefill form (TUTTI opzionali) ──
                             'nome'              => ['type' => 'string', 'description' => 'Nome intestatario bolletta per precompilare il form di attivazione.'],
@@ -308,6 +311,7 @@ function mcp_analyze(array $args): string {
     $spesa = (float)($args['spesa_annua_eur'] ?? 0);
     $zona = $args['zona'] ?? 'NORD';
     $canoneRai = (float)($args['canone_rai'] ?? 0);
+    $tariffType = $args['tariff_type'] ?? null;
 
     // Parse da bill_text solo come fallback
     if (empty($consumo) && !empty($args['bill_text'])) {
@@ -325,11 +329,76 @@ function mcp_analyze(array $args): string {
         $spesa = $commodity === 'LUCE' ? ($consumo * 0.18 + 144) : ($consumo * 0.65 + 144);
     }
 
+    // ── FETCH LIVE PUN/PSV (per confronto simmetrico ARERA) ─
+    $livePunEurKwh = null;
+    $livePsvEurSmc = null;
+    try {
+        $peUrl = 'https://portaleenergia.it/api/dashboard?period=today';
+        $peJson = @file_get_contents($peUrl, false, stream_context_create(['http' => ['timeout' => 6, 'header' => "User-Agent: Mozilla/5.0\r\n"]]));
+        if ($peJson) {
+            $peData = json_decode($peJson, true);
+            $punData = $peData['pun'] ?? null;
+            $psvData = $peData['psv'] ?? null;
+            if ($punData) $livePunEurKwh = round((float)$punData['price'] / 1000, 6);
+            if ($psvData) $livePsvEurSmc = round((float)$psvData['price'] / 1000, 6);
+        }
+    } catch (Throwable $e) { /* fallback: usa prezzi congelati */ }
+
+    // ── RICALCOLO SPESA PER TARIFFE VARIABILI ─
+    $isCurrentVariable = false;
+    $spesaAttualizzata = null;
+    if ($tariffType) {
+        $isCurrentVariable = strtolower($tariffType) === 'variabile';
+    } elseif (!empty($args['bill_text'])) {
+        $low = mb_strtolower($args['bill_text']);
+        $isCurrentVariable = str_contains($low, 'variabile') || str_contains($low, 'indicizzato')
+                   || str_contains($low, 'pun') || str_contains($low, 'psv');
+    }
+
+    if ($isCurrentVariable && $consumo > 0 && $livePunEurKwh !== null && $commodity === 'LUCE') {
+        $estimatedSpread = (float)($args['spread_eur_kwh'] ?? 0);
+        if ($estimatedSpread <= 0 && !empty($args['bill_text'])) {
+            if (preg_match('/(?:PUN|PSV)\s*\+\s*([\d,.]+)/i', $args['bill_text'], $m)) {
+                $estimatedSpread = (float)str_replace(',', '.', $m[1]);
+            } elseif (preg_match('/spread[:\s]*([\d,.]+)/i', $args['bill_text'], $m)) {
+                $estimatedSpread = (float)str_replace(',', '.', $m[1]);
+            }
+        }
+        if ($estimatedSpread <= 0) {
+            $estimatedSpread = max(0.002, round(($spesa / $consumo) - $livePunEurKwh - 0.045, 4));
+        }
+        $energyCostNow = $consumo * ($livePunEurKwh + $estimatedSpread) * LUCE_PERDITE_RETE_BT;
+        $quotaFissaMensile = (float)($args['quota_fissa_mensile'] ?? 0);
+        $fixedNow = ($quotaFissaMensile > 0 ? $quotaFissaMensile : 10.00) * 12 + (21.48 * 3.0) + QUOTA_FISSA_RETI_LUCE;
+        $oneriAcciseTrasporto = $consumo * (ONERI_SISTEMA_LUCE + LUCE_ACCISE + LUCE_TRASPORTO_VAR);
+        $subtotalNow = $energyCostNow + $fixedNow + $oneriAcciseTrasporto;
+        $spesaAttualizzata = round($subtotalNow * 1.10, 2);
+    } elseif ($isCurrentVariable && $consumo > 0 && $livePsvEurSmc !== null && $commodity === 'GAS') {
+        $estimatedSpread = (float)($args['spread_eur_smc'] ?? 0);
+        if ($estimatedSpread <= 0 && !empty($args['bill_text'])) {
+            if (preg_match('/(?:PUN|PSV)\s*\+\s*([\d,.]+)/i', $args['bill_text'], $m)) {
+                $estimatedSpread = (float)str_replace(',', '.', $m[1]);
+            }
+        }
+        if ($estimatedSpread <= 0) {
+            $estimatedSpread = max(0.005, round(($spesa / $consumo) - $livePsvEurSmc - 0.05, 4));
+        }
+        $energyCostNow = $consumo * ($livePsvEurSmc + $estimatedSpread);
+        $quotaFissaMensile = (float)($args['quota_fissa_mensile'] ?? 0);
+        $fixedNow = ($quotaFissaMensile > 0 ? $quotaFissaMensile : 10.00) * 12 + QUOTA_FISSA_RETI_GAS;
+        $oneriAcciseTrasporto = $consumo * (GAS_TRASPORTO_VAR + GAS_ONERI_SISTEMA + GAS_ACCISE);
+        $subtotalNow = $energyCostNow + $fixedNow + $oneriAcciseTrasporto;
+        $iva10 = min($consumo, GAS_SOGLIA_IVA_10) / ($consumo ?: 1) * $subtotalNow * GAS_IVA_10;
+        $iva22 = max(0, $consumo - GAS_SOGLIA_IVA_10) / ($consumo ?: 1) * $subtotalNow * GAS_IVA_22;
+        $spesaAttualizzata = round($subtotalNow + $iva10 + $iva22, 2);
+    }
+
     // Canone RAI: sottrai dalla spesa per confronto equo (non cambia con fornitore)
-    if ($canoneRai <= 0 && $commodity === 'LUCE' && $spesa > 100) {
+    $spesaBase = $spesaAttualizzata ?? $spesa;
+    if ($canoneRai <= 0 && $commodity === 'LUCE' && $spesaBase > 100) {
         $canoneRai = CANONE_RAI_ANNUO; // Assume standard se non rilevato
     }
-    $spesaNettaConfronto = max(0, $spesa - $canoneRai);
+    $spesaNettaConfronto = max(0, $spesaBase - $canoneRai);
 
     $result = calculateSavingsBreakdown([
         'commodity'              => $commodity,
@@ -337,6 +406,8 @@ function mcp_analyze(array $args): string {
         'yearly_consumption_smc'  => $commodity === 'GAS' ? $consumo : 0,
         'zone'                    => $zona,
         'current_annual_spend'    => $spesaNettaConfronto,
+        'live_pun_eur_kwh'       => $livePunEurKwh,
+        'live_psv_eur_smc'       => $livePsvEurSmc,
     ]);
 
     $icon = $commodity === 'LUCE' ? '⚡' : '🔥';
@@ -377,11 +448,21 @@ function mcp_analyze(array $args): string {
     $md .= "## {$icon} Bolletta analizzata\n\n";
     $md .= "✅ **{$consumo} {$unit}/anno** · Zona **{$zona}** · {$fornitore}\n";
     $md .= $lossNote;
+    if ($livePunEurKwh !== null) {
+        $md .= "🔍 **PUN corrente: " . round($livePunEurKwh * 1000, 1) . " €/MWh** — confronto simmetrico ARERA (stesso PUN per entrambe le tariffe variabili)\n";
+    } elseif ($livePsvEurSmc !== null) {
+        $md .= "🔍 **PSV corrente: " . round($livePsvEurSmc * 1000, 1) . " €/MWh** — confronto simmetrico ARERA (stesso PSV per entrambe le tariffe variabili)\n";
+    }
     $md .= "\n---\n\n";
 
     // ── Spesa attuale ────────────────────────────────────
     $md .= "### 💰 La tua spesa attuale\n\n";
-    $md .= "# " . round($spesa, 0) . " €/anno\n\n";
+    $md .= "# " . round($spesaBase, 0) . " €/anno\n\n";
+    if ($spesaAttualizzata !== null && $spesaAttualizzata !== $spesa) {
+        $diffSpesa = round($spesaAttualizzata - $spesa, 0);
+        $arrowSpesa = $diffSpesa > 0 ? '📈' : '📉';
+        $md .= "{$arrowSpesa} Ricalcolata a PUN corrente: **{$spesaAttualizzata} €/anno** (bolletta originale: {$spesa} €/anno — PUN diverso)\n\n";
+    }
     if ($canoneRai > 0) {
         $md .= "Di cui **Canone RAI: {$canoneRai} €/anno** (non cambia con il fornitore)\n\n";
     }
@@ -466,6 +547,9 @@ function mcp_analyze(array $args): string {
     // ── Footer ───────────────────────────────────────────
     $md .= "---\n\n";
     $md .= "⚠️ Simulazione con prezzi di oggi. I prezzi energia cambiano ogni giorno. Dati ARERA.\n";
+    if ($livePunEurKwh !== null || $livePsvEurSmc !== null) {
+        $md .= "📐 **Metodo ARERA:** confronto simmetrico — stesso PUN/PSV corrente per entrambe le tariffe variabili. Il risparmio riflette solo differenze contrattuali (spread + quota fissa).\n";
+    }
     $md .= "📨 L'utente deve **verificare i dati, cliccare Invia** sul form, e poi **cliccare il link nella email** di conferma (GDPR double opt-in).\n";
     $md .= "\n*switchai.it · " . date('Y-m-d') . "*";
     $md .= "\n\n> ℹ️ Mostra questo output in formato strutturato (non parafrasare). L'utente deve vedere TUTTE le offerte con i rispettivi link di attivazione.";

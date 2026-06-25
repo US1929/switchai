@@ -94,6 +94,9 @@ export default function Home() {
         if (extractedData.tipo_cliente) body.tipo_cliente = extractedData.tipo_cliente;
         if (extractedData.spesa_materia_energia > 0) body.spesa_materia_energia = Number(extractedData.spesa_materia_energia);
         if (extractedData.quota_fissa_mensile > 0) body.quota_fissa_mensile = Number(extractedData.quota_fissa_mensile);
+        // PUN/PSV live per confronto simmetrico ARERA
+        if (punEurKwh > 0) body.pun_eur_kwh = punEurKwh;
+        if (psvEurSmc > 0) body.psv_eur_smc = psvEurSmc;
 
         const r = await fetch('/api/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
         const d = await r.json();
@@ -134,11 +137,13 @@ export default function Home() {
       const hasRealSpend = spesaLocal && !isNaN(parseFloat(spesaLocal));
       const spendBase = hasRealSpend ? parseFloat(spesaLocal) : estimateSpend(isLuceLocal ? 'luce' : 'gas', consumoLocal);
       const computed = deduped.map(t => {
-        const cost = isLuceLocal ? calcLuceCost(t, consumoLocal, MERCATO.PUN_REF) : calcGasCost(t, consumoLocal, MERCATO.PSV_REF);
+        const punRef = punEurKwh || MERCATO.PUN_REF;
+        const psvRef = psvEurSmc || MERCATO.PSV_REF;
+        const cost = isLuceLocal ? calcLuceCost(t, consumoLocal, punRef) : calcGasCost(t, consumoLocal, psvRef);
         if (!cost || cost <= 0) return null;
         const savings = hasRealSpend ? (spendBase - cost) : null;
         const savingsPct = hasRealSpend && spendBase > 0 ? ((spendBase - cost) / spendBase) * 100 : null;
-        const bd = buildBreakdown(t, isLuceLocal ? 'luce' : 'gas', consumoLocal, spendBase, cost, MERCATO.PUN_REF, MERCATO.PSV_REF);
+        const bd = buildBreakdown(t, isLuceLocal ? 'luce' : 'gas', consumoLocal, spendBase, cost, punRef, psvRef);
         return { tariff: t, annualCost: cost, savings, savingsPct, breakdown: bd, hasRealSpend };
       }).filter(Boolean).sort((a, b) => a.annualCost - b.annualCost);
       setResults({ items: computed, currentSpend: spendBase, hasRealSpend });

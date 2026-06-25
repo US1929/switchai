@@ -1,8 +1,8 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.US1929/switchai",
-  "description": "Compare Italian energy tariffs with AI. Analyzes bills (Canone RAI detection), finds best offers, live market indices, GDPR double opt-in.",
-  "version": "1.0.4",
+  "description": "Compare Italian energy tariffs with AI. ARERA symmetric PUN method: same forward PUN for variable tariffs. Analyzes bills (Canone RAI detection), finds best offers, live market indices, GDPR double opt-in.",
+  "version": "1.0.5",
   "website": "https://www.switchai.it",
   "docs": "https://www.switchai.it/per-llm",
   "repository": {
@@ -13,7 +13,7 @@
     {
       "registryType": "npm",
       "identifier": "@us1929/switchai-mcp",
-      "version": "1.0.4",
+      "version": "1.0.5",
       "transport": {
         "type": "streamable-http",
         "url": "https://www.switchai.it/mcp"

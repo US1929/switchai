@@ -789,19 +789,100 @@ function handleV2Analyze(array $input): void {
         $profile['spesa_stimata'] = true;
     }
 
+    // ── FETCH LIVE PUN/PSV (PRIMA del confronto, per calcolo simmetrico ARERA) ─
+    $livePunEurKwh = null;
+    $livePsvEurSmc = null;
+    $pun = null;
+    $psv = null;
+    $peData = null;
+    try {
+        $peUrl = 'https://portaleenergia.it/api/dashboard?period=today';
+        $peJson = @file_get_contents($peUrl, false, stream_context_create(['http' => ['timeout' => 6, 'header' => "User-Agent: Mozilla/5.0\r\n"]]));
+        if ($peJson) {
+            $peData = json_decode($peJson, true);
+            $pun = $peData['pun'] ?? null;
+            $psv = $peData['psv'] ?? null;
+            if ($pun) $livePunEurKwh = round((float)$pun['price'] / 1000, 6); // €/MWh → €/kWh
+            if ($psv) $livePsvEurSmc = round((float)$psv['price'] / 1000, 6); // €/MWh → €/Smc
+        }
+    } catch (Throwable $e) { /* PUN/PSV non disponibile, si usa fallback */ }
+
+    // ── RICALCOLO SPESA ATTUALE PER TARIFFE VARIABILI (PUN Forward simmetrico) ─
+    // Se la tariffa attuale è variabile, la spesa dalla bolletta ha un PUN "vecchio".
+    // Ricalcoliamo con il PUN corrente per un confronto equo con le nuove offerte variabili.
+    $isCurrentVariable = false;
+    $estimatedUserSpread = null;
+    if (!empty($input['bill_text'])) {
+        $low = mb_strtolower($input['bill_text']);
+        $isCurrentVariable = str_contains($low, 'variabile') || str_contains($low, 'indicizzato')
+                   || str_contains($low, 'pun') || str_contains($low, 'psv');
+    } elseif (!empty($input['tariff_type'])) {
+        $isCurrentVariable = strtolower($input['tariff_type']) === 'variabile';
+    }
+
+    $spesaAttualizzata = null; // Spesa ricalcolata a PUN corrente (solo per variabili)
+    if ($isCurrentVariable && $consumo > 0 && $livePunEurKwh !== null && $commodity === 'LUCE') {
+        // Estrai spread dalla bolletta
+        $estimatedUserSpread = null;
+        if (!empty($input['bill_text'])) {
+            if (preg_match('/(?:PUN|PSV)\s*\+\s*([\d,.]+)/i', $input['bill_text'], $m)) {
+                $estimatedUserSpread = (float)str_replace(',', '.', $m[1]);
+            } elseif (preg_match('/spread[:\s]*([\d,.]+)/i', $input['bill_text'], $m)) {
+                $estimatedUserSpread = (float)str_replace(',', '.', $m[1]);
+            }
+        }
+        // Fallback: stima spread dal prezzo medio in bolletta
+        if ($estimatedUserSpread === null || $estimatedUserSpread <= 0) {
+            $avgPriceBill = $spesaAnnua / $consumo;
+            $nonNeg = 0.045; // trasporto+oneri+accise ~0.045 €/kWh
+            $estimatedUserSpread = max(0.002, round($avgPriceBill - $livePunEurKwh - $nonNeg, 4));
+        }
+        // Ricalcolo spesa attuale a PUN corrente
+        $energyCostNow = $consumo * ($livePunEurKwh + $estimatedUserSpread) * LUCE_PERDITE_RETE_BT;
+        $costoPotenza = 21.48 * ($profile['potenza_impegnata'] ?? 3.0);
+        $oneriNow = $consumo * ONERI_SISTEMA_LUCE;
+        $acciseNow = $consumo * LUCE_ACCISE;
+        $trasportoNow = $consumo * LUCE_TRASPORTO_VAR;
+        $fixedNow = ($quotaFissaMensile > 0 ? $quotaFissaMensile : 10.00) * 12 + $costoPotenza + QUOTA_FISSA_RETI_LUCE;
+        $subtotalNow = $energyCostNow + $fixedNow + $trasportoNow + $oneriNow + $acciseNow;
+        $ivaRate = $tipoCliente === 'business' ? 0.22 : 0.10;
+        $spesaAttualizzata = round($subtotalNow * (1 + $ivaRate), 2);
+    } elseif ($isCurrentVariable && $consumo > 0 && $livePsvEurSmc !== null && $commodity === 'GAS') {
+        $estimatedUserSpread = null;
+        if (!empty($input['bill_text'])) {
+            if (preg_match('/(?:PUN|PSV)\s*\+\s*([\d,.]+)/i', $input['bill_text'], $m)) {
+                $estimatedUserSpread = (float)str_replace(',', '.', $m[1]);
+            } elseif (preg_match('/spread[:\s]*([\d,.]+)/i', $input['bill_text'], $m)) {
+                $estimatedUserSpread = (float)str_replace(',', '.', $m[1]);
+            }
+        }
+        if ($estimatedUserSpread === null || $estimatedUserSpread <= 0) {
+            $avgPriceBill = $spesaAnnua / $consumo;
+            $nonNeg = 0.05;
+            $estimatedUserSpread = max(0.005, round($avgPriceBill - $livePsvEurSmc - $nonNeg, 4));
+        }
+        $energyCostNow = $consumo * ($livePsvEurSmc + $estimatedUserSpread);
+        $trasportoNow = $consumo * GAS_TRASPORTO_VAR;
+        $oneriNow = $consumo * GAS_ONERI_SISTEMA;
+        $acciseNow = $consumo * GAS_ACCISE;
+        $fixedNow = ($quotaFissaMensile > 0 ? $quotaFissaMensile : 10.00) * 12 + QUOTA_FISSA_RETI_GAS;
+        $subtotalNow = $energyCostNow + $fixedNow + $trasportoNow + $oneriNow + $acciseNow;
+        $iva10 = min($consumo, GAS_SOGLIA_IVA_10) / ($consumo ?: 1) * $subtotalNow * GAS_IVA_10;
+        $iva22 = max(0, $consumo - GAS_SOGLIA_IVA_10) / ($consumo ?: 1) * $subtotalNow * GAS_IVA_22;
+        $spesaAttualizzata = round($subtotalNow + $iva10 + $iva22, 2);
+    }
+
     // Canone RAI: NON cambia con il fornitore, va sottratto dalla spesa per il confronto
-    // Se l'utente ha Canone RAI in bolletta, la spesa reale energia è spesa_annua - canone_rai
-    $spesaNettaConfronto = max(0, $spesaAnnua - $canoneRai);
-    if ($canoneRai <= 0 && $commodity === 'LUCE' && $spesaAnnua > 100) {
-        // Se non rilevato ma è bolletta LUCE, assumiamo Canone RAI standard (€90/anno)
-        // solo se la spesa annua è abbastanza alta da includerlo
+    $spesaBase = $spesaAttualizzata ?? $spesaAnnua; // Usa spesa attualizzata se disponibile
+    $spesaNettaConfronto = max(0, $spesaBase - $canoneRai);
+    if ($canoneRai <= 0 && $commodity === 'LUCE' && $spesaBase > 100) {
         $canoneRai = CANONE_RAI_ANNUO;
-        $spesaNettaConfronto = max(0, $spesaAnnua - $canoneRai);
+        $spesaNettaConfronto = max(0, $spesaBase - $canoneRai);
         $profile['canone_rai'] = $canoneRai;
         $profile['canone_rai_stimato'] = true;
     }
 
-    // Confronto offerte — usa spesa_energia_netta (senza Canone RAI) per confronto equo
+    // Confronto offerte — con PUN/PSV live per confronto simmetrico (metodo ARERA)
     try {
         $savingsResult = calculateSavingsBreakdown([
             'commodity'              => $commodity,
@@ -814,20 +895,17 @@ function handleV2Analyze(array $input): void {
             'spesa_materia_energia'  => $spesaMateriaEnergia,
             'quota_fissa_mensile'    => $quotaFissaMensile,
             'tipo_cliente'           => $tipoCliente,
+            'live_pun_eur_kwh'       => $livePunEurKwh,
+            'live_psv_eur_smc'       => $livePsvEurSmc,
         ]);
     } catch (Throwable $e) {
         errorResponse('Impossibile caricare le offerte. Riprova.', 503);
     }
 
-    // Risk assessment
+    // Risk assessment (usa dati PUN/PSV già fetchati sopra)
     $risk = null;
-    try {
-        $peUrl = 'https://portaleenergia.it/api/dashboard?period=today';
-        $peJson = @file_get_contents($peUrl, false, stream_context_create(['http' => ['timeout' => 6, 'header' => "User-Agent: Mozilla/5.0\r\n"]]));
-        if ($peJson) {
-            $pe = json_decode($peJson, true);
-            $pun = $pe['pun'] ?? null;
-            $psv = $pe['psv'] ?? null;
+    if ($peData) {
+        try {
 
             // LUCE: risk basato sul PUN
             if ($pun && $commodity === 'LUCE') {
@@ -870,8 +948,8 @@ function handleV2Analyze(array $input): void {
                         : "PSV stabile ({$vol}%). Variabile può convenire.",
                 ];
             }
-        }
-    } catch (Throwable $e) { /* risk non disponibile */ }
+        } catch (Throwable $e) { /* risk non disponibile */ }
+    }
 
     // Bill token
     $billToken = 'sha256:' . substr(sha1(($profile['pod'] ?? '') . ':' . $consumo . ':' . $zona . ':' . $spesaAnnua), 0, 12);
@@ -881,35 +959,47 @@ function handleV2Analyze(array $input): void {
     $recommendation = 'stay'; // stay | evaluate | switch
     $summary = '';
 
+    // Contesto PUN per trasparenza metodologica
+    $punContext = '';
+    if ($isCurrentVariable && $livePunEurKwh !== null) {
+        $punContext = sprintf(' Confronto a PUN corrente %.1f €/MWh (metodo ARERA: stesso PUN per entrambe le tariffe variabili).', $livePunEurKwh * 1000);
+    } elseif ($livePunEurKwh !== null) {
+        $punContext = sprintf(' PUN corrente %.1f €/MWh usato per il calcolo offerte variabili.', $livePunEurKwh * 1000);
+    } elseif ($livePsvEurSmc !== null) {
+        $punContext = sprintf(' PSV corrente %.1f €/MWh usato per il calcolo offerte variabili.', $livePsvEurSmc * 1000);
+    }
+
     if ($best && $best['savings_eur'] > 0) {
         $savings = $best['savings_eur'];
         $savingsPct = $best['savings_pct'];
         // Costo totale nuova offerta = costo energia + Canone RAI (il Canone RAI non cambia con fornitore)
         $bestTotalWithRai = $best['annual_cost_eur'] + $canoneRai;
-
         // Soglie di onestà: sotto 30€/anno o 5% non è un vero risparmio
         if ($savings >= 50 && $savingsPct >= 5) {
             $recommendation = 'switch';
             $summary = sprintf(
-                "✅ CONVIENE CAMBIARE. Spesa attuale %.0f€/anno. Migliore offerta: %s %s: %.0f€/anno. Risparmio reale: %.0f€/anno (%.0f%%). %s.",
+                "✅ CONVIENE CAMBIARE. Spesa attuale %.0f€/anno. Migliore offerta: %s %s: %.0f€/anno. Risparmio reale: %.0f€/anno (%.0f%%). %s.%s",
                 $spesaAnnua, $best['supplier'], $best['tariff_name'],
                 $bestTotalWithRai, $savings, $savingsPct,
-                $best['contract_detail']
+                $best['contract_detail'],
+                $punContext
             );
         } elseif ($savings >= 30 || $savingsPct >= 3) {
             $recommendation = 'evaluate';
             $summary = sprintf(
-                "⚠️ MODESTO VANTAGGIO. Spesa attuale %.0f€/anno. La migliore offerta (%s %s: %.0f€/anno) ti farebbe risparmiare solo %.0f€/anno (%.0f%%). Valuta se il cambio vale la pena considerando anche servizio clienti, app, fatturazione. %s.",
+                "⚠️ MODESTO VANTAGGIO. Spesa attuale %.0f€/anno. La migliore offerta (%s %s: %.0f€/anno) ti farebbe risparmiare solo %.0f€/anno (%.0f%%). Valuta se il cambio vale la pena considerando anche servizio clienti, app, fatturazione. %s.%s",
                 $spesaAnnua, $best['supplier'], $best['tariff_name'],
                 $bestTotalWithRai, $savings, $savingsPct,
-                $best['contract_detail']
+                $best['contract_detail'],
+                $punContext
             );
         } else {
             $recommendation = 'stay';
             $summary = sprintf(
-                "❌ NESSUN VANTAGGIO SIGNIFICATIVO. La tua spesa attuale (%.0f€/anno) è già competitiva. La migliore alternativa (%s %s: %.0f€/anno) offre un risparmio trascurabile di %.0f€/anno (%.0f%%). Non vale la pena cambiare.",
+                "❌ NESSUN VANTAGGIO SIGNIFICATIVO. La tua spesa attuale (%.0f€/anno) è già competitiva. La migliore alternativa (%s %s: %.0f€/anno) offre un risparmio trascurabile di %.0f€/anno (%.0f%%). Non vale la pena cambiare.%s",
                 $spesaAnnua, $best['supplier'], $best['tariff_name'],
-                $bestTotalWithRai, $savings, $savingsPct
+                $bestTotalWithRai, $savings, $savingsPct,
+                $punContext
             );
         }
 
@@ -993,91 +1083,47 @@ function handleV2Analyze(array $input): void {
     }
 
     // ── ATTUALIZZAZIONE BOLLETTA ────────────────────────────────────
+    // Fornisce contesto su come la bolletta si confronta con il PUN/PSV odierno
+    // Nota: il ricalcolo per il confronto è già stato fatto prima di calculateSavingsBreakdown()
     $attualization = null;
-    $isVariable = false;
 
-    // Detect tariff type from bill text or profile
-    if (!empty($input['bill_text'])) {
-        $low = mb_strtolower($input['bill_text']);
-        $isVariable = str_contains($low, 'variabile') || str_contains($low, 'indicizzato')
-                   || str_contains($low, 'pun') || str_contains($low, 'psv');
-    } elseif (!empty($input['tariff_type'])) {
-        $isVariable = strtolower($input['tariff_type']) === 'variabile';
-    }
+    if ($isCurrentVariable && $consumo > 0 && $spesaAttualizzata !== null) {
+        $todayIndex = $commodity === 'LUCE' ? 'PUN' : 'PSV';
+        $todayPriceMwh = $commodity === 'LUCE'
+            ? round($livePunEurKwh * 1000, 1)
+            : round($livePsvEurSmc * 1000, 1);
+        $todayPriceUnit = $commodity === 'LUCE' ? $livePunEurKwh : $livePsvEurSmc;
 
-    if ($isVariable && $consumo > 0) {
-        // Estrai spread dalla bolletta (es. "PUN + 0,022€" o "spread: 0,014")
-        $estimatedSpread = null;
-        if (!empty($input['bill_text'])) {
-            if (preg_match('/(?:PUN|PSV)\s*\+\s*([\d,.]+)/i', $input['bill_text'], $m)) {
-                $estimatedSpread = (float)str_replace(',', '.', $m[1]);
-            } elseif (preg_match('/spread[:\s]*([\d,.]+)/i', $input['bill_text'], $m)) {
-                $estimatedSpread = (float)str_replace(',', '.', $m[1]);
-            }
-        }
-        // Se non trovato nella bolletta, stimiamo dal prezzo medio
-        if ($estimatedSpread === null) {
-            $avgPrice = $spesaAnnua / $consumo;
-            $refPUN = $commodity === 'LUCE' ? 0.125 : 0.500;
-            $nonNeg = $commodity === 'LUCE' ? 0.045 : 0.05;
-            $estimatedSpread = max(0.005, round($avgPrice - $refPUN - $nonNeg, 4));
-        }
+        $diff = round($spesaAttualizzata - $spesaAnnua, 2);
+        $diffPct = $spesaAnnua > 0 ? round(($diff / $spesaAnnua) * 100, 1) : 0;
+        $direction = $diff > 0 ? 'aumentato' : 'diminuito';
+        $arrow = $diff > 0 ? '📈' : '📉';
 
-        // Ricalcolo con PUN/PSV odierno
-        $todayIndex = null;
-        $todayPriceMwh = null;
-        if ($commodity === 'LUCE' && !empty($pun)) {
-            $todayIndex = 'PUN';
-            $todayPriceMwh = (float)$pun['price'];
-            $todayPriceUnit = round($todayPriceMwh / 1000, 6); // €/MWh → €/kWh
-        } elseif ($commodity === 'GAS' && !empty($psv)) {
-            $todayIndex = 'PSV';
-            $todayPriceMwh = (float)$psv['price'];
-            $todayPriceUnit = round($todayPriceMwh / 1000, 6);
-        }
-
-        if ($todayPriceUnit !== null) {
-            $todayEnergyCost = round($consumo * ($todayPriceUnit + $estimatedSpread), 2);
-            $fixedCost = round(($profile['spesa_annua_eur'] / $consumo > 0.08)
-                ? max(0, $spesaAnnua - ($consumo * ($commodity === 'LUCE' ? 0.18 : 0.55)))
-                : ($commodity === 'LUCE' ? 144 : 120), 2);
-            $todayTransport = round($consumo * ($commodity === 'LUCE' ? 0.0227 : 0), 2);
-            $todayTotalPreIva = $todayEnergyCost + $fixedCost + $todayTransport;
-            $todayTotal = round($todayTotalPreIva * 1.10, 2);
-
-            $diff = round($todayTotal - $spesaAnnua, 2);
-            $diffPct = $spesaAnnua > 0 ? round(($diff / $spesaAnnua) * 100, 1) : 0;
-            $direction = $diff > 0 ? 'aumentato' : 'diminuito';
-            $arrow = $diff > 0 ? '📈' : '📉';
-
-            $attualization = [
-                'bolletta_originale' => [
-                    'spesa_annua'      => round($spesaAnnua, 2),
-                    'data_stimata'     => '2-3 mesi fa',
-                    'indice_riferimento'=> $estimatedSpread ? round($estimatedSpread, 4) : null,
-                ],
-                'oggi' => [
-                    'indice'           => $todayIndex,
-                    'valore'           => $todayPriceMwh,
-                    'unita'            => '€/MWh',
-                    'spread_stimato'   => round($estimatedSpread, 4),
-                    'prezzo_energia'   => round($todayPriceUnit + $estimatedSpread, 6),
-                    'costo_energia'    => $todayEnergyCost,
-                    'costo_fisso'      => $fixedCost,
-                    'trasporto_oneri'  => $todayTransport,
-                    'totale_stimato'   => $todayTotal,
-                ],
-                'confronto' => [
-                    'differenza_eur'   => abs($diff),
-                    'differenza_pct'   => abs($diffPct),
-                    'direzione'        => $direction,
-                    'messaggio'        => "Con la stessa tariffa variabile (" . $todayIndex . " + " . round($estimatedSpread, 4) . "€), oggi spenderesti circa " . $todayTotal . "€/anno — " . $arrow . " " . abs($diff) . "€ (" . $direction . " del " . abs($diffPct) . "%) rispetto ai " . round($spesaAnnua, 0) . "€ della bolletta caricata.",
-                ],
-                'impatto_confronto' => $diff > 0
-                    ? "Il confronto con le offerte attuali è ANCORA PIÙ favorevole: oggi pagheresti di più di quanto indicato in bolletta."
-                    : "Il confronto è conservativo: la bolletta sovrastima leggermente la spesa attuale.",
-            ];
-        }
+        $attualization = [
+            'bolletta_originale' => [
+                'spesa_annua'      => round($spesaAnnua, 2),
+                'data_stimata'     => '2-3 mesi fa',
+                'spread_utente'    => $estimatedUserSpread ? round($estimatedUserSpread, 4) : null,
+            ],
+            'oggi' => [
+                'indice'           => $todayIndex,
+                'valore'           => $todayPriceMwh,
+                'unita'            => '€/MWh',
+                'spread_stimato'   => round($estimatedUserSpread ?? 0, 4),
+                'prezzo_energia'   => round($todayPriceUnit + ($estimatedUserSpread ?? 0), 6),
+                'totale_stimato'   => $spesaAttualizzata,
+            ],
+            'confronto' => [
+                'differenza_eur'   => abs($diff),
+                'differenza_pct'   => abs($diffPct),
+                'direzione'        => $direction,
+                'messaggio'        => "Con la stessa tariffa variabile ({$todayIndex} + " . round($estimatedUserSpread ?? 0, 4) . "€), oggi spenderesti circa {$spesaAttualizzata}€/anno — {$arrow} " . abs($diff) . "€ ({$direction} del " . abs($diffPct) . "%) rispetto ai " . round($spesaAnnua, 0) . "€ della bolletta caricata.",
+            ],
+            'impatto_confronto' => $diff < 0
+                ? "La bolletta sovrastima la spesa attuale perché il PUN era più alto. Il confronto è già stato corretto usando il PUN corrente ({$todayPriceMwh} €/MWh) per entrambe le tariffe."
+                : "Il PUN è salito rispetto alla bolletta. Il confronto usa già il PUN corrente ({$todayPriceMwh} €/MWh) in modo simmetrico.",
+            'metodo' => 'Confronto simmetrico ARERA: stesso PUN Forward per entrambe le tariffe variabili. Il risparmio riflette solo differenze contrattuali (spread + quota fissa).',
+        ];
     }
 
     // Chart-ready cost breakdown (per grafici comparativi)

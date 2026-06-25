@@ -1,7 +1,7 @@
 {
   "name": "@us1929/switchai-mcp",
-  "version": "2.1.0",
-  "description": "SwitchAI MCP Server — Italian energy tariff comparison with 4 tools",
+  "version": "2.1.1",
+  "description": "SwitchAI MCP Server — Italian energy tariff comparison. ARERA symmetric PUN method for variable tariffs.",
   "mcpName": "io.github.US1929/switchai",
   "license": "MIT",
   "type": "module",

@@ -614,6 +614,11 @@ function calculateSavingsBreakdown(array $data): array {
     $f3 = (float)($data['yearly_consumption_f3'] ?? 0);
     $potenza = (float)($data['potenza_impegnata'] ?? 3.0);
 
+    // PUN/PSV live per confronto simmetrico tariffe variabili
+    // Fondamentale: usare lo STESSO PUN per entrambi i lati del confronto
+    $livePunEurKwh = isset($data['live_pun_eur_kwh']) ? (float)$data['live_pun_eur_kwh'] : null;
+    $livePsvEurSmc = isset($data['live_psv_eur_smc']) ? (float)$data['live_psv_eur_smc'] : null;
+
     // Prezzi di riferimento Tutela (o mercato standard)
     if ($commodity === 'LUCE') {
         $currentPriceKwh = 0.16;
@@ -654,16 +659,54 @@ function calculateSavingsBreakdown(array $data): array {
         $explanationParts = [];
 
         if ($commodity === 'LUCE') {
-            $priceMono = $tariff['price_mono_kwh'];
-            if ($priceMono === null) continue;
+            $isVariable = $tariff['type'] === 'VARIABILE';
+            $spread = isset($tariff['spread']) ? (float)$tariff['spread'] : null;
+            $tariffPun = isset($tariff['pun']) ? (float)$tariff['pun'] : null;
+
+            // Determina il prezzo energia da usare
+            if ($isVariable && $livePunEurKwh !== null && $spread !== null) {
+                // Tariffa variabile CON PUN live: usa PUN corrente + spread contrattuale
+                // PERDITE_RETE_BT (10.2%) si applicano al prezzo energia variabile
+                $effectiveEnergyPrice = ($livePunEurKwh + $spread) * LUCE_PERDITE_RETE_BT;
+            } elseif ($isVariable && $livePunEurKwh !== null && $spread === null && $tariffPun !== null) {
+                // Spread mancante: stima da price_mono_kwh - PUN storico
+                $priceMono = $tariff['price_mono_kwh'];
+                $estimatedSpread = max(0, (float)$priceMono - $tariffPun);
+                $effectiveEnergyPrice = ($livePunEurKwh + $estimatedSpread) * LUCE_PERDITE_RETE_BT;
+            } elseif ($isVariable && $livePunEurKwh !== null && $spread === null && $tariffPun === null) {
+                // Nessun dato spread/PUN: usa price_mono_kwh congelato (fallback)
+                $priceMono = $tariff['price_mono_kwh'];
+                if ($priceMono === null) continue;
+                $effectiveEnergyPrice = (float)$priceMono;
+            } else {
+                // Tariffa FISSA o PUN live non disponibile: usa prezzo contrattuale
+                $priceMono = $tariff['price_mono_kwh'];
+                if ($priceMono === null) continue;
+                $effectiveEnergyPrice = (float)$priceMono;
+            }
+
+            // Usa effectiveEnergyPrice come prezzo monorario effettivo
+            $priceMono = $effectiveEnergyPrice; // per retrocompatibilità con il resto del codice
 
             if ($f1 > 0 || $f2 > 0 || $f3 > 0) {
-                $priceF1 = $tariff['price_f1_kwh'] ?? $priceMono;
-                $priceF2 = $tariff['price_f2_kwh'] ?? $priceMono;
-                $priceF3 = $tariff['price_f3_kwh'] ?? $priceMono;
+                // Multi-fascia: applica proporzioni al prezzo effettivo
+                $priceF1 = $tariff['price_f1_kwh'] ?? null;
+                $priceF2 = $tariff['price_f2_kwh'] ?? null;
+                $priceF3 = $tariff['price_f3_kwh'] ?? null;
+                if ($priceF1 !== null && $priceF2 !== null && $priceF3 !== null && $isVariable && $livePunEurKwh !== null) {
+                    // Ricalcola prezzi fascia con spread + PUN live (approssimazione: stessi spread, diverso PUN)
+                    $oldPun = $tariffPun ?? ($livePunEurKwh);
+                    $punDelta = $livePunEurKwh - $oldPun;
+                    $priceF1 = max(0, $priceF1 + $punDelta * LUCE_PERDITE_RETE_BT);
+                    $priceF2 = max(0, $priceF2 + $punDelta * LUCE_PERDITE_RETE_BT);
+                    $priceF3 = max(0, $priceF3 + $punDelta * LUCE_PERDITE_RETE_BT);
+                }
+                $priceF1 = $priceF1 ?? $effectiveEnergyPrice;
+                $priceF2 = $priceF2 ?? $effectiveEnergyPrice;
+                $priceF3 = $priceF3 ?? $effectiveEnergyPrice;
                 $energyCost = ($f1 * $priceF1) + ($f2 * $priceF2) + ($f3 * $priceF3);
             } else {
-                $energyCost = $yearlyKwh * (float)$priceMono;
+                $energyCost = $yearlyKwh * $effectiveEnergyPrice;
             }
 
             $costo_potenza = 21.48 * $potenza;
@@ -704,10 +747,32 @@ function calculateSavingsBreakdown(array $data): array {
                 $explanationParts[] = sprintf("quota fissa leggermente più alta (+%.2f€/anno) ma compensata", abs($fixedDiff));
             }
         } else {
-            $priceSmc = $tariff['price_smc'];
-            if ($priceSmc === null) continue;
+            $isVariable = $tariff['type'] === 'VARIABILE';
+            $spread = isset($tariff['spread']) ? (float)$tariff['spread'] : null;
+            $tariffPsv = isset($tariff['psv']) ? (float)$tariff['psv'] : null;
 
-            $energyCost = $yearlySmc * (float)$priceSmc;
+            // Determina il prezzo gas da usare
+            if ($isVariable && $livePsvEurSmc !== null && $spread !== null) {
+                // Tariffa variabile CON PSV live: usa PSV corrente + spread contrattuale
+                $effectiveEnergyPrice = $livePsvEurSmc + $spread;
+            } elseif ($isVariable && $livePsvEurSmc !== null && $spread === null && $tariffPsv !== null) {
+                // Spread mancante: stima da price_smc - PSV storico
+                $priceSmc = $tariff['price_smc'];
+                $estimatedSpread = max(0, (float)$priceSmc - $tariffPsv);
+                $effectiveEnergyPrice = $livePsvEurSmc + $estimatedSpread;
+            } elseif ($isVariable && $livePsvEurSmc !== null && $spread === null && $tariffPsv === null) {
+                // Nessun dato spread/PSV: usa price_smc congelato (fallback)
+                $priceSmc = $tariff['price_smc'];
+                if ($priceSmc === null) continue;
+                $effectiveEnergyPrice = (float)$priceSmc;
+            } else {
+                // Tariffa FISSA o PSV live non disponibile: usa prezzo contrattuale
+                $priceSmc = $tariff['price_smc'];
+                if ($priceSmc === null) continue;
+                $effectiveEnergyPrice = (float)$priceSmc;
+            }
+
+            $energyCost = $yearlySmc * $effectiveEnergyPrice;
             $trasporto = $yearlySmc * 0.15;
             $oneri = $yearlySmc * 0.03;
             $accise = $yearlySmc * 0.15;
@@ -748,7 +813,8 @@ function calculateSavingsBreakdown(array $data): array {
         }
 
         if ($tariff['type'] === 'VARIABILE') {
-            $explanationParts[] = "prezzo indicizzato al mercato (PUN/PSV), attualmente vantaggioso";
+            $punRef = $commodity === 'LUCE' ? ($livePunEurKwh ? round($livePunEurKwh * 1000, 1) . ' €/MWh' : 'PUN di riferimento') : ($livePsvEurSmc ? round($livePsvEurSmc * 1000, 1) . ' €/MWh' : 'PSV di riferimento');
+            $explanationParts[] = "prezzo indicizzato al mercato, calcolato con $punRef + spread contrattuale (confronto simmetrico ARERA)";
         } else {
             $explanationParts[] = "prezzo bloccato, protezione da rincari futuri";
         }

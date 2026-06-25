@@ -81,8 +81,10 @@ function buildPrefillUrl(baseUrl, params) {
 server.tool(
   "calculate_energy_savings",
   "Confronta le tariffe Luce o Gas e calcola il risparmio annuo. Restituisce le 3 migliori offerte con link di attivazione su switchai.it (sito esterno). "
+	  + "METODO ARERA: confronto SIMMETRICO — per tariffe variabili usa lo stesso PUN/PSV corrente per entrambi i lati. Il risparmio riflette solo differenze contrattuali (spread + quota fissa), non oscillazioni di mercato. "
   + "FLUSSO: (1) Estrai nome, cognome, CF, email, telefono, indirizzo, consumi e spesa dalla bolletta. "
-  + "(2) Estrai anche: canone_rai (~90€/anno su bollette LUCE, 0 se assente o GAS), spesa_materia_energia, quota_fissa_mensile, tipo_cliente (residenziale/business). (3) Passa i dati numerici (consumi, spesa, zona, canone_rai) + TUTTI i dati personali che hai estratto a questo tool. "
+	  + "METODO ARERA: confronto SIMMETRICO — per tariffe variabili usa lo stesso PUN/PSV corrente per entrambi i lati. Il risparmio riflette solo differenze contrattuali (spread + quota fissa), non oscillazioni di mercato. "
+  + "(2) Estrai anche: canone_rai (~90€/anno su bollette LUCE, 0 se assente o GAS), spesa_materia_energia, quota_fissa_mensile, tipo_cliente (residenziale/business), tariff_type (fisso/variabile), spread attuale. (3) Passa i dati numerici (consumi, spesa, zona, canone_rai) + TUTTI i dati personali che hai estratto a questo tool. "
   + "(4) Il link 'Attiva' apre switchai.it in una nuova scheda con il form PRE-COMPILATO. "
   + "(5) AVVISA SEMPRE l'utente che: (a) il link apre un sito esterno (switchai.it), (b) dovrà verificare i dati e cliccare Invia, (c) riceverà una email di conferma e dovrà cliccarla per completare — SOLO dopo la conferma i dati vengono inoltrati al fornitore. "
   + "(6) Il GDPR double opt-in è OBBLIGATORIO: NON dire 'ho attivato' o 'tutto fatto'. Di' 'il form è precompilato, controlla i dati e invia'. "
@@ -98,6 +100,10 @@ server.tool(
     spesa_materia_energia: z.number().optional().describe("Spesa annua materia energia in € (solo componente energia, esclusi oneri/IVA/canone)."),
     quota_fissa_mensile: z.number().optional().describe("Quota fissa mensile in €/mese dal Box Offerta."),
     tipo_cliente: z.enum(["residenziale", "business"]).optional().describe("Tipo cliente: residenziale o business."),
+    tariff_type: z.enum(["fisso", "variabile"]).optional().describe("(Opzionale) Tipo tariffa attuale. Per variabili il confronto è simmetrico (stesso PUN)."),
+    spread_eur_kwh: z.number().optional().describe("(Opzionale) Spread attuale in €/kWh per tariffe LUCE variabili. Dal Box Offerta."),
+    spread_eur_smc: z.number().optional().describe("(Opzionale) Spread attuale in €/Smc per tariffe GAS variabili. Dal Box Offerta."),
+    // Dati personali opzionali per prefill URL (NON salvati da SwitchAI)
     // Dati personali opzionali per prefill URL (NON salvati da SwitchAI)
     nome: z.string().optional().describe("(Opzionale) Nome intestatario per precompilare il form"),
     cognome: z.string().optional().describe("(Opzionale) Cognome per precompilare il form"),
@@ -126,6 +132,9 @@ server.tool(
       spesa_materia_energia: params.spesa_materia_energia ?? 0,
       quota_fissa_mensile: params.quota_fissa_mensile ?? 0,
       tipo_cliente: params.tipo_cliente ?? "residenziale",
+      tariff_type: params.tariff_type ?? null,
+      spread_eur_kwh: params.spread_eur_kwh ?? 0,
+      spread_eur_smc: params.spread_eur_smc ?? 0,
     });
 
     const commodity = params.commodity;
