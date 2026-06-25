@@ -831,15 +831,20 @@ function handleV2Analyze(array $input): void {
                 $estimatedUserSpread = (float)str_replace(',', '.', $m[1]);
             }
         }
-        // Fallback: stima spread dal prezzo medio in bolletta
+        // Anche da input strutturato (frontend invia spread_eur_kwh)
+        if (($estimatedUserSpread === null || $estimatedUserSpread <= 0) && !empty($input['spread_eur_kwh'])) {
+            $estimatedUserSpread = (float)$input['spread_eur_kwh'];
+        }
+        // Fallback: stima spread dal prezzo medio in bolletta (ultima risorsa)
         if ($estimatedUserSpread === null || $estimatedUserSpread <= 0) {
             $avgPriceBill = $spesaAnnua / $consumo;
             $nonNeg = 0.045; // trasporto+oneri+accise ~0.045 €/kWh
             $estimatedUserSpread = max(0.002, round($avgPriceBill - $livePunEurKwh - $nonNeg, 4));
         }
         // Ricalcolo spesa attuale a PUN corrente
+        $potenza = (float)($input['potenza_impegnata'] ?? $profile['potenza_impegnata'] ?? 3.0);
         $energyCostNow = $consumo * ($livePunEurKwh + $estimatedUserSpread) * LUCE_PERDITE_RETE_BT;
-        $costoPotenza = 21.48 * ($profile['potenza_impegnata'] ?? 3.0);
+        $costoPotenza = 21.48 * $potenza;
         $oneriNow = $consumo * ONERI_SISTEMA_LUCE;
         $acciseNow = $consumo * LUCE_ACCISE;
         $trasportoNow = $consumo * LUCE_TRASPORTO_VAR;
@@ -855,6 +860,10 @@ function handleV2Analyze(array $input): void {
             } elseif (preg_match('/spread[:\s]*([\d,.]+)/i', $input['bill_text'], $m)) {
                 $estimatedUserSpread = (float)str_replace(',', '.', $m[1]);
             }
+        }
+        // Anche da input strutturato
+        if (($estimatedUserSpread === null || $estimatedUserSpread <= 0) && !empty($input['spread_eur_smc'])) {
+            $estimatedUserSpread = (float)$input['spread_eur_smc'];
         }
         if ($estimatedUserSpread === null || $estimatedUserSpread <= 0) {
             $avgPriceBill = $spesaAnnua / $consumo;
@@ -873,7 +882,14 @@ function handleV2Analyze(array $input): void {
     }
 
     // Canone RAI: NON cambia con il fornitore, va sottratto dalla spesa per il confronto
+    // Se il valore è sospettosamente basso (< 30€), probabilmente è mensile → annualizza
     $spesaBase = $spesaAttualizzata ?? $spesaAnnua; // Usa spesa attualizzata se disponibile
+    if ($canoneRai > 0 && $canoneRai < 30 && $commodity === 'LUCE') {
+        // Valore mensile o anomalo: usa CANONE_RAI_ANNUO standard
+        $canoneRai = CANONE_RAI_ANNUO;
+        $profile['canone_rai'] = $canoneRai;
+        $profile['canone_rai_stimato'] = true;
+    }
     $spesaNettaConfronto = max(0, $spesaBase - $canoneRai);
     if ($canoneRai <= 0 && $commodity === 'LUCE' && $spesaBase > 100) {
         $canoneRai = CANONE_RAI_ANNUO;

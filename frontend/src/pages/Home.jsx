@@ -94,6 +94,8 @@ export default function Home() {
         if (extractedData.tipo_cliente) body.tipo_cliente = extractedData.tipo_cliente;
         if (extractedData.spesa_materia_energia > 0) body.spesa_materia_energia = Number(extractedData.spesa_materia_energia);
         if (extractedData.quota_fissa_mensile > 0) body.quota_fissa_mensile = Number(extractedData.quota_fissa_mensile);
+        if (extractedData.spread > 0) body.spread_eur_kwh = Number(extractedData.spread);
+        if (extractedData.potenza_impegnata) body.potenza_impegnata = Number(extractedData.potenza_impegnata);
         // PUN/PSV live per confronto simmetrico ARERA
         if (punEurKwh > 0) body.pun_eur_kwh = punEurKwh;
         if (psvEurSmc > 0) body.psv_eur_smc = psvEurSmc;
