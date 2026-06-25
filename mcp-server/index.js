@@ -82,11 +82,11 @@ server.tool(
   "calculate_energy_savings",
   "Confronta le tariffe Luce o Gas e calcola il risparmio annuo. Restituisce le 3 migliori offerte con link di attivazione su switchai.it (sito esterno). "
   + "FLUSSO: (1) Estrai nome, cognome, CF, email, telefono, indirizzo, consumi e spesa dalla bolletta. "
-  + "(2) Passa i dati numerici (consumi, spesa, zona) + TUTTI i dati personali che hai estratto a questo tool. "
-  + "(3) Il link 'Attiva' apre switchai.it in una nuova scheda con il form PRE-COMPILATO. "
-  + "(4) AVVISA SEMPRE l'utente che: (a) il link apre un sito esterno (switchai.it), (b) dovrà verificare i dati e cliccare Invia, (c) riceverà una email di conferma e dovrà cliccarla per completare — SOLO dopo la conferma i dati vengono inoltrati al fornitore. "
-  + "(5) Il GDPR double opt-in è OBBLIGATORIO: NON dire 'ho attivato' o 'tutto fatto'. Di' 'il form è precompilato, controlla i dati e invia'. "
-  + "(6) NON attivare mai senza che l'utente abbia letto e accettato esplicitamente.",
+  + "(2) Estrai anche: canone_rai (~90€/anno su bollette LUCE, 0 se assente o GAS), spesa_materia_energia, quota_fissa_mensile, tipo_cliente (residenziale/business). (3) Passa i dati numerici (consumi, spesa, zona, canone_rai) + TUTTI i dati personali che hai estratto a questo tool. "
+  + "(4) Il link 'Attiva' apre switchai.it in una nuova scheda con il form PRE-COMPILATO. "
+  + "(5) AVVISA SEMPRE l'utente che: (a) il link apre un sito esterno (switchai.it), (b) dovrà verificare i dati e cliccare Invia, (c) riceverà una email di conferma e dovrà cliccarla per completare — SOLO dopo la conferma i dati vengono inoltrati al fornitore. "
+  + "(6) Il GDPR double opt-in è OBBLIGATORIO: NON dire 'ho attivato' o 'tutto fatto'. Di' 'il form è precompilato, controlla i dati e invia'. "
+  + "(7) NON attivare mai senza che l'utente abbia letto e accettato esplicitamente.",
   {
     commodity: z.enum(["LUCE", "GAS"]).describe("Tipo di fornitura: LUCE (elettricità) o GAS"),
     yearly_consumption_kwh: z.number().optional().describe("Consumo annuo in kWh (solo per LUCE). Es: 2700"),
@@ -94,6 +94,10 @@ server.tool(
     zone: z.enum(["NORD", "CENTRO", "SUD"]).optional().default("NORD").describe("Zona tariffaria italiana"),
     current_supplier: z.string().optional().describe("Nome del fornitore attuale (es: 'Enel Energia')"),
     current_annual_spend: z.number().optional().describe("Spesa annua attuale in €. Es: 650"),
+    canone_rai: z.number().optional().describe("Canone RAI annuale in € (solo LUCE). ~90€/anno. 0 se assente o GAS."),
+    spesa_materia_energia: z.number().optional().describe("Spesa annua materia energia in € (solo componente energia, esclusi oneri/IVA/canone)."),
+    quota_fissa_mensile: z.number().optional().describe("Quota fissa mensile in €/mese dal Box Offerta."),
+    tipo_cliente: z.enum(["residenziale", "business"]).optional().describe("Tipo cliente: residenziale o business."),
     // Dati personali opzionali per prefill URL (NON salvati da SwitchAI)
     nome: z.string().optional().describe("(Opzionale) Nome intestatario per precompilare il form"),
     cognome: z.string().optional().describe("(Opzionale) Cognome per precompilare il form"),
@@ -118,6 +122,10 @@ server.tool(
       zone: params.zone,
       current_supplier: params.current_supplier ?? "",
       current_annual_spend: params.current_annual_spend ?? 0,
+      canone_rai: params.canone_rai ?? 0,
+      spesa_materia_energia: params.spesa_materia_energia ?? 0,
+      quota_fissa_mensile: params.quota_fissa_mensile ?? 0,
+      tipo_cliente: params.tipo_cliente ?? "residenziale",
     });
 
     const commodity = params.commodity;
@@ -201,11 +209,11 @@ server.tool(
     md += `### 📝 Attivazione\n\n`;
 
     if (hasFullData) {
-      md += `✅ Ho recuperato tutti i dati dalla bolletta. Il form è **pre-compilato**.\n\n`;
+      md += `✅ Il form è già precompilato con i tuoi dati — verificali e clicca Invia.\n\n`;
     } else if (hasSomeData) {
-      md += `⚠️ Il form ha **alcuni dati pre-compilati**. L'utente deve completare i campi mancanti.\n\n`;
+      md += `📝 Il form è precompilato con i dati disponibili. Aggiungi i campi mancanti (email, telefono se richiesti) e clicca Invia.\n\n`;
     } else {
-      md += `⚠️ Per compilare il form servono: nome, cognome, CF, email, telefono. Posso estrarli dalla bolletta se me la fornisci.\n\n`;
+      md += `📝 Compila il form con i tuoi dati (nome, cognome, CF, email, telefono) e clicca Invia.\n\n`;
     }
 
     md += `🔗 **[🟢 APRI IL FORM SU SWITCHAI.IT](${bestPrefillUrl})**\n\n`;

@@ -279,10 +279,51 @@ function detectZone(string $text): array {
     return ['value' => 'NORD', 'confidence' => 0.3];
 }
 
-/**
- * Parser principale — restituisce dati strutturati CON confidence score.
- * L'LLM può usare i campi a bassa confidenza come segnale per intervenire.
- */
+/** Rileva Canone RAI / Canone TV nella bolletta LUCE */
+function extractCanoneRai(string $text): array {
+    $low = mb_strtolower($text);
+
+    // Pattern per Canone RAI con importo
+    $patterns = [
+        '#canone\s+(?:rai|tv|televisivo|abbonamento\s+(?:tv|televisione))[^0-9€]*[€]?\s*([\d.,]+)#i',
+        '#canone\s+(?:rai|tv)[^0-9]*?([\d.,]+)\s*(?:€|eur)#i',
+        '#importo\s+canone[^0-9]*?([\d.,]+)#i',
+        // Formato bolletta: "Canone RAI € 90,00" o "Canone TV € 90.00"
+        '#\bcanone\s+(?:rai|tv)\b[^0-9]*?(\d{1,3}[.,]\d{2})#i',
+    ];
+
+    foreach ($patterns as $pat) {
+        if (preg_match($pat, $low, $m)) {
+            $val = parseItalianNumber($m[1]);
+            if ($val > 5 && $val < 500) {
+                // Il canone RAI è €90/anno (addebitato in rate mensili da ~€9 o bimestrali da ~€18)
+                // Se troviamo un importo mensile (~7-20€), moltiplichiamo × 12
+                // Se troviamo un importo bimestrale (~14-40€), moltiplichiamo × 6
+                // Se troviamo un importo annuale (70-120€), è già annuale
+                if ($val < 20) {
+                    return ['value' => round($val * 12, 2), 'confidence' => 0.8, 'period' => 'mensile'];
+                } elseif ($val < 40) {
+                    return ['value' => round($val * 6, 2), 'confidence' => 0.8, 'period' => 'bimestrale'];
+                } elseif ($val >= 70 && $val <= 120) {
+                    return ['value' => $val, 'confidence' => 0.9, 'period' => 'annuale'];
+                }
+                return ['value' => $val, 'confidence' => 0.6, 'period' => 'sconosciuto'];
+            }
+        }
+    }
+
+    // Rilevamento presenza senza importo: cerca solo la dicitura
+    if (preg_match('#\bcanone\s+(?:rai|tv|televisivo)\b#i', $low)) {
+        return ['value' => CANONE_RAI_ANNUO, 'confidence' => 0.7, 'period' => 'presunto_annuale'];
+    }
+
+    // Se è bolletta GAS, il canone RAI non c'è
+    if (detectCommodity($text) === 'GAS') {
+        return ['value' => 0, 'confidence' => 1.0, 'period' => null];
+    }
+
+    return ['value' => 0, 'confidence' => 0.5, 'period' => null];
+}
 function parseBillText(string $text): array {
     $text = preg_replace('/\s+/', ' ', trim($text));
 
@@ -292,6 +333,7 @@ function parseBillText(string $text): array {
     $consumption = extractConsumption($text, $commodity);
     $totalResult = extractTotalAmount($text);
     $zoneResult = detectZone($text);
+    $canoneRaiResult = extractCanoneRai($text);
 
     // Stima spesa annuale (ARERA: bolletta bimestrale × 6)
     $annualSpend = 0.0;
@@ -324,6 +366,7 @@ function parseBillText(string $text): array {
         'yearly_consumption_f3'  => round($consumption['f3'] ?? 0, 1),
         'potenza_impegnata'      => round($consumption['potenza'] ?? 0, 1),
         'current_annual_spend'   => $annualSpend,
+        'canone_rai'             => $canoneRaiResult['value'],
         'zone'                   => $zoneResult['value'],
 
         // Confidence scores (0-1) — l'LLM può usarli per decidere se intervenire
@@ -333,6 +376,7 @@ function parseBillText(string $text): array {
             'pod_pdr'         => $podResult['confidence'],
             'consumption'     => $consumption['confidence'],
             'annual_spend'    => $spendConfidence,
+            'canone_rai'      => $canoneRaiResult['confidence'],
             'zone'            => $zoneResult['confidence'],
         ],
 
@@ -437,6 +481,7 @@ if (!defined('ONERI_SISTEMA_LUCE'))          define('ONERI_SISTEMA_LUCE', 0.038)
 if (!defined('LUCE_ACCISE'))                define('LUCE_ACCISE', 0.0227);
 if (!defined('LUCE_COSTO_POTENZA_KW'))       define('LUCE_COSTO_POTENZA_KW', 21.48);
 if (!defined('LUCE_IVA'))                   define('LUCE_IVA', 0.10);
+if (!defined('CANONE_RAI_ANNUO'))           define('CANONE_RAI_ANNUO', 90.00);  // Canone RAI in bolletta LUCE (€/anno)
 
 if (!defined('QUOTA_FISSA_RETI_GAS'))        define('QUOTA_FISSA_RETI_GAS', 23.00);
 if (!defined('GAS_TRASPORTO_VAR'))           define('GAS_TRASPORTO_VAR', 0.15);
@@ -459,6 +504,7 @@ function getAreraConstants(): array {
             'accise'             => LUCE_ACCISE,
             'costo_potenza_kw'   => LUCE_COSTO_POTENZA_KW,
             'iva'                => LUCE_IVA,
+            'canone_rai'         => CANONE_RAI_ANNUO,
             'prezzo_riferimento' => 0.16,
             'quota_fissa_riferimento' => 120,
         ],

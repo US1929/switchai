@@ -1,15 +1,4 @@
 User-agent: *
-Allow: /$
-Allow: /sottoscrizione
-Allow: /offerta/
-Allow: /llms.txt
-Allow: /webmcp.json
-Allow: /openapi.json
-Allow: /per-llm.html
-Allow: /come-funziona.html
-Allow: /privacy.html
-Allow: /cookie.html
-Allow: /img/
 Disallow: /api/
 Disallow: /mcp
 Disallow: /inc/

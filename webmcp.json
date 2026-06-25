@@ -39,7 +39,38 @@
           "current_annual_spend": {
             "type": "number",
             "description": "Spesa annua attuale dell'utente in euro (dalla bolletta)"
-          }
+          },
+          "canone_rai": {
+            "type": "number",
+            "description": "Canone RAI annuale in € (solo LUCE). Cerca 'Canone RAI' o 'Canone TV' nel dettaglio costi. ~90€/anno. 0 se assente o GAS."
+          },
+          "spesa_materia_energia": {
+            "type": "number",
+            "description": "Spesa annua materia energia in € (solo componente energia/gas, esclusi trasporto, oneri, IVA, canone RAI)."
+          },
+          "quota_fissa_mensile": {
+            "type": "number",
+            "description": "Quota fissa mensile in €/mese. Dal Box Offerta o dettaglio costi."
+          },
+          "tipo_cliente": {
+            "type": "string",
+            "enum": ["residenziale", "business"],
+            "description": "Tipo cliente: residenziale (uso domestico) o business (Partita IVA, azienda)."
+          },
+          "nome": { "type": "string", "description": "(Opzionale) Nome intestatario per precompilare il form di attivazione" },
+          "cognome": { "type": "string", "description": "(Opzionale) Cognome per precompilare il form" },
+          "cf": { "type": "string", "description": "(Opzionale) Codice Fiscale" },
+          "email": { "type": "string", "description": "(Opzionale) Email" },
+          "tel": { "type": "string", "description": "(Opzionale) Telefono" },
+          "indirizzo": { "type": "string", "description": "(Opzionale) Via/Piazza" },
+          "civico": { "type": "string", "description": "(Opzionale) Numero civico" },
+          "citta": { "type": "string", "description": "(Opzionale) Città" },
+          "provincia_sigla": { "type": "string", "description": "(Opzionale) Sigla provincia (es: MI)" },
+          "cap": { "type": "string", "description": "(Opzionale) CAP (5 cifre)" },
+          "pod": { "type": "string", "description": "(Opzionale) Codice POD per Luce" },
+          "pdr": { "type": "string", "description": "(Opzionale) Codice PDR per Gas" },
+          "consumi": { "type": "number", "description": "(Opzionale) Consumo annuo per prefill" },
+          "spesa": { "type": "number", "description": "(Opzionale) Spesa annua per prefill" }
         }
       },
       "response_summary_field": "agent_summary"

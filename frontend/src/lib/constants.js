@@ -36,6 +36,9 @@ export const LUCE = {
   /** Aliquota IVA agevolata usi domestici */
   IVA: 0.10,
 
+  /** Canone RAI annuale (€/anno) — addebitato in bolletta LUCE, NON cambia con fornitore */
+  CANONE_RAI_ANNUO: 90.00,
+
   /** Prezzo di riferimento tutela (€/kWh) — fallback quando non si hanno dati utente */
   PREZZO_RIFERIMENTO: 0.16,
 

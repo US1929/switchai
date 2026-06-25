@@ -278,14 +278,15 @@ export function isPriceAnomalous(pricePerUnit, commodity) {
 export function estimateRegulatedCosts(commodity, consumption, potenza = 3.0) {
   // Costanti da constants.js (fonte unica)
   if (commodity === 'luce') {
-    const { TRASPORTO_VAR, ONERI_SISTEMA, ACCISE, COSTO_POTENZA_KW, QUOTA_FISSA_RETI, IVA } = LUCE;
+    const { TRASPORTO_VAR, ONERI_SISTEMA, ACCISE, COSTO_POTENZA_KW, QUOTA_FISSA_RETI, IVA, CANONE_RAI_ANNUO } = LUCE;
     const kwh = consumption || 2700;
     const trasporto = kwh * TRASPORTO_VAR;
     const oneri = kwh * ONERI_SISTEMA;
     const accise = kwh * ACCISE;
     const costoPotenza = COSTO_POTENZA_KW * potenza;
     const quotaFissaReti = QUOTA_FISSA_RETI;
-    const subtotalRegulated = trasporto + oneri + accise + costoPotenza + quotaFissaReti;
+    const canoneRai = CANONE_RAI_ANNUO;
+    const subtotalRegulated = trasporto + oneri + accise + costoPotenza + quotaFissaReti + canoneRai;
     const ivaRegulated = subtotalRegulated * IVA;
     return {
       trasporto: Math.round(trasporto),
@@ -293,8 +294,9 @@ export function estimateRegulatedCosts(commodity, consumption, potenza = 3.0) {
       accise: Math.round(accise),
       costoPotenza: Math.round(costoPotenza),
       quotaFissaReti: Math.round(quotaFissaReti),
+      canoneRai: Math.round(canoneRai),
       totale: Math.round(subtotalRegulated + ivaRegulated),
-      label: 'Trasporto, oneri, imposte',
+      label: 'Trasporto, oneri, imposte, Canone RAI',
       note: 'Questi costi sono uguali con qualsiasi fornitore',
     };
   } else {

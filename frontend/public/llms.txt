@@ -32,6 +32,54 @@ Configure the MCP server in claude_desktop_config.json:
 }
 ```
 
+## Subscription flow (prefilled form via URL)
+
+When `calculate_energy_savings` or `parse_energy_bill` extracts user data from a bill, the response includes a pre-built subscription URL that **pre-fills the activation form** with all available data.
+
+### How the prefill works
+
+The tool passes extracted fields as query parameters to `/sottoscrizione`:
+
+```
+https://www.switchai.it/sottoscrizione?
+  tariff={id}&
+  supplier={fornitore}&
+  name={nome_tariffa}&
+  commodity=luce|gas&
+  annualCost={costo_annuo}&
+  nome={nome}&
+  cognome={cognome}&
+  cf={codice_fiscale}&
+  email={email}&
+  tel={telefono}&
+  indirizzo={indirizzo}&
+  civico={civico}&
+  citta={citta}&
+  provincia={provincia}&
+  provincia_sigla={sigla}&
+  cap={cap}&
+  pod={pod}|pdr={pdr}&
+  consumi={consumo_annuo}&
+  spesa={spesa_annua}
+```
+
+All parameters are optional — the form pre-fills whatever is provided and the user completes the rest.
+
+### What the AI agent should tell the user
+
+1. **Always say the form is pre-filled** with the available data (never say "not pre-filled")
+2. **Tell the user to verify** the pre-filled fields and add any missing ones (especially email and phone)
+3. **The link opens switchai.it in a new tab** — an external site outside the AI's context
+4. **After clicking "Invia"**, the user receives a confirmation email (GDPR double opt-in)
+5. **The subscription is NOT active** until the user clicks the email link — never claim it's completed
+
+### Critical: never claim completion
+
+The AI agent MUST NOT say "I've activated your new tariff" or "all done." The correct language is:
+- "The form is pre-filled — check the data and click Send"
+- "You'll receive a confirmation email — click the link to complete"
+- "The subscription will be active only after you confirm via email"
+
 ## Available tools
 
 ### calculate_energy_savings

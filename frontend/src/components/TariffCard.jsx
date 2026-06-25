@@ -172,7 +172,7 @@ export default function TariffCard({
 
   // ── Oneri regolati info (per tooltip rapido) ──────────────────
   const regulatedInfo = isLuce
-    ? 'Oneri e Imposte includono: trasporto gestione contatore, oneri di sistema (Asos per rinnovabili + Arim), accise erariali e IVA 10%. Sono stabiliti da ARERA e sono identici per qualsiasi fornitore. Cambia solo la materia energia (prezzo kWh + quota fissa).'
+    ? 'Oneri e Imposte includono: trasporto gestione contatore, oneri di sistema (Asos per rinnovabili + Arim), accise erariali, IVA 10% e Canone RAI (~90€/anno). Sono stabiliti da ARERA e sono identici per qualsiasi fornitore. Cambia solo la materia energia (prezzo kWh + quota fissa).'
     : 'Oneri e Imposte includono: trasporto e distribuzione, oneri di sistema, accise e IVA (10% sotto 480 Smc/anno, 22% oltre). Sono stabiliti da ARERA e identici per ogni fornitore. Cambia solo la materia gas (prezzo Smc + quota fissa).';
 
   return (

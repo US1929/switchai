@@ -1,0 +1,13 @@
+{
+  "name": "io.github.us1929/switchai",
+  "description": "AI agent for Italian energy tariff comparison. Analyzes ARERA 2.0 utility bills, compares 44+ live offers for electricity (Luce) and gas, and finds the best tariff. 7 MCP tools available via HTTP JSON-RPC.",
+  "version": "1.0.4",
+  "repository": "https://github.com/US1929/switchai",
+  "website": "https://www.switchai.it",
+  "docs": "https://www.switchai.it/per-llm",
+  "package": {
+    "registry": "npm",
+    "name": "@us1929/switchai-mcp",
+    "transport": "http"
+  }
+}

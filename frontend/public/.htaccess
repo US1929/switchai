@@ -22,22 +22,44 @@
   RewriteRule ^icons\.svg$ - [L,NC]
   RewriteRule ^favicon\.svg$ - [L,NC]
   RewriteRule ^index\.html$ - [L,NC]
-  # File HTML statici — serviti direttamente (il file esiste su disco)
+  # Redirect .html → URL pulito (301) — DEVE stare PRIMA dei passthrough!
+  # %{THE_REQUEST} = richiesta HTTP originale, immutata dai rewrite interni
+  # I rewrite interni (clean→.html) NON triggerano queste regole → niente loop
+  RewriteCond %{THE_REQUEST} \.html
+  RewriteRule ^come-funziona\.html$ /come-funziona [R=301,L]
+  RewriteCond %{THE_REQUEST} \.html
+  RewriteRule ^per-llm\.html$ /per-llm [R=301,L]
+  RewriteCond %{THE_REQUEST} \.html
+  RewriteRule ^privacy\.html$ /privacy [R=301,L]
+  RewriteCond %{THE_REQUEST} \.html
+  RewriteRule ^cookie\.html$ /cookie [R=301,L]
+  RewriteCond %{THE_REQUEST} \.html
+  RewriteRule ^faq\.html$ /faq [R=301,L]
+  RewriteCond %{THE_REQUEST} \.html
+  RewriteRule ^mcp\.html$ /faq [R=301,L]
+
+  # File HTML statici — serviti dopo redirect o rewrite interno
   RewriteRule ^per-llm\.html$ - [L,NC]
   RewriteRule ^privacy\.html$ - [L,NC]
   RewriteRule ^come-funziona\.html$ - [L,NC]
   RewriteRule ^cookie\.html$ - [L,NC]
-RewriteRule ^faq\.html$ - [L,NC]
+  RewriteRule ^faq\.html$ - [L,NC]
 
-  # Redirect SEO-friendly: URL pulito → .html (301 esplicito)
-  # NOTA: 301 esplicito viene processato PRIMA di MultiViews, quindi niente loop
-  RewriteRule ^per-llm$ /per-llm.html [R=301,L]
-  RewriteRule ^privacy$ /privacy.html [R=301,L]
-  RewriteRule ^come-funziona$ /come-funziona.html [R=301,L]
-  RewriteRule ^cookie$ /cookie.html [R=301,L]
-RewriteRule ^faq$ /faq.html [R=301,L]
-RewriteRule ^mcp\.html$ /faq.html [R=301,L]
-RewriteRule ^connettori$ /faq.html [R=301,L]
+  # URL puliti → servono internamente il file .html (rewrite silenzioso)
+  RewriteRule ^come-funziona$ /come-funziona.html [L]
+  RewriteRule ^per-llm$ /per-llm.html [L]
+  RewriteRule ^privacy$ /privacy.html [L]
+  RewriteRule ^cookie$ /cookie.html [L]
+  RewriteRule ^faq$ /faq.html [L]
+  RewriteRule ^connettori$ /faq.html [L]
+
+  # Redirect trailing slash → clean (evita SPA fallback con canonical sbagliato)
+  RewriteRule ^come-funziona/$ /come-funziona [R=301,L]
+  RewriteRule ^per-llm/$ /per-llm [R=301,L]
+  RewriteRule ^privacy/$ /privacy [R=301,L]
+  RewriteRule ^cookie/$ /cookie [R=301,L]
+  RewriteRule ^faq/$ /faq [R=301,L]
+  RewriteRule ^connettori$ /faq.html [L]
 
   # Pagine offerta generate dinamicamente (per crawler/SEO)
   RewriteRule ^offerta/([a-zA-Z0-9\-]+)$ api/index.php [QSA,L]
@@ -46,11 +68,14 @@ RewriteRule ^connettori$ /faq.html [R=301,L]
   RewriteRule ^mcp/?$ mcp/index.php [QSA,L]
 
   # ═══════════════════════════════════════════════════════
-  # 2. PROTEZIONE — blocca accesso a path interni
+  # 2. PROTEZIONE — blocca accesso a path interni e file sensibili
   # ═══════════════════════════════════════════════════════
   RewriteRule ^inc/ - [R=404,L]
   RewriteRule ^data/ - [R=404,L]
   RewriteRule ^logs/ - [R=404,L]
+  # Blocca file nascosti (.env, .git, etc.) — sicurezza critica
+  RewriteRule ^\.env - [R=404,L]
+  RewriteRule ^\. - [R=404,L]
 
   # ═══════════════════════════════════════════════════════
   # 3. API — instrada a api/index.php
@@ -71,8 +96,15 @@ RewriteRule ^connettori$ /faq.html [R=301,L]
   RewriteRule . /index.html [L]
 </IfModule>
 
+# Blocca accesso HTTP a file nascosti — sicurezza critica (.env, .git, etc.)
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
+
 # Server-Side Includes per file .html (nav centralizzata)
-Options +Includes
+# -MultiViews è CRITICO: senza, Apache serve /pagina → pagina.html senza redirect,
+# creando un conflitto di canonical (URL servito ≠ canonical nell'HTML).
+Options +Includes -MultiViews
 AddOutputFilter INCLUDES .html
 
 # Forza UTF-8 su tutti i file

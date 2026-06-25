@@ -620,10 +620,11 @@ function handleDynamicSitemap(): void {
     // Pagine statiche (URL con .html — canonical effettivo)
     $static = [
         ['loc' => 'https://www.switchai.it/', 'priority' => '1.0', 'changefreq' => 'daily'],
-        ['loc' => 'https://www.switchai.it/per-llm.html', 'priority' => '0.9', 'changefreq' => 'weekly'],
-        ['loc' => 'https://www.switchai.it/come-funziona.html', 'priority' => '0.8', 'changefreq' => 'weekly'],
-        ['loc' => 'https://www.switchai.it/privacy.html', 'priority' => '0.5', 'changefreq' => 'monthly'],
-        ['loc' => 'https://www.switchai.it/cookie.html', 'priority' => '0.3', 'changefreq' => 'monthly'],
+        ['loc' => 'https://www.switchai.it/per-llm', 'priority' => '0.9', 'changefreq' => 'weekly'],
+        ['loc' => 'https://www.switchai.it/come-funziona', 'priority' => '0.8', 'changefreq' => 'weekly'],
+        ['loc' => 'https://www.switchai.it/privacy', 'priority' => '0.5', 'changefreq' => 'monthly'],
+        ['loc' => 'https://www.switchai.it/cookie', 'priority' => '0.3', 'changefreq' => 'monthly'],
+        ['loc' => 'https://www.switchai.it/faq', 'priority' => '0.7', 'changefreq' => 'weekly'],
     ];
     foreach ($static as $url) {
         $lastmod = date('Y-m-d');
@@ -740,6 +741,7 @@ function handleV2Analyze(array $input): void {
                     : $parsed['yearly_consumption_smc'],
                 'spesa_annua_eur' => $parsed['current_annual_spend'],
                 'zona'         => $parsed['zone'],
+                'canone_rai'   => $parsed['canone_rai'] ?? 0,
                 'confidence'   => $parsed['confidence'],
                 'advice'       => $parsed['_meta']['advice'] ?? '',
             ];
@@ -761,6 +763,10 @@ function handleV2Analyze(array $input): void {
             'pod'          => $input['pod'] ?? null,
             'consumo_annuo'=> $consumo,
             'spesa_annua_eur' => $spesa,
+            'canone_rai'   => (float)($input['canone_rai'] ?? 0),
+            'spesa_materia_energia' => (float)($input['spesa_materia_energia'] ?? 0),
+            'quota_fissa_mensile' => (float)($input['quota_fissa_mensile'] ?? 0),
+            'tipo_cliente' => $input['tipo_cliente'] ?? 'residenziale',
             'zona'         => $input['zona'] ?? 'NORD',
             'confidence'   => ['consumption' => 0.8, 'supplier' => 0.5],
         ];
@@ -772,6 +778,10 @@ function handleV2Analyze(array $input): void {
     $consumo = $profile['consumo_annuo'];
     $zona = $profile['zona'];
     $spesaAnnua = $profile['spesa_annua_eur'];
+    $canoneRai = $profile['canone_rai'] ?? 0;
+    $spesaMateriaEnergia = $profile['spesa_materia_energia'] ?? 0;
+    $quotaFissaMensile = $profile['quota_fissa_mensile'] ?? 0;
+    $tipoCliente = $profile['tipo_cliente'] ?? 'residenziale';
 
     if ($spesaAnnua <= 0) {
         $spesaAnnua = $commodity === 'LUCE' ? ($consumo * 0.18 + 144) : ($consumo * 0.65 + 144);
@@ -779,15 +789,31 @@ function handleV2Analyze(array $input): void {
         $profile['spesa_stimata'] = true;
     }
 
-    // Confronto offerte
+    // Canone RAI: NON cambia con il fornitore, va sottratto dalla spesa per il confronto
+    // Se l'utente ha Canone RAI in bolletta, la spesa reale energia è spesa_annua - canone_rai
+    $spesaNettaConfronto = max(0, $spesaAnnua - $canoneRai);
+    if ($canoneRai <= 0 && $commodity === 'LUCE' && $spesaAnnua > 100) {
+        // Se non rilevato ma è bolletta LUCE, assumiamo Canone RAI standard (€90/anno)
+        // solo se la spesa annua è abbastanza alta da includerlo
+        $canoneRai = CANONE_RAI_ANNUO;
+        $spesaNettaConfronto = max(0, $spesaAnnua - $canoneRai);
+        $profile['canone_rai'] = $canoneRai;
+        $profile['canone_rai_stimato'] = true;
+    }
+
+    // Confronto offerte — usa spesa_energia_netta (senza Canone RAI) per confronto equo
     try {
         $savingsResult = calculateSavingsBreakdown([
             'commodity'              => $commodity,
             'yearly_consumption_kwh' => $commodity === 'LUCE' ? $consumo : 0,
             'yearly_consumption_smc' => $commodity === 'GAS' ? $consumo : 0,
             'zone'                   => $zona,
-            'current_annual_spend'   => $spesaAnnua,
+            'current_annual_spend'   => $spesaNettaConfronto,
             'current_supplier'       => $profile['fornitore'] ?? '',
+            'canone_rai'             => $canoneRai,
+            'spesa_materia_energia'  => $spesaMateriaEnergia,
+            'quota_fissa_mensile'    => $quotaFissaMensile,
+            'tipo_cliente'           => $tipoCliente,
         ]);
     } catch (Throwable $e) {
         errorResponse('Impossibile caricare le offerte. Riprova.', 503);
@@ -858,6 +884,8 @@ function handleV2Analyze(array $input): void {
     if ($best && $best['savings_eur'] > 0) {
         $savings = $best['savings_eur'];
         $savingsPct = $best['savings_pct'];
+        // Costo totale nuova offerta = costo energia + Canone RAI (il Canone RAI non cambia con fornitore)
+        $bestTotalWithRai = $best['annual_cost_eur'] + $canoneRai;
 
         // Soglie di onestà: sotto 30€/anno o 5% non è un vero risparmio
         if ($savings >= 50 && $savingsPct >= 5) {
@@ -865,7 +893,7 @@ function handleV2Analyze(array $input): void {
             $summary = sprintf(
                 "✅ CONVIENE CAMBIARE. Spesa attuale %.0f€/anno. Migliore offerta: %s %s: %.0f€/anno. Risparmio reale: %.0f€/anno (%.0f%%). %s.",
                 $spesaAnnua, $best['supplier'], $best['tariff_name'],
-                $best['annual_cost_eur'], $savings, $savingsPct,
+                $bestTotalWithRai, $savings, $savingsPct,
                 $best['contract_detail']
             );
         } elseif ($savings >= 30 || $savingsPct >= 3) {
@@ -873,7 +901,7 @@ function handleV2Analyze(array $input): void {
             $summary = sprintf(
                 "⚠️ MODESTO VANTAGGIO. Spesa attuale %.0f€/anno. La migliore offerta (%s %s: %.0f€/anno) ti farebbe risparmiare solo %.0f€/anno (%.0f%%). Valuta se il cambio vale la pena considerando anche servizio clienti, app, fatturazione. %s.",
                 $spesaAnnua, $best['supplier'], $best['tariff_name'],
-                $best['annual_cost_eur'], $savings, $savingsPct,
+                $bestTotalWithRai, $savings, $savingsPct,
                 $best['contract_detail']
             );
         } else {
@@ -881,13 +909,14 @@ function handleV2Analyze(array $input): void {
             $summary = sprintf(
                 "❌ NESSUN VANTAGGIO SIGNIFICATIVO. La tua spesa attuale (%.0f€/anno) è già competitiva. La migliore alternativa (%s %s: %.0f€/anno) offre un risparmio trascurabile di %.0f€/anno (%.0f%%). Non vale la pena cambiare.",
                 $spesaAnnua, $best['supplier'], $best['tariff_name'],
-                $best['annual_cost_eur'], $savings, $savingsPct
+                $bestTotalWithRai, $savings, $savingsPct
             );
         }
 
         if ($risk) $summary .= " Mercato {$risk['indice']}: {$risk['raccomandazione']} — {$risk['motivazione']}";
     } elseif ($best && $best['savings_eur'] <= 0) {
         $recommendation = 'stay';
+        $bestTotalWithRai = $best['annual_cost_eur'] + $canoneRai;
         $summary = sprintf(
             "❌ NESSUNA OFFERTA PIÙ CONVENIENTE. La tua spesa attuale (%.0f€/anno) è già la più bassa tra le %d offerte confrontate nella zona %s. Non cambiare: hai già una buona tariffa.",
             $spesaAnnua, count($savingsResult['results'] ?? []), $zona
@@ -925,7 +954,8 @@ function handleV2Analyze(array $input): void {
             ],
             'cost_comparison' => [
                 'current' => ['annual' => round($spesaAnnua, 2), 'monthly' => round($spesaAnnua / 12, 2), 'per_unit' => null],
-                'new'     => ['annual' => $best['annual_cost_eur'], 'monthly' => $best['monthly_cost_eur'], 'per_unit' => $best['price_per_unit']],
+                'new'     => ['annual' => $best['annual_cost_eur'] + $canoneRai, 'monthly' => round(($best['annual_cost_eur'] + $canoneRai) / 12, 2), 'per_unit' => $best['price_per_unit']],
+                'canone_rai' => $canoneRai,
             ],
             'key_reasons' => [],
             'contract_advantage' => $best['type'] === 'FISSO'
@@ -1054,30 +1084,37 @@ function handleV2Analyze(array $input): void {
     $costBreakdown = null;
     if ($best) {
         $unit = $commodity === 'LUCE' ? 'kWh' : 'Smc';
+        // Usa dati reali dalla bolletta se disponibili, altrimenti stime ARERA
+        $realMateriaEnergia = $spesaMateriaEnergia > 0 ? $spesaMateriaEnergia : round($consumo * ($commodity === 'LUCE' ? 0.16 : 0.55), 2);
+        $realQuotaFissa = $quotaFissaMensile > 0 ? round($quotaFissaMensile * 12, 2) : round(10 * 12, 2);
+        $ivaRate = $tipoCliente === 'business' ? 0.22 : 0.10;
+
         $costBreakdown = [
             'current' => [
-                'materia_energia' => round($consumo * ($commodity === 'LUCE' ? 0.16 : 0.55), 2),
-                'quota_fissa'     => round(10 * 12, 2),
+                'materia_energia' => $realMateriaEnergia,
+                'quota_fissa'     => $realQuotaFissa,
                 'trasporto_oneri' => round($consumo * ($commodity === 'LUCE' ? 0.0227 : 0), 2),
-                'imposte_iva'     => round($spesaAnnua * 0.10, 2),
+                'imposte_iva'     => round($spesaAnnua * $ivaRate, 2),
+                'canone_rai'      => $canoneRai,
                 'totale'          => round($spesaAnnua, 2),
             ],
             'best_offer' => [
                 'materia_energia' => round($consumo * (float)($best['price_per_unit'] ?? 0), 2),
                 'quota_fissa'     => round(($best['fixed_fee_monthly'] ?? 0) * 12, 2),
                 'trasporto_oneri' => round($consumo * ($commodity === 'LUCE' ? 0.0227 : 0), 2),
-                'imposte_iva'     => round($best['annual_cost_eur'] * 0.10, 2),
-                'totale'          => $best['annual_cost_eur'],
+                'imposte_iva'     => round($best['annual_cost_eur'] * $ivaRate, 2),
+                'canone_rai'      => $canoneRai, // Il Canone RAI è uguale per tutti i fornitori
+                'totale'          => $best['annual_cost_eur'] + $canoneRai,
             ],
             'chart_data' => [
-                'labels'    => ['Materia Energia', 'Quota Fissa', 'Trasporto e Oneri', 'Imposte e IVA'],
+                'labels'    => ['Materia Energia', 'Quota Fissa', 'Trasporto e Oneri', 'Imposte e IVA', 'Canone RAI'],
                 'current'   => [],
                 'best_offer'=> [],
                 'risparmio' => [],
             ],
         ];
         // Popola chart_data arrays
-        foreach (['materia_energia', 'quota_fissa', 'trasporto_oneri', 'imposte_iva'] as $k) {
+        foreach (['materia_energia', 'quota_fissa', 'trasporto_oneri', 'imposte_iva', 'canone_rai'] as $k) {
             $costBreakdown['chart_data']['current'][]    = $costBreakdown['current'][$k];
             $costBreakdown['chart_data']['best_offer'][] = $costBreakdown['best_offer'][$k];
             $costBreakdown['chart_data']['risparmio'][]  = round($costBreakdown['current'][$k] - $costBreakdown['best_offer'][$k], 2);

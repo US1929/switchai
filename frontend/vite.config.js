@@ -32,6 +32,21 @@ function copyBackendPlugin() {
         { src: 'router.php', dest: 'router.php' },
       ]
 
+      // Copia .env da frontend/ (NON da public/ — così non viene auto-copiato da Vite)
+      // Cerca in frontend/ (default), poi fallback a public/ per retrocompatibilità
+      const envSource = resolve(__dirname, '.env')
+      const envFallback = resolve(__dirname, 'public', '.env')
+      const envDest = resolve(distDir, '.env')
+      if (existsSync(envSource)) {
+        cpSync(envSource, envDest)
+        console.log('  ✅ Copiato .env → dist/.env')
+      } else if (existsSync(envFallback)) {
+        cpSync(envFallback, envDest)
+        console.log('  ✅ Copiato public/.env → dist/.env (fallback)')
+      } else {
+        console.warn('  ⚠️  .env non trovato — il backend PHP non funzionerà senza variabili d\'ambiente')
+      }
+
       for (const { src, dest } of toCopy) {
         const srcPath = resolve(backendDir, src)
         const destPath = resolve(distDir, dest)

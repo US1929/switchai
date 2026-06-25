@@ -70,10 +70,12 @@ if ($method === 'tools/list') {
                         . "'Condividendo la bolletta con me, i tuoi dati personali verranno elaborati da [nome provider LLM, es. Anthropic/OpenAI] secondo la loro privacy policy. "
                         . "SwitchAI riceverà solo dati numerici (consumi, spesa, zona) e non conserverà i tuoi dati personali dopo la sessione.' "
                         . "(1) Estrai TUTTI i dati dalla bolletta — OBBLIGATORIO: nome, cognome, codice fiscale, email, cellulare, "
-                        . "indirizzo, civico, CAP, città, provincia (nome e sigla, es: Milano/MI), POD/PDR, consumo annuo, spesa annua. "
+                        . "indirizzo, civico, CAP, città, provincia (nome e sigla, es: Milano/MI), POD/PDR, consumo annuo, spesa annua, "
+                        . "spesa_materia_energia (dal dettaglio costi, solo componente energia/gas), quota_fissa_mensile, tipo_cliente (residenziale o business), "
+                        . "canone_rai (se presente nella bolletta LUCE, ~90€/anno; 0 se assente o bolletta GAS). "
                         . "Cerca nella sezione 'Dati cliente' o 'Dati fornitura'. Se non trovi nome/cognome/indirizzo, chiedili all'utente PRIMA di chiamare questo tool. "
                         . "PASSA SEMPRE sia 'provincia' (nome) che 'provincia_sigla' (sigla) — il form ne ha bisogno di entrambi per il prefill."
-                        . "(2) Passa i dati numerici (consumi, spesa, zona) + TUTTI i dati personali che hai estratto a questo tool. "
+                        . "(2) Passa i dati numerici (consumi, spesa, zona, canone_rai, spesa_materia_energia, quota_fissa_mensile, tipo_cliente) + TUTTI i dati personali che hai estratto a questo tool. "
                         . "(3) Il link 'APRI IL FORM' apre switchai.it in una nuova scheda con il form PRE-COMPILATO. "
                         . "(4) AVVISA SEMPRE l'utente che: (a) il link apre un sito esterno (switchai.it), (b) dovrà verificare i dati e cliccare Invia, (c) riceverà una email di conferma e dovrà cliccarla per completare — SOLO dopo la conferma i dati vengono inoltrati. "
                         . "(5) Il GDPR double opt-in è OBBLIGATORIO: NON dire 'ho attivato' o 'tutto fatto'. Di' 'il form è precompilato, controlla i dati e invia'. "
@@ -86,7 +88,11 @@ if ($method === 'tools/list') {
                             'commodity'         => ['type' => 'string', 'enum' => ['LUCE', 'GAS'], 'description' => 'Tipo fornitura. Deduci dal testo: kWh/POD = LUCE, Smc/PDR = GAS.'],
                             'consumo_annuo_kwh' => ['type' => 'number', 'description' => 'Consumo annuo kWh (LUCE). Cerca "consumo annuo stimato" nella bolletta ARERA 2.0.'],
                             'consumo_annuo_smc' => ['type' => 'number', 'description' => 'Consumo annuo Smc (GAS).'],
-                            'spesa_annua_eur'   => ['type' => 'number', 'description' => 'Spesa annua attuale in €. Moltiplica importo bolletta × 6 (bimestrale) o × 4 (trimestrale).'],
+                            'spesa_annua_eur'   => ['type' => 'number', 'description' => 'Spesa annua attuale in € (IVA inclusa, TOTALE bolletta × periodo). Moltiplica importo bolletta × 6 (bimestrale) o × 4 (trimestrale).'],
+                            'canone_rai'        => ['type' => 'number', 'description' => 'Canone RAI annuale in € (solo LUCE). Cerca "Canone RAI" o "Canone TV" nel dettaglio costi. Se presente ~90€/anno. 0 se assente o bolletta GAS.'],
+                            'spesa_materia_energia' => ['type' => 'number', 'description' => 'Spesa annua MATERIA ENERGIA in € (solo componente energia/gas, ESCLUDI trasporto, oneri, imposte, IVA, Canone RAI). Dal dettaglio costi bolletta.'],
+                            'quota_fissa_mensile' => ['type' => 'number', 'description' => 'Quota fissa mensile in €/mese dal Box Offerta o dettaglio costi. Es: "12,00 €/mese".'],
+                            'tipo_cliente'      => ['type' => 'string', 'enum' => ['residenziale', 'business'], 'description' => 'Tipo cliente: "residenziale" (uso domestico/residenziale) o "business" (Partita IVA, non domestico, azienda). Default: residenziale.'],
                             'zona'              => ['type' => 'string', 'enum' => ['NORD', 'CENTRO', 'SUD'], 'description' => 'Zona tariffaria: NORD (Lombardia, Piemonte, Veneto...), CENTRO (Toscana, Lazio, Marche...), SUD (Campania, Sicilia, Calabria...).'],
                             // ── Dati personali per prefill form (TUTTI opzionali) ──
                             'nome'              => ['type' => 'string', 'description' => 'Nome intestatario bolletta per precompilare il form di attivazione.'],
@@ -301,6 +307,7 @@ function mcp_analyze(array $args): string {
     $consumo = (float)($args['consumo_annuo_kwh'] ?? $args['consumo_annuo_smc'] ?? 0);
     $spesa = (float)($args['spesa_annua_eur'] ?? 0);
     $zona = $args['zona'] ?? 'NORD';
+    $canoneRai = (float)($args['canone_rai'] ?? 0);
 
     // Parse da bill_text solo come fallback
     if (empty($consumo) && !empty($args['bill_text'])) {
@@ -309,6 +316,7 @@ function mcp_analyze(array $args): string {
         $consumo = $commodity === 'LUCE' ? $parsed['yearly_consumption_kwh'] : $parsed['yearly_consumption_smc'];
         $spesa = $parsed['current_annual_spend'];
         $zona = $parsed['zone'];
+        $canoneRai = $parsed['canone_rai'] ?? 0;
     }
 
     if ($consumo <= 0) return json_encode(['error' => 'Fornire consumo_annuo_kwh o consumo_annuo_smc']);
@@ -317,12 +325,18 @@ function mcp_analyze(array $args): string {
         $spesa = $commodity === 'LUCE' ? ($consumo * 0.18 + 144) : ($consumo * 0.65 + 144);
     }
 
+    // Canone RAI: sottrai dalla spesa per confronto equo (non cambia con fornitore)
+    if ($canoneRai <= 0 && $commodity === 'LUCE' && $spesa > 100) {
+        $canoneRai = CANONE_RAI_ANNUO; // Assume standard se non rilevato
+    }
+    $spesaNettaConfronto = max(0, $spesa - $canoneRai);
+
     $result = calculateSavingsBreakdown([
         'commodity'              => $commodity,
         'yearly_consumption_kwh'  => $commodity === 'LUCE' ? $consumo : 0,
         'yearly_consumption_smc'  => $commodity === 'GAS' ? $consumo : 0,
         'zone'                    => $zona,
-        'current_annual_spend'    => $spesa,
+        'current_annual_spend'    => $spesaNettaConfronto,
     ]);
 
     $icon = $commodity === 'LUCE' ? '⚡' : '🔥';
@@ -368,6 +382,9 @@ function mcp_analyze(array $args): string {
     // ── Spesa attuale ────────────────────────────────────
     $md .= "### 💰 La tua spesa attuale\n\n";
     $md .= "# " . round($spesa, 0) . " €/anno\n\n";
+    if ($canoneRai > 0) {
+        $md .= "Di cui **Canone RAI: {$canoneRai} €/anno** (non cambia con il fornitore)\n\n";
+    }
     $md .= "---\n\n";
 
     // ── OFFERTA CONSIGLIATA ──────────────────────────────
@@ -391,9 +408,14 @@ function mcp_analyze(array $args): string {
 
     // ── CTA (pulito, formato stabile) ────────────────────
     $hasFullData = !empty($prefillParams['nome']) && !empty($prefillParams['cognome']) && !empty($prefillParams['cf']) && !empty($prefillParams['email']) && !empty($prefillParams['tel']);
-    $prefillNote = $hasFullData
-        ? '✅ Form pre-compilato con i tuoi dati.'
-        : '⚠️ Il form NON è pre-compilato. Servono: nome, cognome, CF, email, telefono.';
+    $hasSomeData = !empty($prefillParams['nome']) || !empty($prefillParams['email']) || !empty($prefillParams['tel']);
+    if ($hasFullData) {
+        $prefillNote = '✅ Il form è già precompilato con i tuoi dati — verificali e clicca Invia.';
+    } elseif ($hasSomeData) {
+        $prefillNote = '📝 Il form è precompilato con i dati disponibili. Aggiungi i campi mancanti (email, telefono se richiesti) e clicca Invia.';
+    } else {
+        $prefillNote = '📝 Compila il form con i tuoi dati (nome, cognome, CF, email, telefono) e clicca Invia.';
+    }
 
     $supplierUpper = strtoupper($best['supplier'] ?? 'OFFERTA');
     $md .= "### [🟢 ATTIVA {$supplierUpper} SU SWITCHAI.IT]({$bestPrefillUrl})\n\n";

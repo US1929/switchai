@@ -18,26 +18,28 @@ const STATS = [
   { value: '500€', label: 'Risparmio medio/anno' },
 ];
 
-const LLM_PROMPT = `Estrai dalla mia bolletta italiana (ARERA 2.0) questi dati in JSON. NON includere POD, indirizzo o dati personali.
+	const LLM_PROMPT = `Estrai dalla mia bolletta italiana (ARERA 2.0) questi dati in JSON. NON includere POD, indirizzo o dati personali.
 
-{
-  "commodity": "LUCE" o "GAS",
-  "consumo_annuo": numero (kWh per luce, Smc per gas — lo trovi nel frontespizio o nella sezione Consumi come "Consumo annuo"),
-  "spesa_annua": numero in € (se non indicata direttamente, stima: importo bolletta × 6 se bimestrale, × 4 se trimestrale, × 12 se mensile),
-  "zona": "NORD", "CENTRO" o "SUD" (dalla provincia/città della fornitura),
-  "spesa_materia_energia": numero in € (dal dettaglio costi, solo la componente energia/gas — escludi trasporto, oneri, imposte, IVA, canone RAI),
-  "quota_fissa_mensile": numero in €/mese (dal Box Offerta o dal dettaglio costi),
-  "consumo_f1": numero in kWh (opzionale, solo se bolletta multioraria),
-  "consumo_f2": numero in kWh (opzionale),
-  "consumo_f3": numero in kWh (opzionale),
-  "potenza_impegnata": numero in kW (opzionale, default 3.0),
-  "tipo_tariffa": "fisso" o "variabile" (dal Box Offerta),
-  "spread": numero in €/kWh o €/Smc (opzionale, solo se tariffa variabile — es. "PUN + 0,016" → 0.016),
-  "scadenza_offerta": "GG/MM/AAAA" (opzionale, dal Box Offerta),
-  "periodo_riferimento": "GG/MM/AAAA - GG/MM/AAAA" (opzionale, dal frontespizio)
-}
+	{
+	  "commodity": "LUCE" o "GAS",
+	  "consumo_annuo": numero (kWh per luce, Smc per gas — lo trovi nel frontespizio o nella sezione Consumi come "Consumo annuo"),
+	  "spesa_annua": numero in € (se non indicata direttamente, stima: importo bolletta × 6 se bimestrale, × 4 se trimestrale, × 12 se mensile),
+	  "zona": "NORD", "CENTRO" o "SUD" (dalla provincia/città della fornitura),
+	  "tipo_cliente": "residenziale" o "business" (obbligatorio: leggi se la bolletta dice "residenziale", "domestica", "uso domestico" → residenziale; "business", "azienda", "non domestica", "Partita IVA" → business),
+	  "spesa_materia_energia": numero in € (dal dettaglio costi, solo la componente energia/gas — escludi trasporto, oneri, imposte, IVA, canone RAI),
+	  "quota_fissa_mensile": numero in €/mese (dal Box Offerta o dal dettaglio costi),
+	  "canone_rai": numero in € (cerca "Canone RAI", "Canone TV", "canone di abbonamento" nel dettaglio costi bolletta LUCE. Di solito ~90€/anno. Metti 0 se non presente o se è bolletta GAS),
+	  "consumo_f1": numero in kWh (opzionale, solo se bolletta multioraria),
+	  "consumo_f2": numero in kWh (opzionale),
+	  "consumo_f3": numero in kWh (opzionale),
+	  "potenza_impegnata": numero in kW (opzionale, default 3.0),
+	  "tipo_tariffa": "fisso" o "variabile" (dal Box Offerta),
+	  "spread": numero in €/kWh o €/Smc (opzionale, solo se tariffa variabile — es. "PUN + 0,016" → 0.016),
+	  "scadenza_offerta": "GG/MM/AAAA" (opzionale, dal Box Offerta),
+	  "periodo_riferimento": "GG/MM/AAAA - GG/MM/AAAA" (opzionale, dal frontespizio)
+	}
 
-Metti null per i campi che non trovi. Rispondi SOLO con il JSON.`;
+	Metti null per i campi che non trovi. Rispondi SOLO con il JSON.`;
 
 export default function Home() {
   const [commodity, setCommodity] = useState('luce');
@@ -88,6 +90,10 @@ export default function Home() {
         if (isLuceLocal) body.consumo_annuo_kwh = Number(extractedData.consumo_annuo || consumoLocal);
         else body.consumo_annuo_smc = Number(extractedData.consumo_annuo || consumoLocal);
         if (extractedData.tipo_tariffa) body.tariff_type = extractedData.tipo_tariffa;
+        if (extractedData.canone_rai > 0) body.canone_rai = Number(extractedData.canone_rai);
+        if (extractedData.tipo_cliente) body.tipo_cliente = extractedData.tipo_cliente;
+        if (extractedData.spesa_materia_energia > 0) body.spesa_materia_energia = Number(extractedData.spesa_materia_energia);
+        if (extractedData.quota_fissa_mensile > 0) body.quota_fissa_mensile = Number(extractedData.quota_fissa_mensile);
 
         const r = await fetch('/api/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
         const d = await r.json();
@@ -326,28 +332,30 @@ export default function Home() {
           {/* LLM extracted data summary */}
           {llmExtractedData && (
             <div className="glass-card best-offer animate-scale-in" style={{ padding: '16px 18px', marginBottom: 24, borderColor: 'rgba(16,185,129,0.3)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                 <span style={{ fontSize: 14, fontWeight: 700, color: '#10b981' }}>✅ Dati estratti dal LLM</span>
                 <button onClick={() => setLlmExtractedData(null)} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: 16 }}>✕</button>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 8, fontSize: 12 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 13 }}>
                 {[
                   ['Commodity', llmExtractedData.commodity],
+                  ['Tipo cliente', llmExtractedData.tipo_cliente],
                   ['Consumo annuo', `${llmExtractedData.consumo_annuo} ${llmExtractedData.commodity === 'GAS' ? 'Smc' : 'kWh'}`],
                   ['Spesa annua', `${llmExtractedData.spesa_annua} €`],
                   ['Zona', llmExtractedData.zona],
                   ['Spesa materia energia', llmExtractedData.spesa_materia_energia ? `${llmExtractedData.spesa_materia_energia} €` : null],
                   ['Quota fissa mensile', llmExtractedData.quota_fissa_mensile ? `${llmExtractedData.quota_fissa_mensile} €/mese` : null],
+                  ['Canone RAI', llmExtractedData.canone_rai > 0 ? `${llmExtractedData.canone_rai} €/anno` : null],
                   ['Tipo tariffa', llmExtractedData.tipo_tariffa],
                   ['Spread', llmExtractedData.spread != null ? `${llmExtractedData.spread} €` : null],
-                  ['Potenza', llmExtractedData.potenza_impegnata ? `${llmExtractedData.potenza_impegnata} kW` : null],
+                  ['Potenza impegnata', llmExtractedData.potenza_impegnata ? `${llmExtractedData.potenza_impegnata} kW` : null],
                   ['F1/F2/F3', (llmExtractedData.consumo_f1 || llmExtractedData.consumo_f2) ? `${llmExtractedData.consumo_f1||'-'}/${llmExtractedData.consumo_f2||'-'}/${llmExtractedData.consumo_f3||'-'} kWh` : null],
                   ['Scadenza offerta', llmExtractedData.scadenza_offerta],
                   ['Periodo riferimento', llmExtractedData.periodo_riferimento],
                 ].filter(([,v]) => v != null).map(([label, value]) => (
-                  <div key={label} style={{ background: 'rgba(16,185,129,0.05)', borderRadius: 6, padding: '8px', textAlign: 'center' }}>
-                    <div style={{ fontSize: 10, color: '#64748b', marginBottom: 2 }}>{label}</div>
-                    <div style={{ color: '#f1f5f9', fontWeight: 600 }}>{value}</div>
+                  <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', borderRadius: 6, background: 'rgba(255,255,255,0.02)' }}>
+                    <span style={{ color: '#94a3b8', fontWeight: 500 }}>{label}</span>
+                    <span style={{ color: '#f1f5f9', fontWeight: 600 }}>{value}</span>
                   </div>
                 ))}
               </div>
@@ -402,7 +410,7 @@ export default function Home() {
                 </span>
                 <span style={{ fontWeight: 600, color: '#94a3b8' }}>🔒 Cosa resta uguale:</span>
                 <span style={{ background: 'rgba(148,163,184,0.06)', padding: '2px 10px', borderRadius: 4 }}>
-                  Trasporto · Oneri · Imposte · IVA
+                  Trasporto · Oneri · Imposte · IVA{commodity === 'luce' ? ' · Canone RAI' : ''}
                 </span>
               </div>
             )}

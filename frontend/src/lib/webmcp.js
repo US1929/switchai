@@ -63,6 +63,23 @@ const savingsTool = {
         type: "number",
         description: "Spesa annua attuale in euro. Esempio: 650"
       },
+      canone_rai: {
+        type: "number",
+        description: "Canone RAI annuale in € (solo LUCE). Cerca 'Canone RAI' o 'Canone TV' nel dettaglio costi. ~90€/anno. 0 se assente o GAS."
+      },
+      spesa_materia_energia: {
+        type: "number",
+        description: "Spesa annua materia energia in € (solo componente energia/gas, esclusi trasporto, oneri, IVA, canone RAI). Dal dettaglio costi."
+      },
+      quota_fissa_mensile: {
+        type: "number",
+        description: "Quota fissa mensile in €/mese. Dal Box Offerta o dettaglio costi."
+      },
+      tipo_cliente: {
+        type: "string",
+        enum: ["residenziale", "business"],
+        description: "Tipo cliente: residenziale (uso domestico) o business (Partita IVA, azienda)."
+      },
       nome: { type: "string", description: "(Opzionale) Nome intestatario per precompilare il form" },
       cognome: { type: "string", description: "(Opzionale) Cognome per precompilare il form" },
       cf: { type: "string", description: "(Opzionale) Codice Fiscale per precompilare il form" },
