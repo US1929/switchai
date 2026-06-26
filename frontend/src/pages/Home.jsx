@@ -3,6 +3,8 @@ import { api } from '../lib/api.js';
 import { calcLuceCost, calcGasCost, buildBreakdown, deduplicateTariffs, formatEuro, getCurrentPricePerUnit, getCurrentFixedMonthly, getRankingBadges, isPriceAnomalous } from '../lib/calc.js';
 import { MERCATO } from '../lib/constants.js';
 import TariffCard from '../components/TariffCard.jsx';
+import TariffTable from '../components/TariffTable.jsx';
+import CostBreakdownCard from '../components/CostBreakdownCard.jsx';
 import MarketSignal from '../components/MarketSignal.jsx';
 import StickyReferenceBar from '../components/StickyReferenceBar.jsx';
 import ChatDemo from '../components/ChatDemo.jsx';
@@ -431,31 +433,22 @@ export default function Home() {
               </div>
             )}
 
-            <div className="stagger" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              {displayed.map((item, i) => (
-                <TariffCard
-                  key={`${item.tariff.brand}|${item.tariff.offerta}`}
-                  rank={i}
-                  tariff={item.tariff}
-                  commodity={commodity}
-                  annualCost={Math.round(item.annualCost)}
-                  savings={item.savings !== null ? Math.round(item.savings) : null}
-                  savingsPct={item.savingsPct}
-                  breakdown={item.breakdown}
-                  currentSpend={results.currentSpend}
-                  hasRealSpend={results.hasRealSpend}
-                  rankBadge={item.rankBadge}
-                  rankLabel={item.rankLabel}
-                  currentPricePerUnit={currentPricePerUnit}
-                  currentFixedMonthly={currentFixedMonthly}
-                  llmData={llmExtractedData}
-                  isAnomalous={isPriceAnomalous(isLuce ? (item.tariff['prezzo tot kwh']) : (item.tariff['prezzo tot smc']), commodity)}
-                  priceWarning={item.priceWarning}
-                />
-              ))}
-            </div>
+            <TariffTable
+              items={rankedItems}
+              commodity={commodity}
+              currentSpend={results.currentSpend}
+              hasRealSpend={results.hasRealSpend}
+              currentPricePerUnit={currentPricePerUnit}
+              currentFixedMonthly={currentFixedMonthly}
+              llmData={llmExtractedData}
+              consumption={consumption}
+              punEurKwh={punEurKwh}
+              psvEurSmc={psvEurSmc}
+              selectedKeys={[]}
+              onToggleSelect={() => {}}
+            />
             {results.items.length > 5 && (
-              <button className="btn btn-outline" onClick={() => setShowAll(!showAll)} style={{ width: '100%', marginTop: 16 }}>{showAll ? 'Mostra solo le prime 5 ↑' : `Mostra tutte le ${results.items.length} ↓`}</button>
+              <button className="btn btn-outline" onClick={() => setShowAll(!showAll)} style={{ width: '100%', marginTop: 16 }}>{showAll ? 'Mostra solo le prime 3 ↑' : `Mostra tutte le ${results.items.length} ↓`}</button>
             )}
           </div>
         </section>
