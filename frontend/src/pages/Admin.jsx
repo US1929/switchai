@@ -511,10 +511,17 @@ function SyncTab({ token }) {
         headers: { 'x-auth-token': token },
       });
       const d = await r.json();
-      setSyncResult(d);
+      // Supporta entrambi i formati (diretto o con .results wrapper)
+      if (d.results && Array.isArray(d.results)) {
+        setSyncResult(d);
+      } else if (d.status) {
+        setSyncResult(d);
+      } else {
+        setSyncResult({ status: 'completed', ...d });
+      }
       loadStats();
-    } catch {
-      setSyncResult({ status: 'error', message: 'Sync fallito' });
+    } catch (e) {
+      setSyncResult({ status: 'error', message: 'Sync fallito: ' + (e.message || 'errore sconosciuto') });
     }
     setSyncing(false);
   };

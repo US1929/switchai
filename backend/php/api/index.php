@@ -291,58 +291,41 @@ try {
         // POST /api/admin/sync-arera — trigger sincronizzazione ARERA (richiede auth)
         case $uri === '/api/admin/sync-arera' && $method === 'POST':
             requireAuth();
-            try {
-                $syncFile = __DIR__ . '/../inc/arera_sync.php';
-                if (!is_file($syncFile)) {
-                    errorResponse('Script sync non trovato', 500);
-                }
-                require_once $syncFile;
-
-                $brandMeta = $brand_metadata ?? [];
-                $params = $parametri_mercato ?? [];
-
-                // Esegue sync per LUCE e GAS
-                $luceResult = arera_run_sync('E', $brandMeta, $params);
-                $gasResult = arera_run_sync('G', $brandMeta, $params);
-
-                $luceCount = $luceResult['success'] ? $luceResult['count'] : 0;
-                $gasCount = $gasResult['success'] ? $gasResult['count'] : 0;
-
-                // Conta offerte per tipo cliente (privati vs aziende)
-                $luceFile = ARERA_DATA_DIR . '/db-offerte-luce.json';
-                $gasFile = ARERA_DATA_DIR . '/db-offerte-gas.json';
-                $lucePrivati = 0; $luceAziende = 0;
-                $gasPrivati = 0; $gasAziende = 0;
-
-                if (is_file($luceFile)) {
-                    $luceData = json_decode(file_get_contents($luceFile), true) ?: [];
-                    foreach ($luceData as $o) {
-                        $uso = strtolower($o['uso'] ?? '');
-                        if (str_contains($uso, 'domestico')) $lucePrivati++;
-                        else $luceAziende++;
-                    }
-                }
-                if (is_file($gasFile)) {
-                    $gasData = json_decode(file_get_contents($gasFile), true) ?: [];
-                    foreach ($gasData as $o) {
-                        $uso = strtolower($o['uso'] ?? '');
-                        if (str_contains($uso, 'domestico')) $gasPrivati++;
-                        else $gasAziende++;
-                    }
-                }
-
-                $elapsed = round(($luceResult['elapsed'] ?? 0) + ($gasResult['elapsed'] ?? 0), 2);
-                jsonResponse([
-                    'status'   => 'completed',
-                    'luce'     => ['total' => $luceCount, 'privati' => $lucePrivati, 'aziende' => $luceAziende],
-                    'gas'      => ['total' => $gasCount, 'privati' => $gasPrivati, 'aziende' => $gasAziende],
-                    'totale'   => $luceCount + $gasCount,
-                    'elapsed'  => $elapsed,
-                    'message'  => "Sync completato in {$elapsed}s: {$luceCount} offerte LUCE + {$gasCount} GAS importate.",
-                ]);
-            } catch (Throwable $e) {
-                errorResponse('Errore sync: ' . $e->getMessage(), 500);
+            define('ARERA_SYNC_SILENT', true);
+            require_once __DIR__ . '/../inc/arera_sync.php';
+            $type = $input['type'] ?? null;
+            $regione = $input['regione'] ?? null;
+            $types = $type ? [$type] : ['luce', 'gas'];
+            $results = [];
+            foreach ($types as $t) {
+                $results[] = arera_run_sync($t, $GLOBALS['brand_metadata'], $GLOBALS['parametri_mercato'], $regione);
             }
+            // Arricchisci con conteggi privati/aziende
+            $luceFile = ARERA_DATA_DIR . '/db-offerte-luce.json';
+            $gasFile = ARERA_DATA_DIR . '/db-offerte-gas.json';
+            $lucePrivati = 0; $luceAziende = 0;
+            $gasPrivati = 0; $gasAziende = 0;
+            if (is_file($luceFile)) {
+                $d = json_decode(file_get_contents($luceFile), true) ?: [];
+                foreach ($d as $o) { if (str_contains(strtolower($o['uso'] ?? ''), 'domestico')) $lucePrivati++; else $luceAziende++; }
+            }
+            if (is_file($gasFile)) {
+                $d = json_decode(file_get_contents($gasFile), true) ?: [];
+                foreach ($d as $o) { if (str_contains(strtolower($o['uso'] ?? ''), 'domestico')) $gasPrivati++; else $gasAziende++; }
+            }
+            $luceOk = ($results[0]['success'] ?? false) ? $results[0]['count'] : 0;
+            $gasOk = ($results[1]['success'] ?? false) ? ($results[1]['count'] ?? 0) : 0;
+            $tot = $luceOk + $gasOk;
+            $elapsed = round(($results[0]['elapsed'] ?? 0) + ($results[1]['elapsed'] ?? 0), 2);
+            jsonResponse([
+                'results' => $results,
+                'status'  => 'completed',
+                'luce'    => ['total' => $luceOk, 'privati' => $lucePrivati, 'aziende' => $luceAziende],
+                'gas'     => ['total' => $gasOk, 'privati' => $gasPrivati, 'aziende' => $gasAziende],
+                'totale'  => $tot,
+                'elapsed' => $elapsed,
+                'message' => $tot > 0 ? "Sync completato in {$elapsed}s: {$luceOk} LUCE + {$gasOk} GAS = {$tot} offerte totali" : 'Sync completato ma nessuna offerta importata',
+            ]);
             break;
 
         // GET /api/admin/affiliates — lista link affiliazione (richiede auth)
