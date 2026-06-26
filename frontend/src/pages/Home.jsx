@@ -2,7 +2,6 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { api } from '../lib/api.js';
 import { calcLuceCost, calcGasCost, buildBreakdown, deduplicateTariffs, formatEuro, getCurrentPricePerUnit, getCurrentFixedMonthly, getRankingBadges, isPriceAnomalous } from '../lib/calc.js';
 import { MERCATO } from '../lib/constants.js';
-import TariffCard from '../components/TariffCard.jsx';
 import TariffTable from '../components/TariffTable.jsx';
 import CostBreakdownCard from '../components/CostBreakdownCard.jsx';
 import MarketSignal from '../components/MarketSignal.jsx';
