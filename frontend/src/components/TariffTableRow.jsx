@@ -744,6 +744,8 @@ export default function TariffTableRow({
         tipo={isLuce ? 'LUCE' : 'GAS'}
         open={showCalc}
         onClose={() => setShowCalc(false)}
+        apiSavings={savings}
+        apiSavingsPct={savingsPct}
       />
     </div>
   );

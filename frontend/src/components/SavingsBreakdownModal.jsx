@@ -15,7 +15,7 @@ function ModalRow({ label, value, highlight }) {
   )
 }
 
-export default function SavingsBreakdownModal({ consumo, prezzo, costoFisso, annualCost, currentSpend, brand, offerta, tipo, open, onClose }) {
+export default function SavingsBreakdownModal({ consumo, prezzo, costoFisso, annualCost, currentSpend, brand, offerta, tipo, open, onClose, apiSavings, apiSavingsPct }) {
   useEffect(() => {
     if (!open) return
     const handler = (e) => {
@@ -35,8 +35,9 @@ export default function SavingsBreakdownModal({ consumo, prezzo, costoFisso, ann
   const annualNum = Number(annualCost ?? 0)
   const currentNum = Number(currentSpend ?? 0)
   const materiaCost = consumoNum * prezzoNum
-  const savings = currentNum > 0 ? Math.max(0, currentNum - annualNum) : 0
-  const savingsPct = currentNum > 0 ? ((savings / currentNum) * 100).toFixed(1) : '0'
+  // Usa i savings dall'API (corretti con PUN simmetrico) se disponibili
+  const savings = apiSavings != null ? Math.max(0, Number(apiSavings)) : (currentNum > 0 ? Math.max(0, currentNum - annualNum) : 0)
+  const savingsPct = apiSavingsPct != null ? Number(apiSavingsPct).toFixed(1) : (currentNum > 0 ? ((savings / currentNum) * 100).toFixed(1) : '0')
 
   return (
     <div
