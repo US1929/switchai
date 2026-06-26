@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { api } from '../lib/api.js';
-import { calcLuceCost, calcGasCost, buildBreakdown, deduplicateTariffs, formatEuro, getCurrentPricePerUnit, getCurrentFixedMonthly, getRankingBadges, isPriceAnomalous } from '../lib/calc.js';
-import { MERCATO } from '../lib/constants.js';
+import { calcLuceCost, calcGasCost, buildBreakdown, deduplicateTariffs, formatEuro, getCurrentPricePerUnit, getCurrentFixedMonthly, getRankingBadges, isPriceAnomalous, estimateRegulatedCosts } from '../lib/calc.js';
+import { LUCE as LUCE_CONST, GAS as GAS_CONST, MERCATO } from '../lib/constants.js';
 import TariffTable from '../components/TariffTable.jsx';
 import CostBreakdownCard from '../components/CostBreakdownCard.jsx';
 import MarketSignal from '../components/MarketSignal.jsx';
@@ -430,6 +430,18 @@ export default function Home() {
                   Trasporto · Oneri · Imposte · IVA{commodity === 'luce' ? ' · Canone RAI' : ''}
                 </span>
               </div>
+            )}
+
+            {results.hasRealSpend && (
+              <CostBreakdownCard
+                data={{
+                  materia: Math.round((consumption * currentPricePerUnit)),
+                  trasporto: Math.round(consumption * (commodity === 'luce' ? LUCE_CONST.TRASPORTO_VAR : GAS_CONST.TRASPORTO_VAR)),
+                  oneri: Math.round(consumption * (commodity === 'luce' ? LUCE_CONST.ONERI_SISTEMA : GAS_CONST.ONERI_SISTEMA)),
+                  imposte: Math.round(consumption * (commodity === 'luce' ? LUCE_CONST.ACCISE : GAS_CONST.ACCISE) + 90 + 23),
+                }}
+                totale={results.currentSpend}
+              />
             )}
 
             <TariffTable
