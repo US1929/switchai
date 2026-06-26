@@ -3,7 +3,8 @@
 > **Dominio**: [switchai.it](https://www.switchai.it) — attivo su OVH Pro Web Hosting  
 > **Stack**: React 19 + Vite 8 | PHP 8.5 API | WebMCP (Google Chrome Labs) | MCP Server (PHP + Node.js) | Tailwind CSS 4  
 > **Design**: ispirato a Switcho.it + Billoo.it, card allineate a ComparaSemplice  
-> **Ultimo aggiornamento**: 16 Giugno 2026
+> **Ultimo aggiornamento**: 26 Giugno 2026
+> **Versione**: 5.3.0
 
 ---
 
@@ -45,7 +46,7 @@ LLM → chiama SwitchAI API:
    POST /mcp          (MCP Server — solo dati numerici)
    WebMCP             (browser agent)
    ↓
-SwitchAI → confronta 44+ offerte → restituisce top 3 + risk + agent_summary + subscription_url
+SwitchAI → confronta 5.000+ offerte (da sync ARERA quotidiano) → restituisce top 3 + risk + agent_summary + subscription_url
    ↓
 LLM → presenta il risultato all'utente in italiano
    ↓
@@ -308,20 +309,45 @@ Il form di sottoscrizione **non chiede mai** all'LLM di raccogliere:
 
 ---
 
-## 8. Architettura Flat-File (No Database)
+## 8. Storage — Flat-File + MySQL
 
-Tutti i dati in `data/`:
-- `subscriptions/` — JSON con `flock()` atomico
-- `api_clients/` — B2B API keys (SHA-256)
-- `ratelimit/` — rate limiting per IP
-- `templates/` — auto-learning parser
-- `logs/traffic_YYYY_MM.jsonl` — rotazione mensile, streaming `fgets()`
+SwitchAI usa un'architettura ibrida:
+
+### Flat-File (dati operativi)
+- `data/offerte/` — JSON ARERA (db-offerte-luce.json ~8.6 MB, db-offerte-gas.json ~5.2 MB) — generati da `arera_sync.php`
+- `data/subscriptions/` — JSON con `flock()` atomico
+- `data/api_clients/` — B2B API keys (SHA-256)
+- `data/ratelimit/` — rate limiting per IP
+- `data/templates/` — auto-learning parser
+- `data/logs/traffic_YYYY_MM.jsonl` — rotazione mensile
+
+### MySQL (dati transazionali)
+- **Server**: songmeeswitchai.mysql.db (OVH, 2 GB)
+- Tabelle: `users`, `api_keys`, `rate_log`, `affiliate_links`
+- Gestito via `db_mysql.php` con PDO, InnoDB, foreign keys
+- Usato per: autenticazione B2B, API key management, rate limiting, link affiliazione
 
 ### Rate Limiting
 
-- **B2C**: 30 richieste/ora per IP — **solo su POST pesanti e write**. GET pubbliche (`/api/tariffe/*`, `/api/market-indices`, `/api/health`, `/api/status`, `/api/arera-constants`) esenti
-- **B2B**: quota mensile per chiave API (basic 1k, pro 5k, premium 20k)
-- Sistema a file con `flock()` per atomicità
+- **B2C**: 30 richieste/ora per IP — **solo su POST pesanti e write**. GET pubbliche esenti
+- **B2B**: quota mensile per chiave API (free 100, pro 1000, enterprise unlimited)
+- B2C via flat-file con `flock()`, B2B via MySQL `rate_log`
+
+### ARERA Sync
+
+Script `arera_sync.php` scarica gli XML ufficiali da `ilportaleofferte.it`:
+- Parser XMLReader (streaming, memory-efficient, ~30-60 secondi)
+- Filtra offerte scadute (data_fine < oggi), deduplica, risolve brand da P.IVA
+- Salva atomicamente (write .tmp → rename) in `data/offerte/`
+- Triggerabile da Admin panel (`POST /api/admin/sync-arera`) o via cron OVH
+- Risultato: ~3.150 offerte LUCE + ~2.390 GAS da 21+ fornitori
+
+### Sistema Affiliazioni
+
+- Tabella MySQL `affiliate_links`: tariff_id → affiliate_url, network, is_active
+- Admin panel (`/admin` → tab 💰 Affiliazioni): cerca offerte, associa link, rimuovi
+- Le offerte con link affiliazione mostrano CTA esterno (nuova tab) invece del form interno
+- Backend arricchisce i risultati API con `affiliate_url` automaticamente
 
 ---
 
@@ -341,29 +367,35 @@ Tutti i parametri ARERA sono in **un'unica fonte** per frontend e backend:
 | `backend/php/inc/bill_parser.php` | PHP: 17 `define()` con guard `if (!defined(...))` + `getAreraConstants()` |
 | `GET /api/arera-constants` | API pubblica che espone i valori correnti in JSON |
 
-### Valori LUCE (aggiornati Giugno 2026)
+### Valori LUCE — ARERA v4.0 (aggiornati Giugno 2026, Del. 575/2025)
 
 | Costante | Valore | Descrizione |
 |----------|--------|-------------|
-| `PERDITE_RETE_BT` | 1.102 | Coefficiente perdite Bassa Tensione (~10,2%) |
-| `ONERI_SISTEMA` | 0.038 €/kWh | Asos (rinnovabili) + Arim (altri oneri) |
-| `ACCISE` | 0.0227 €/kWh | Accisa erariale residenziale (>150 kWh/mese) |
-| `TRASPORTO_VAR` | 0.0089 €/kWh | Trasporto variabile distribuzione |
-| `COSTO_POTENZA_KW` | 21.48 €/kW/anno | Quota potenza impegnata |
-| `QUOTA_FISSA_RETI` | 24.00 €/anno | Trasporto fisso + gestione contatore |
-| `IVA` | 10% | IVA agevolata usi domestici |
+| `PERDITE_RETE_BT` | 1.102 | Coefficiente perdite Bassa Tensione (~10,2%). Applicato SOLO al PUN, non allo spread |
+| `ONERI_SISTEMA` | 0.0303 €/kWh | ASOS 0.02866 + ARIM 0.00164 (Comunicato Q2 2026) |
+| `ACCISE` | 0.0227 €/kWh | Accisa erariale. Soglie DL 504/1995: esente ≤1800 kWh/anno, compensata ≤2640 kWh/anno |
+| `TRASPORTO_VAR` | 0.01204 €/kWh | TRAS 0.01190 + UC3 0.00007 + UC6 0.00007 (Del. 575/2025) |
+| `COSTO_POTENZA_KW` | 23.52 €/kW/anno | Quota potenza impegnata (Del. 575/2025) |
+| `QUOTA_FISSA_RETI` | 23.04 €/anno | Trasporto fisso + gestione contatore (Del. 575/2025) |
+| `CANONE_RAI_ANNUO` | 90.00 €/anno | Canone RAI (solo LUCE residenziale, non si applica a business/P.IVA) |
+| `IVA` | 10% (residenziale) / 22% (business) | IVA agevolata usi domestici |
 
-### Valori GAS
+### Valori GAS — ARERA v4.0
 
 | Costante | Valore | Descrizione |
 |----------|--------|-------------|
 | `TRASPORTO_VAR` | 0.15 €/Smc | Trasporto variabile distribuzione |
 | `ONERI_SISTEMA` | 0.03 €/Smc | Oneri sistema gas |
-| `ACCISE` | 0.15 €/Smc | Accisa gas usi civili |
+| `ACCISE` | 0.149959 €/Smc | Accisa gas usi civili (valore preciso) |
+| `ADDIZIONALE_REGIONALE` | 0.0093 €/Smc | Addizionale regionale gas |
 | `QUOTA_FISSA_RETI` | 23.00 €/anno | Trasporto fisso + gestione contatore |
 | `SOGLIA_IVA_10` | 480 Smc/anno | Soglia IVA agevolata (oltre → 22%) |
 
-> **Nota**: Questi valori vengono aggiornati periodicamente seguendo le delibere ARERA. Per modificarli basta toccare un solo file per lato (JS e PHP). L'endpoint `/api/arera-constants` permette di verificare i valori in produzione.
+### Metodo ARERA Simmetrico (novità v4.0)
+
+Per le tariffe **variabili** (indicizzate PUN/PSV), SwitchAI applica il **confronto simmetrico**: entrambe le tariffe (attuale e nuova) sono calcolate con lo **stesso PUN/PSV corrente**. Il risparmio riflette solo le differenze contrattuali reali (spread + quota fissa), non le oscillazioni di mercato. Questo evita l'errore comune di confrontare la spesa storica (PUN vecchio) con la spesa futura stimata (PUN forward), che gonfiava artificialmente i risparmi.
+
+> **Nota**: Questi valori vengono aggiornati periodicamente seguendo le delibere ARERA. Per modificarli basta toccare un solo file per lato (JS `constants.js` e PHP `bill_parser.php`). L'endpoint `/api/arera-constants` espone i valori correnti in JSON.
 
 ---
 
@@ -525,56 +557,37 @@ Per bollette a tariffa variabile (PUN/PSV + spread), ricalcoliamo il costo con l
 
 ---
 
-## 15. UX — TariffCard e Confronto Offerte
+## 15. UX — Interfaccia Risultati e Confronto Offerte
 
-### TariffCard (v5.1 — responsive + tooltip)
+### TariffTable (nuovo — da v5.3)
 
-La card di ogni offerta è progettata per rendere il confronto "prima/dopo" immediato:
+Sostituisce le card con un layout a tabella compatta, come il Portale Offerte ARERA:
 
-**Desktop (≥640px)**:
-1. **Header** — logo fornitore + nome offerta + tipo (Fisso/Variabile) + badge ranking (🥇🥈🥉)
-2. **Barra proporzionale** — segmento rosso (spesa attuale) vs verde (nuova spesa), con risparmio € e % al centro
-3. **Confronto per-riga** — tabella "Ora → Con questa offerta" con ℹ️ tooltip su ogni riga:
-   - Prezzo €/kWh (o €/Smc) — con ✅/↗
-   - Quota fissa €/mese
-   - Totale anno (riga evidenziata) — ℹ️ mostra breakdown completo costi regolati ARERA
-4. **Risparmio mensile** — "≈ 22€/mese in meno · 0,72€/giorno"
-5. **CTA** — prezzo/mese + pulsante "Attiva Online"
-6. **Tag vincoli** — 🔒 Prezzo bloccato X mesi, ⚠️ Penale recesso, 📅 Valida fino al...
-7. **Warning prezzo anomalo** — alert quando prezzo < 0,05 €/kWh (luce) o < 0,20 €/Smc (gas)
-8. **Accordion "Dettagli tariffa"** — collassabile: tipologia, quota fissa, pagamento, breakdown testuale, nota costi regolati con ℹ️
-
-**Mobile (<640px)**: card compatta — barra + totale anno + accordion espandibile "Confronto per-riga e dettagli". Le righe tecniche sono collassate per non affollare lo schermo.
-
-### InfoTooltip ℹ️
-
-Componente inline riutilizzabile: icona ℹ️ grigia che al hover/click apre un popover con sfondo scuro, bordo e freccetta ▲. Usato su:
-- Righe del confronto per-riga (spiega la componente di costo)
-- "Oneri e Imposte" nell'accordion dettagli (spiega costi regolati ARERA)
-- "Totale anno" (breakdown completo: trasporto, oneri, accise, IVA, quota potenza, quota fissa reti)
-
-**Design del tooltip**: `max-width: min(380px, 85vw)` responsive, `z-index: 9999`, freccia CSS triangolare, sfondo `#0f172a` con bordo.
-
-### Badge ranking (assegnati automaticamente)
-
-- 🥇 **Miglior risparmio** — offerta col risparmio più alto (o costo più basso)
-- 🥈 **Miglior equilibrio** — buon risparmio + quota fissa contenuta
-- 🥉 **Prezzo stabile** — offerta a prezzo fisso/bloccato
+1. **Header colonne**: Fornitore, Offerta, Prezzo, Quota, Costo/anno, Risparmio
+2. **TariffTableRow** — ogni riga è espandibile:
+   - Logo fornitore, nome offerta, badge Fisso/Variabile, codice offerta
+   - **Grafico mensile** (Recharts LineChart): proiezione 12 mesi con stagionalità
+   - **Prezzi per fascia F1/F2/F3** — breakdown per tariffe multiorarie
+   - **Composizione prezzo** — Energia + Oneri sistema + Trasporto con valori ARERA reali
+   - **SavingsBreakdownModal** — modale con calcolo risparmio dettagliato
+   - CTA: "Attiva Online" (usa link affiliazione se disponibile, altrimenti form interno)
+   - Link "Vedi su ARERA" (url_offerta), codice_offerta, tag validità
+3. **MarketPositionBar** — barra comparativa (migliore offerta vs media mercato)
+4. **BillCostChart** — grafico a ciambella (Recharts PieChart) con ripartizione spesa:
+   - Materia energia (con badge CAMBIA), Trasporto, Oneri, Imposte/IVA/Canone RAI
+5. **CostBreakdownCard** — barre colorate con percentuali per ogni categoria
+6. **Toggle Mese/Anno** — "Bolletta attuale" vs "Proiezione annuale"
+7. Mostra 5 offerte inizialmente, espandibile a tutte con pulsante
 
 ### StickyReferenceBar
 
-Barra sticky in alto durante lo scroll dei risultati che mostra i 3 numeri chiave della bolletta attuale:
-- **Prezzo energia** — calcolato con PUN/PSV live + spread per tariffe variabili
-- **Quota fissa** — €/mese
-- **Spesa annua** — €/anno
+Barra sticky con i 3 numeri chiave della bolletta attuale. Per tariffe variabili, include il metodo ARERA: "Il confronto usa lo STESSO PUN per entrambi i lati. Il risparmio riflette solo differenze contrattuali (spread + quota fissa)."
 
-Per tariffe variabili, una nota avvisa: "La tua spesa è una proiezione basata sul PUN attuale. Un'offerta a prezzo fisso ti protegge da aumenti futuri."
+### Legenda e offerte dinamiche
 
-### Legenda "Cosa cambia / Cosa resta uguale"
-
-Sopra le offerte, una barra informativa spiega:
-- 🔄 **Cosa cambia**: Prezzo kWh/Smc + Quota fissa (componente negoziabile)
-- 🔒 **Cosa resta uguale**: Trasporto · Oneri · Imposte · IVA (componente regolata)
+- Conteggio offerte **dinamico** (fetch da `/api/tariffe/luce` + `/api/tariffe/gas`)
+- Legenda "Cosa cambia / Cosa resta uguale" con Canone RAI (solo LUCE residenziale)
+- Offerte con prezzo impossibile (fisso < 0.05 €/kWh, gas < 0.15 €/Smc) escluse automaticamente
 
 ---
 
@@ -582,15 +595,22 @@ Sopra le offerte, una barra informativa spiega:
 
 | URL | Tipo | Contenuto |
 |-----|------|-----------|
-| `/` | React SPA + HTML statico | Hero + confronto + guida + FAQ |
+| `/` | React SPA | Hero + confronto + guida + FAQ |
 | `/per-llm` → `/per-llm.html` | HTML statico (canonical) | Documentazione per AI agent |
 | `/come-funziona` → `/come-funziona.html` | HTML statico (canonical) | Architettura + confronto vs tradizionale |
+| `/faq` → `/faq.html` | HTML statico (canonical) | Domande frequenti |
 | `/privacy` → `/privacy.html` | HTML statico (canonical) | Privacy policy GDPR |
 | `/cookie` → `/cookie.html` | HTML statico (canonical) | Cookie policy (solo tecnici) |
+| `/risorse/` | PHP (router) | Indice guide SEO |
+| `/risorse/come-funziona-bolletta-luce` | PHP | Guida bolletta luce ARERA 2.0 |
+| `/risorse/come-funziona-bolletta-gas` | PHP | Guida bolletta gas |
+| `/risorse/glossario-energia` | PHP | Glossario termini energetici |
+| `/risorse/prezzo-fisso-vs-indicizzato` | PHP | Fisso vs Variabile |
+| `/risorse/calcolo-spesa-annua` | PHP | Come si calcola la SAS |
+| `/risorse/come-leggere-bolletta` | PHP | Guida lettura bolletta |
 | `/sottoscrizione` | React SPA | Form wizard 4 step (supporta prefill via URL params) |
 | `/conferma` | React SPA | Double opt-in conferma |
-| `/analisi` | React SPA | Hub integrazione AI |
-| `/admin` | React SPA (auth) | Dashboard traffico + API keys B2B |
+| `/admin` | React SPA (auth) | Dashboard: Traffico, API Keys, Affiliazioni, Sync ARERA |
 | `/login` | React SPA | Accesso admin |
 
 ---
@@ -639,9 +659,10 @@ Topics: `mcp`, `webmcp`, `energy`, `tariffs`, `italy`, `ai-agent`, `llm`, `elect
 
 ---
 
-> **Versione**: 5.2.0 — 16 Giugno 2026  
-> **Dominio**: switchai.it · **Hosting**: OVH Pro · **PHP**: 8.5.0  
-> **Tools**: 4 WebMCP + 7 MCP pubblici · **Endpoint API**: 22  
+> **Versione**: 5.3.0 — 26 Giugno 2026  
+> **Dominio**: switchai.it · **Hosting**: OVH Pro · **PHP**: 8.5.0 · **MySQL**: 2 GB  
+> **Tools**: 4 WebMCP + 7 MCP pubblici · **Endpoint API**: 25+  
+> **Offerte**: 5.000+ da sync ARERA giornaliero (21 fornitori)  
 > **Parser**: ARERA 3.0 — 10/10 PDF testati  
 > **Modello**: API-first, LLM-native. Niente parsing PDF lato server.  
-> **Novità v5.2**: Costanti ARERA centralizzate (constants.js + PHP) con endpoint `/api/arera-constants` · Calcoli Full Cost Approach: oneri 0.038, quota fissa reti 24€, perdite BT ×1.102 · Rate limit esenta GET pubbliche · TariffCard v5.1 mobile responsive + InfoTooltip ℹ️ · Fix stale closure flusso "Analizza" · Auto-scroll a risultati · MCP: disclaimer sito esterno + GDPR double opt-in nell'output · 7 tool MCP · Glama submission · Dockerfile root
+> **Novità v5.3**: ARERA v4.0 (Del. 575/2025): oneri 0.0303, trasporto 0.01204, potenza 23.52, perdite solo su PUN · Metodo simmetrico PUN (stesso PUN per entrambe le tariffe variabili) · Accise con soglie DL 504/1995 · Addizionale regionale gas · Canone RAI solo residenziale · MySQL per utenti/API keys/affiliazioni · ARERA sync da Portale Offerte (ilportaleofferte.it) · Interfaccia risultati: TariffTable + BillCostChart (ciambella) + CostBreakdownCard + MarketPositionBar · Offerte dinamiche (fetch count live) · SEO: 7 pagine /risorse/ con sitemap · Admin: sync ARERA, gestione affiliazioni · Filtro offerte scadute e prezzi impossibili
