@@ -29,8 +29,15 @@ function copyBackendPlugin() {
         { src: 'inc/subscription_handler.php', dest: 'inc/subscription_handler.php' },
         { src: 'inc/llm_logger.php', dest: 'inc/llm_logger.php' },
         { src: 'inc/api_auth.php', dest: 'inc/api_auth.php' },
+        { src: 'inc/db_mysql.php', dest: 'inc/db_mysql.php' },
+        { src: 'inc/auth.php', dest: 'inc/auth.php' },
+        { src: 'inc/arera_sync.php', dest: 'inc/arera_sync.php' },
         { src: 'router.php', dest: 'router.php' },
       ]
+
+      // Crea directory data/offerte per ARERA sync
+      const dataOfferteDir = resolve(distDir, 'data', 'offerte')
+      try { mkdirSync(dataOfferteDir, { recursive: true }) } catch {}
 
       // Copia .env da frontend/ (NON da public/ — così non viene auto-copiato da Vite)
       // Cerca in frontend/ (default), poi fallback a public/ per retrocompatibilità
