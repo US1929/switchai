@@ -1,9 +1,11 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { api } from '../lib/api.js';
 import { calcLuceCost, calcGasCost, buildBreakdown, deduplicateTariffs, formatEuro, getCurrentPricePerUnit, getCurrentFixedMonthly, getRankingBadges, isPriceAnomalous, estimateRegulatedCosts } from '../lib/calc.js';
-import { LUCE as LUCE_CONST, GAS as GAS_CONST, MERCATO } from '../lib/constants.js';
+import { MERCATO } from '../lib/constants.js';
 import TariffTable from '../components/TariffTable.jsx';
 import CostBreakdownCard from '../components/CostBreakdownCard.jsx';
+import BillCostChart from '../components/BillCostChart.jsx';
+import MarketPositionBar from '../components/MarketPositionBar.jsx';
 import MarketSignal from '../components/MarketSignal.jsx';
 import StickyReferenceBar from '../components/StickyReferenceBar.jsx';
 import ChatDemo from '../components/ChatDemo.jsx';
@@ -55,6 +57,7 @@ export default function Home() {
   const [copyFeedback, setCopyFeedback] = useState('');
   const [marketData, setMarketData] = useState(null);
   const [offerCount, setOfferCount] = useState(null);
+  const [viewMode, setViewMode] = useState('mese');
   const [demoOpen, setDemoOpen] = useState(false);
   const resultsRef = useRef(null);
 
@@ -199,6 +202,35 @@ export default function Home() {
   const rankedItems = results ? getRankingBadges(results.items, commodity) : [];
   const displayed = results ? (showAll ? rankedItems : rankedItems.slice(0, 5)) : [];
   const maxSavings = results?.hasRealSpend && results?.items[0]?.savings > 0 ? results.items[0].savings : 0;
+
+  const billData = llmExtractedData?.spesa_annua
+    ? (() => {
+        const reg = estimateRegulatedCosts(isLuce ? 'luce' : 'gas', consumption, llmExtractedData.potenza_impegnata || 3);
+        const annualTotal = parseFloat(llmExtractedData.spesa_annua) || results?.currentSpend || 0;
+        const sumRegAnnual = reg.trasporto + reg.oneri + reg.accise + reg.costoPotenza + reg.quotaFissaReti;
+        const ivaAnnual = Math.max(0, reg.totale - sumRegAnnual);
+
+        const anno = {
+          materia: Math.round(Math.max(0, annualTotal - sumRegAnnual - ivaAnnual)),
+          trasporto: Math.round(reg.trasporto),
+          oneri: Math.round(reg.oneri),
+          imposte: Math.round(reg.accise + reg.costoPotenza + reg.quotaFissaReti + ivaAnnual),
+        };
+
+        const materiaMese = llmExtractedData.spesa_materia_energia != null
+          ? Math.round(parseFloat(llmExtractedData.spesa_materia_energia) * 100) / 100
+          : Math.round(anno.materia / 12 * 100) / 100;
+
+        const mese = {
+          materia: materiaMese,
+          trasporto: Math.round(reg.trasporto / 12 * 100) / 100,
+          oneri: Math.round(reg.oneri / 12 * 100) / 100,
+          imposte: Math.round((reg.accise + reg.costoPotenza + reg.quotaFissaReti + ivaAnnual) / 12 * 100) / 100,
+        };
+
+        return { mese, anno };
+      })()
+    : null;
 
   return (
     <main>
@@ -432,17 +464,18 @@ export default function Home() {
               </div>
             )}
 
-            {results.hasRealSpend && (
-              <CostBreakdownCard
-                data={{
-                  materia: Math.round((consumption * currentPricePerUnit)),
-                  trasporto: Math.round(consumption * (commodity === 'luce' ? LUCE_CONST.TRASPORTO_VAR : GAS_CONST.TRASPORTO_VAR)),
-                  oneri: Math.round(consumption * (commodity === 'luce' ? LUCE_CONST.ONERI_SISTEMA : GAS_CONST.ONERI_SISTEMA)),
-                  imposte: Math.round(consumption * (commodity === 'luce' ? LUCE_CONST.ACCISE : GAS_CONST.ACCISE) + 90 + 23),
-                }}
-                totale={results.currentSpend}
+            <div style={{ marginBottom: 24 }}>
+              <MarketPositionBar
+                bestAnnualCost={rankedItems[0]?.annualCost || 0}
+                bestSavings={rankedItems[0]?.savings || 0}
+                currentAnnualSpend={results.currentSpend}
+                marketAvgAnnualCost={results.items.length > 0
+                  ? results.items.reduce((s, i) => s + i.annualCost, 0) / results.items.length
+                  : null
+                }
+                totalOffers={results.items.length}
               />
-            )}
+            </div>
 
             <TariffTable
               items={rankedItems}
@@ -459,8 +492,40 @@ export default function Home() {
               onToggleSelect={() => {}}
             />
             {results.items.length > 5 && (
-              <button className="btn btn-outline" onClick={() => setShowAll(!showAll)} style={{ width: '100%', marginTop: 16 }}>{showAll ? 'Mostra solo le prime 3 ↑' : `Mostra tutte le ${results.items.length} ↓`}</button>
+              <button className="btn btn-outline" onClick={() => setShowAll(!showAll)} style={{ width: '100%', marginTop: 16 }}>
+                {showAll ? 'Mostra solo le prime 5 ↑' : `Mostra tutte le ${results.items.length} ↓`}
+              </button>
             )}
+
+            <div style={{ marginTop: 32 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#f1f5f9' }}>
+                  📊 Analisi della bolletta
+                </div>
+                {billData && (
+                  <div style={{ display: 'flex', gap: 4, background: 'rgba(255,255,255,0.04)', borderRadius: 8, padding: 3 }}>
+                    <button
+                      onClick={() => setViewMode('mese')}
+                      className={viewMode === 'mese' ? 'btn btn-electric' : 'btn btn-ghost'}
+                      style={{ fontSize: 11, padding: '4px 12px', border: 'none', borderRadius: 6, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                    >Bolletta attuale</button>
+                    <button
+                      onClick={() => setViewMode('anno')}
+                      className={viewMode === 'anno' ? 'btn btn-electric' : 'btn btn-ghost'}
+                      style={{ fontSize: 11, padding: '4px 12px', border: 'none', borderRadius: 6, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                    >Proiezione annuale</button>
+                  </div>
+                )}
+              </div>
+              {billData && (
+                <>
+                  <div style={{ marginBottom: 16 }}>
+                    <BillCostChart data={billData[viewMode]} totale={viewMode === 'mese' ? parseFloat(llmExtractedData.spesa_annua) / 12 : results.currentSpend} />
+                  </div>
+                  <CostBreakdownCard data={billData[viewMode]} totale={viewMode === 'mese' ? parseFloat(llmExtractedData.spesa_annua) / 12 : results.currentSpend} />
+                </>
+              )}
+            </div>
           </div>
         </section>
       )}
