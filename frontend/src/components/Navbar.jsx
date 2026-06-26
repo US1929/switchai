@@ -57,6 +57,7 @@ export default function Navbar() {
           <Link to="/" style={navLinkStyle(currentPath === '/')}>Confronta</Link>
           <Link to="/come-funziona" style={navLinkStyle(currentPath === '/come-funziona')}>Come funziona</Link>
           <a href="/per-llm" style={navLinkStyle(currentPath === '/per-llm')}>Per LLM</a>
+          <a href="/risorse/" style={navLinkStyle(currentPath === '/risorse/')}>Risorse</a>
           <a href="/faq.html" style={navLinkStyle(currentPath === '/faq.html')}>FAQ</a>
         </div>
       </div>

@@ -8,6 +8,7 @@
       <a href="/" class="nav-link" data-page="home">Confronta</a>
       <a href="/come-funziona" class="nav-link" data-page="come-funziona">Come funziona</a>
       <a href="/per-llm" class="nav-link" data-page="per-llm">Per LLM</a>
+      <a href="/risorse/" class="nav-link" data-page="risorse">Risorse</a>
       <a href="/faq.html" class="nav-link" data-page="faq">FAQ</a>
     </div>
   </div>
@@ -32,6 +33,7 @@
       if (page === 'home' && (path === '/' || path === '')) link.classList.add('active');
       else if (page === 'come-funziona' && path.startsWith('/come-funziona')) link.classList.add('active');
       else if (page === 'per-llm' && path.startsWith('/per-llm')) link.classList.add('active');
+      else if (page === 'risorse' && path.startsWith('/risorse')) link.classList.add('active');
       else if (page === 'faq' && path.startsWith('/faq')) link.classList.add('active');
     });
   })();
