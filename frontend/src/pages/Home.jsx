@@ -208,13 +208,14 @@ export default function Home() {
         const reg = estimateRegulatedCosts(isLuce ? 'luce' : 'gas', consumption, llmExtractedData.potenza_impegnata || 3);
         const annualTotal = parseFloat(llmExtractedData.spesa_annua) || results?.currentSpend || 0;
         const sumRegAnnual = reg.trasporto + reg.oneri + reg.accise + reg.costoPotenza + reg.quotaFissaReti;
-        const ivaAnnual = Math.max(0, reg.totale - sumRegAnnual);
+        const ivaAnnual = Math.max(0, reg.totale - sumRegAnnual - (reg.canoneRai || 0));
+        const canone = reg.canoneRai || 0;
 
         const anno = {
-          materia: Math.round(Math.max(0, annualTotal - sumRegAnnual - ivaAnnual)),
+          materia: Math.round(Math.max(0, annualTotal - sumRegAnnual - ivaAnnual - canone)),
           trasporto: Math.round(reg.trasporto),
           oneri: Math.round(reg.oneri),
-          imposte: Math.round(reg.accise + reg.costoPotenza + reg.quotaFissaReti + ivaAnnual),
+          imposte: Math.round(reg.accise + reg.costoPotenza + reg.quotaFissaReti + ivaAnnual + canone),
         };
 
         const materiaMese = llmExtractedData.spesa_materia_energia != null
@@ -225,7 +226,7 @@ export default function Home() {
           materia: materiaMese,
           trasporto: Math.round(reg.trasporto / 12 * 100) / 100,
           oneri: Math.round(reg.oneri / 12 * 100) / 100,
-          imposte: Math.round((reg.accise + reg.costoPotenza + reg.quotaFissaReti + ivaAnnual) / 12 * 100) / 100,
+          imposte: Math.round((reg.accise + reg.costoPotenza + reg.quotaFissaReti + ivaAnnual + canone) / 12 * 100) / 100,
         };
 
         return { mese, anno };
