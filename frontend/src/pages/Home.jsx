@@ -12,8 +12,8 @@ function estimateSpend(commodity, consumption) {
   return (consumption * 0.65) + 144;
 }
 
-const STATS = [
-  { value: '44+', label: 'Offerte Luce e Gas' },
+const STATS = (count) => [
+  { value: count ? `${count}+` : '...', label: 'Offerte Luce e Gas' },
   { value: '<30 sec', label: 'Per cambiare fornitore' },
   { value: '500€', label: 'Risparmio medio/anno' },
 ];
@@ -53,6 +53,7 @@ export default function Home() {
   const [llmExtractedData, setLlmExtractedData] = useState(null);
   const [copyFeedback, setCopyFeedback] = useState('');
   const [marketData, setMarketData] = useState(null);
+  const [offerCount, setOfferCount] = useState(null);
   const [demoOpen, setDemoOpen] = useState(false);
   const resultsRef = useRef(null);
 
@@ -178,6 +179,14 @@ export default function Home() {
       .then(r => r.json())
       .then(d => setMarketData(d))
       .catch(() => {});
+    // Fetch conteggio offerte dinamico
+    Promise.all([
+      fetch('/api/tariffe/luce').then(r => r.json()),
+      fetch('/api/tariffe/gas').then(r => r.json()),
+    ]).then(([luce, gas]) => {
+      const total = (luce.offers?.length || 0) + (gas.offers?.length || 0);
+      setOfferCount(total);
+    }).catch(() => {});
   }, []);
 
   // Calcola prezzo corrente e quota fissa per confronto per-riga
@@ -216,7 +225,7 @@ export default function Home() {
             </a>
           </div>
           <div className="animate-fade-in-up" style={{ display: 'flex', justifyContent: 'center', gap: 48, flexWrap: 'wrap' }}>
-            {STATS.map(s => <div key={s.label} style={{ textAlign: 'center' }}><div style={{ fontSize: 28, fontWeight: 800, color: '#f1f5f9' }}>{s.value}</div><div style={{ fontSize: 13, color: '#64748b', marginTop: 2 }}>{s.label}</div></div>)}
+            {STATS(offerCount).map(s => <div key={s.label} style={{ textAlign: 'center' }}><div style={{ fontSize: 28, fontWeight: 800, color: '#f1f5f9' }}>{s.value}</div><div style={{ fontSize: 13, color: '#64748b', marginTop: 2 }}>{s.label}</div></div>)}
           </div>
         </div>
       </section>
@@ -461,7 +470,7 @@ export default function Home() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 24 }}>
               {[
                 { icon: '💬', title: '1. Chiedi al tuo AI', desc: '"Ehi Claude, ho questa bolletta Enel da 650€/anno. Trovami l\'offerta migliore con SwitchAI."' },
-                { icon: '⚡', title: '2. L\'AI chiama SwitchAI', desc: 'L\'AI invia i tuoi consumi alla nostra API. SwitchAI confronta 44+ offerte in tempo reale e restituisce la migliore con tutti i dettagli.' },
+                { icon: '⚡', title: '2. L\'AI chiama SwitchAI', desc: 'L\'AI invia i tuoi consumi alla nostra API. SwitchAI confronta centinaia di offerte in tempo reale e restituisce la migliore con tutti i dettagli.' },
                 { icon: '✅', title: '3. Vedi il risparmio e decidi', desc: 'L\'AI ti dice quanto risparmi e perché. Se vuoi attivare, ti guida alla sottoscrizione. Sei tu a decidere.' },
               ].map(step => (
                 <div key={step.title} className="glass-card" style={{ padding: '28px 24px', textAlign: 'center' }}>
