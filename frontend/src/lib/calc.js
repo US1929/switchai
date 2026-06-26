@@ -293,26 +293,32 @@ export function isPriceAnomalous(pricePerUnit, commodity) {
  * Stima i costi non negoziabili (trasporto, oneri, imposte) che rimangono uguali.
  * Restituisce oggetto con breakdown per il grafico "cosa cambia / cosa resta uguale".
  */
-export function estimateRegulatedCosts(commodity, consumption, potenza = 3.0) {
+export function estimateRegulatedCosts(commodity, consumption, potenza = 3.0, tipoCliente = 'residenziale') {
   // Costanti da constants.js (fonte unica)
   if (commodity === 'luce') {
     const { TRASPORTO_VAR, ONERI_SISTEMA, ACCISE, ACCISE_SOGLIA_ESENTE, ACCISE_SOGLIA_COMPENSATA, COSTO_POTENZA_KW, QUOTA_FISSA_RETI, IVA, CANONE_RAI_ANNUO } = LUCE;
     const kwh = consumption || 2700;
     const trasporto = kwh * TRASPORTO_VAR;
     const oneri = kwh * ONERI_SISTEMA;
-    // Accise DL 504/1995 con soglie progressive
+    // Accise DL 504/1995 con soglie progressive (solo residenziale)
     let accise = 0;
-    if (kwh <= ACCISE_SOGLIA_ESENTE) {
-      accise = 0;
-    } else if (kwh <= ACCISE_SOGLIA_COMPENSATA) {
-      accise = (kwh - ACCISE_SOGLIA_ESENTE) * ACCISE;
+    if (tipoCliente === 'residenziale') {
+      if (kwh <= ACCISE_SOGLIA_ESENTE) {
+        accise = 0;
+      } else if (kwh <= ACCISE_SOGLIA_COMPENSATA) {
+        accise = (kwh - ACCISE_SOGLIA_ESENTE) * ACCISE;
+      } else {
+        const esenzioneResidua = Math.max(0, ACCISE_SOGLIA_ESENTE - (kwh - ACCISE_SOGLIA_COMPENSATA));
+        accise = (kwh - esenzioneResidua) * ACCISE;
+      }
     } else {
-      const esenzioneResidua = Math.max(0, ACCISE_SOGLIA_ESENTE - (kwh - ACCISE_SOGLIA_COMPENSATA));
-      accise = (kwh - esenzioneResidua) * ACCISE;
+      // Business: accise piene su tutto il consumo
+      accise = kwh * ACCISE;
     }
     const costoPotenza = COSTO_POTENZA_KW * potenza;
     const quotaFissaReti = QUOTA_FISSA_RETI;
-    const canoneRai = CANONE_RAI_ANNUO;
+    // Canone RAI SOLO per utenze residenziali LUCE (non si paga per business/P.IVA)
+    const canoneRai = tipoCliente === 'residenziale' ? CANONE_RAI_ANNUO : 0;
     const subtotalRegulated = trasporto + oneri + accise + costoPotenza + quotaFissaReti + canoneRai;
     const ivaRegulated = subtotalRegulated * IVA;
     return {

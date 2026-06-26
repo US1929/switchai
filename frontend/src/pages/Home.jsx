@@ -205,7 +205,7 @@ export default function Home() {
 
   const billData = llmExtractedData?.spesa_annua
     ? (() => {
-        const reg = estimateRegulatedCosts(isLuce ? 'luce' : 'gas', consumption, llmExtractedData.potenza_impegnata || 3);
+        const reg = estimateRegulatedCosts(isLuce ? 'luce' : 'gas', consumption, llmExtractedData.potenza_impegnata || 3, llmExtractedData.tipo_cliente || 'residenziale');
         const annualTotal = parseFloat(llmExtractedData.spesa_annua) || results?.currentSpend || 0;
         const sumRegAnnual = reg.trasporto + reg.oneri + reg.accise + reg.costoPotenza + reg.quotaFissaReti;
         const ivaAnnual = Math.max(0, reg.totale - sumRegAnnual - (reg.canoneRai || 0));

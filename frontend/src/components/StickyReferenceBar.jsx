@@ -111,8 +111,9 @@ export default function StickyReferenceBar({
             fontStyle: 'italic', textAlign: 'center',
             paddingTop: 4, borderTop: '1px solid rgba(255,255,255,0.04)',
           }}>
-            ⚡ La tua tariffa è variabile: la spesa mostrata è una proiezione basata sul {isLuce ? 'PUN' : 'PSV'} attuale.
-            Un'offerta a prezzo fisso ti protegge da aumenti futuri.
+            ⚡ La tua tariffa è variabile: la spesa mostrata è una proiezione basata sul {isLuce ? 'PUN' : 'PSV'} attuale ({punEurKwh ? (punEurKwh * 1000).toFixed(1) + ' €/MWh' : '...'}).
+            Il confronto con le offerte usa lo STESSO {isLuce ? 'PUN' : 'PSV'} per entrambi i lati (metodo ARERA).
+            Il risparmio mostrato riflette solo le differenze contrattuali (spread + quota fissa), non le oscillazioni di mercato.
           </div>
         )}
       </div>
