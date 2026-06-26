@@ -273,6 +273,26 @@ try {
             }
             break;
 
+        // POST /api/admin/sync-arera — trigger sincronizzazione ARERA (richiede auth)
+        case $uri === '/api/admin/sync-arera' && $method === 'POST':
+            requireAuth();
+            try {
+                $syncFile = __DIR__ . '/../inc/arera_sync.php';
+                if (!is_file($syncFile)) {
+                    errorResponse('Script sync non trovato', 500);
+                }
+                // Esegue sync in background (non blocca la risposta)
+                $cmd = 'php ' . escapeshellarg($syncFile) . ' > /dev/null 2>&1 &';
+                exec($cmd);
+                jsonResponse([
+                    'status' => 'started',
+                    'message' => 'Sync ARERA avviato in background. Controlla i log tra qualche minuto.',
+                ]);
+            } catch (Throwable $e) {
+                errorResponse('Errore sync: ' . $e->getMessage(), 500);
+            }
+            break;
+
         // GET /api/admin/affiliates — lista link affiliazione (richiede auth)
         case $uri === '/api/admin/affiliates' && $method === 'GET':
             requireAuth();

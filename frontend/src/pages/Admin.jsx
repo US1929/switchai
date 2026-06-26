@@ -5,6 +5,7 @@ const TABS = [
   { id: 'traffic', label: '📊 Traffico', icon: '📊' },
   { id: 'apikeys', label: '🔑 API Keys B2B', icon: '🔑' },
   { id: 'affiliates', label: '💰 Affiliazioni', icon: '💰' },
+  { id: 'sync', label: '🔄 Sync ARERA', icon: '🔄' },
 ];
 
 export default function Admin() {
@@ -58,6 +59,7 @@ export default function Admin() {
         {tab === 'traffic' && <TrafficTab token={token} />}
         {tab === 'apikeys' && <ApiKeysTab token={token} />}
         {tab === 'affiliates' && <AffiliatesTab token={token} />}
+        {tab === 'sync' && <SyncTab token={token} />}
       </div>
     </main>
   );
@@ -482,6 +484,90 @@ function AffiliatesTab({ token }) {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+// ── Sync ARERA Tab ────────────────────────────────────────────────
+
+function SyncTab({ token }) {
+  const [status, setStatus] = useState(null);
+  const [syncing, setSyncing] = useState(false);
+  const [stats, setStats] = useState(null);
+
+  useEffect(() => {
+    fetch('/api/admin/data-stats', { headers: { 'x-auth-token': token } })
+      .then(r => r.json()).then(setStats).catch(() => {});
+  }, [token]);
+
+  const triggerSync = async () => {
+    setSyncing(true);
+    setStatus('Avvio sync...');
+    try {
+      const r = await fetch('/api/admin/sync-arera', {
+        method: 'POST',
+        headers: { 'x-auth-token': token },
+      });
+      const d = await r.json();
+      setStatus(d.message || 'Sync completato');
+    } catch {
+      setStatus('Errore: sync fallito');
+    }
+    setSyncing(false);
+  };
+
+  return (
+    <div>
+      <div className="glass-card" style={{ padding: '20px 24px', marginBottom: 20 }}>
+        <h3 style={{ fontSize: 14, fontWeight: 700, color: '#f1f5f9', marginBottom: 12 }}>🔄 Sincronizzazione offerte ARERA</h3>
+        <p style={{ fontSize: 12, color: '#94a3b8', marginBottom: 16, lineHeight: 1.6 }}>
+          Scarica le offerte ufficiali dal Portale Offerte ARERA (ilportaleofferte.it) e le salva in 
+          <code style={{ background: 'rgba(255,255,255,0.04)', padding: '1px 4px', borderRadius: 3 }}>data/offerte/db-offerte-luce.json</code> e 
+          <code style={{ background: 'rgba(255,255,255,0.04)', padding: '1px 4px', borderRadius: 3 }}>db-offerte-gas.json</code>.
+          {' '}Circa 5.000+ offerte da tutti i fornitori italiani. Il processo può richiedere 30-60 secondi.
+        </p>
+        <button
+          className="btn btn-electric"
+          onClick={triggerSync}
+          disabled={syncing}
+          style={{ fontSize: 13 }}
+        >
+          {syncing ? '⏳ Sync in corso...' : '🔄 Avvia sincronizzazione'}
+        </button>
+        {status && (
+          <div style={{
+            marginTop: 12, padding: '10px 14px', borderRadius: 8,
+            background: status.includes('Errore') ? 'rgba(239,68,68,0.08)' : 'rgba(16,185,129,0.08)',
+            border: `1px solid ${status.includes('Errore') ? 'rgba(239,68,68,0.2)' : 'rgba(16,185,129,0.2)'}`,
+            fontSize: 12, color: status.includes('Errore') ? '#f87171' : '#6ee7b7',
+          }}>
+            {status}
+          </div>
+        )}
+      </div>
+
+      {stats && (
+        <div className="glass-card" style={{ padding: '16px 22px' }}>
+          <h3 style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9', marginBottom: 10 }}>📊 Stato sistema</h3>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+            {[
+              { label: 'Utenti', value: stats.users, color: '#60a5fa' },
+              { label: 'API Keys', value: stats.api_keys, color: '#a78bfa' },
+              { label: 'Rate Logs', value: stats.rate_logs, color: '#f59e0b' },
+              { label: 'Affiliati', value: stats.affiliates, color: '#10b981' },
+              { label: 'MySQL', value: stats.mysql === 'connected' ? '✅' : '❌', color: stats.mysql === 'connected' ? '#10b981' : '#ef4444' },
+            ].map(s => (
+              <div key={s.label} style={{
+                flex: 1, minWidth: 80, padding: 12, borderRadius: 8, textAlign: 'center',
+                background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)',
+              }}>
+                <div style={{ fontSize: 20, fontWeight: 800, color: s.color }}>{s.value}</div>
+                <div style={{ fontSize: 10, color: '#64748b', marginTop: 2 }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
