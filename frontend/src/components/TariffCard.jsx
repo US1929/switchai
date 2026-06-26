@@ -452,11 +452,13 @@ export default function TariffCard({
           )}
         </div>
         <a
-          href={`/sottoscrizione?tariff=${encodeURIComponent(tariff.id)}&supplier=${encodeURIComponent(tariff.brand)}&name=${encodeURIComponent(tariff.offerta)}&commodity=${commodity}&annualCost=${annualCost}`}
+          href={tariff.affiliate_url || tariff.subscription_url || `/sottoscrizione?tariff=${encodeURIComponent(tariff.id)}&supplier=${encodeURIComponent(tariff.brand)}&name=${encodeURIComponent(tariff.offerta)}&commodity=${commodity}&annualCost=${annualCost}`}
+          target={tariff.affiliate_url ? "_blank" : undefined}
+          rel={tariff.affiliate_url ? "nofollow noopener" : undefined}
           className="btn btn-electric"
           style={{ fontSize: 12, padding: '9px 22px', flexShrink: 0 }}
         >
-          Attiva Online
+          {tariff.affiliate_url ? '🔗 Attiva Online' : 'Attiva Online'}
         </a>
       </div>
 

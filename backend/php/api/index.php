@@ -353,6 +353,7 @@ function handleCalculateSavings(array $input): void {
     
     $input['source'] = 'WEB';
     $result = calculateSavingsBreakdown($input);
+    enrichWithAffiliates($result);
     jsonResponse($result);
 }
 
@@ -361,9 +362,10 @@ function handleWebMCPEndpoint(array $input): void {
     if (!in_array($commodity, ['LUCE', 'GAS'])) {
         errorResponse("Invalid commodity. Must be 'LUCE' or 'GAS'.");
     }
-    
+
     $input['source'] = 'AI_AGENT';
     $result = calculateSavingsBreakdown($input);
+    enrichWithAffiliates($result);
     
     // Genera summary in linguaggio naturale
     $results = $result['results'] ?? [];
@@ -1003,6 +1005,9 @@ function handleV2Analyze(array $input): void {
         errorResponse('Impossibile caricare le offerte. Riprova.', 503);
     }
 
+    // ── Arricchisci con link affiliazione (da MySQL) ─
+    enrichWithAffiliates($savingsResult);
+
     // Risk assessment (usa dati PUN/PSV già fetchati sopra)
     $risk = null;
     if ($peData) {
@@ -1553,4 +1558,24 @@ function fetchPortaleEnergiaData(): ?array {
         'psv_30d' => (float)($data['psv']['avg_30d'] ?? 0),
         'date'    => $data['pun']['date'] ?? $data['last_data_update']['date'] ?? date('Y-m-d'),
     ];
+}
+
+/**
+ * Arricchisce i risultati con link di affiliazione (da MySQL).
+ * Se un'offerta ha un affiliate_url, sostituisce il subscription_url.
+ */
+function enrichWithAffiliates(array &$result): void {
+    try {
+        require_once __DIR__ . '/../inc/db_mysql.php';
+        foreach ($result['results'] as &$r) {
+            $affUrl = getAffiliateLink($r['tariff_id']);
+            if ($affUrl) {
+                $r['affiliate_url'] = $affUrl;
+                $r['subscription_url'] = $affUrl; // sovrascrivi con link affiliazione
+            }
+        }
+        unset($r);
+    } catch (Throwable $e) {
+        // MySQL non disponibile — nessun arricchimento
+    }
 }

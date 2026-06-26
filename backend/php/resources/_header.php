@@ -120,42 +120,21 @@ nav .area-btn span.label{display:none}
 </head>
 <body>
 
-<nav>
-<div id="scroll-progress" style="position:absolute;bottom:-1px;left:0;height:1px;width:0;background:linear-gradient(90deg,#f59e0b,#f97316,#ec4899);transition:width .1s linear;z-index:101"></div>
-<div class="container">
-<a href="/" class="logo">
+<nav style="background:rgba(7,10,18,0.95);backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,0.06);position:sticky;top:0;z-index:100">
+<div class="container" style="display:flex;align-items:center;justify-content:space-between;padding:14px 24px;max-width:1040px">
+<a href="/" style="display:flex;align-items:center;gap:10px;text-decoration:none">
 <img src="/img/logo-76.png" alt="SwitchAI" width="38" height="38" style="border-radius:10px;box-shadow:0 4px 12px rgba(245,158,11,0.3)">
-<span style="font-size:18px;font-weight:800;color:#f1f5f9;letter-spacing:-0.5px">Switch<span style="color:#f59e0b">AI</span><span style="color:#10b981;font-size:12px;font-weight:700;margin-left:2px;vertical-align:super">+</span></span>
+<span style="font-size:18px;font-weight:800;color:#f1f5f9;letter-spacing:-0.5px">Switch<span style="color:#f59e0b">AI</span></span>
 </a>
-<div class="nav-links">
-<a href="/">Confronta</a>
-<a href="/come-funziona">Come funziona</a>
-<div class="dropdown" id="risorse-dropdown">
-<button class="nav-btn" onclick="document.getElementById('risorse-dropdown').classList.toggle('open')">Risorse<span class="dropdown-arrow">▾</span></button>
-<div class="dropdown-menu">
-<div class="group-label">Guide</div>
-<a href="/risorse/come-funziona-bolletta-luce">Bolletta luce</a>
-<a href="/risorse/come-funziona-bolletta-gas">Bolletta gas</a>
-<a href="/risorse/calcolo-spesa-annua">Calcolo spesa annua</a>
-<a href="/risorse/prezzo-fisso-vs-indicizzato">Fisso vs variabile</a>
-<a href="/risorse/come-leggere-bolletta">Come leggere la bolletta</a>
-<a href="/risorse/glossario-energia">Glossario energia</a>
-<div class="divider"></div>
-<div class="group-label">Strumenti</div>
-<a href="/offerte">Catalogo offerte</a>
-<a href="/panoramica">Panoramica mercato</a>
-<a href="/mercato">Storico PUN/PSV</a>
-</div>
-</div>
-<a href="/login" class="area-btn">
-<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="flex-shrink:0"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
-Area Consulenti
-</a>
+<div style="display:flex;gap:4px;align-items:center">
+<a href="/" style="padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;color:#f1f5f9;text-decoration:none">Confronta</a>
+<a href="/come-funziona" style="padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;color:#94a3b8;text-decoration:none">Come funziona</a>
+<a href="/per-llm" style="padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;color:#94a3b8;text-decoration:none">Per LLM</a>
+<a href="/risorse/" style="padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;color:#94a3b8;text-decoration:none">Risorse</a>
+<a href="/faq.html" style="padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;color:#94a3b8;text-decoration:none">FAQ</a>
 </div>
 </div>
 </nav>
-<script>document.addEventListener('click',function(e){var d=document.getElementById('risorse-dropdown');if(d&&!d.contains(e.target))d.classList.remove('open')});
-window.addEventListener('scroll',function(){var h=document.documentElement.scrollHeight-window.innerHeight;var p=h>0?(window.scrollY/h)*100:0;var b=document.getElementById('scroll-progress');if(b)b.style.width=p+'%'},{passive:true});</script>
 
 <main class="container">
 

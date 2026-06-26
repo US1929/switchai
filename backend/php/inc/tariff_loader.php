@@ -248,24 +248,57 @@ function loadTariffs(): array {
     static $cache = null;
     if ($cache !== null) return $cache;
 
-    if (!LUCE_JSON_URL && !GAS_JSON_URL) {
-        error_log("tariff_loader: LUCE_JSON_URL e GAS_JSON_URL non configurati nel .env");
+    $luceRaw = [];
+    $gasRaw = [];
+
+    // 1. PROVA PRIMA i JSON ARERA locali (generati da arera_sync.php)
+    $localLuce = __DIR__ . '/../data/offerte/db-offerte-luce.json';
+    $localGas  = __DIR__ . '/../data/offerte/db-offerte-gas.json';
+
+    if (is_file($localLuce) && filesize($localLuce) > 1000) {
+        $decoded = json_decode(file_get_contents($localLuce), true);
+        if (is_array($decoded) && !empty($decoded)) {
+            $luceRaw = $decoded;
+            error_log("tariff_loader: caricato ARERA locale LUCE — " . count($luceRaw) . " offerte");
+        }
+    }
+    if (is_file($localGas) && filesize($localGas) > 1000) {
+        $decoded = json_decode(file_get_contents($localGas), true);
+        if (is_array($decoded) && !empty($decoded)) {
+            $gasRaw = $decoded;
+            error_log("tariff_loader: caricato ARERA locale GAS — " . count($gasRaw) . " offerte");
+        }
+    }
+
+    // 2. FALLBACK: carica da URL remoti (se locali vuoti e URL configurati)
+    if (empty($luceRaw) && defined('LUCE_JSON_URL') && LUCE_JSON_URL) {
+        try {
+            $luceRaw = fetchJson(LUCE_JSON_URL);
+            error_log("tariff_loader: fallback URL LUCE — " . count($luceRaw) . " offerte");
+        } catch (RuntimeException $e) {
+            error_log("tariff_loader URL LUCE: " . $e->getMessage());
+        }
+    }
+    if (empty($gasRaw) && defined('GAS_JSON_URL') && GAS_JSON_URL) {
+        try {
+            $gasRaw = fetchJson(GAS_JSON_URL);
+            error_log("tariff_loader: fallback URL GAS — " . count($gasRaw) . " offerte");
+        } catch (RuntimeException $e) {
+            error_log("tariff_loader URL GAS: " . $e->getMessage());
+        }
+    }
+
+    if (empty($luceRaw) && empty($gasRaw)) {
+        error_log("tariff_loader: nessuna offerta disponibile (né locale né remota)");
         return [];
     }
 
-    try {
-        $luceRaw = LUCE_JSON_URL ? fetchJson(LUCE_JSON_URL) : [];
-        $gasRaw  = GAS_JSON_URL ? fetchJson(GAS_JSON_URL) : [];
-    } catch (RuntimeException $e) {
-        error_log("tariff_loader: " . $e->getMessage());
-        return [];
-    }
-    
     $tariffs = [];
     foreach ($luceRaw as $o) { $t = normalizeLuceOffer($o); if ($t) $tariffs[] = $t; }
     foreach ($gasRaw as $o)  { $t = normalizeGasOffer($o);  if ($t) $tariffs[] = $t; }
-    
+
     $cache = $tariffs;
+    error_log("tariff_loader: totale " . count($tariffs) . " offerte caricate");
     return $tariffs;
 }
 

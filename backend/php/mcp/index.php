@@ -412,6 +412,19 @@ function mcp_analyze(array $args): string {
         'live_psv_eur_smc'       => $livePsvEurSmc,
     ]);
 
+    // Arricchisci con link affiliazione
+    try {
+        require_once __DIR__ . '/../inc/db_mysql.php';
+        foreach ($result['results'] as &$r) {
+            $affUrl = getAffiliateLink($r['tariff_id']);
+            if ($affUrl) {
+                $r['affiliate_url'] = $affUrl;
+                $r['subscription_url'] = $affUrl;
+            }
+        }
+        unset($r);
+    } catch (Throwable $e) { /* MySQL non disponibile */ }
+
     $icon = $commodity === 'LUCE' ? '⚡' : '🔥';
     $label = $commodity === 'LUCE' ? 'Luce' : 'Gas';
     $unit = $commodity === 'LUCE' ? 'kWh' : 'Smc';
