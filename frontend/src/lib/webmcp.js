@@ -31,6 +31,7 @@ function buildPrefillUrl(baseUrl, params) {
 const savingsTool = {
   name: "calculate_energy_savings",
   description: "Confronta le tariffe Luce o Gas in Italia e calcola il risparmio annuo. "
+    + "METODO ARERA: confronto SIMMETRICO — per tariffe variabili usa lo stesso PUN/PSV corrente per entrambi i lati. "
     + "Restituisce le 3 migliori offerte con breakdown energetico e riepilogo in italiano. "
     + "Usa questo tool quando l'utente chiede di confrontare tariffe, risparmiare sulla bolletta, "
     + "o trovare un'offerta migliore per luce o gas.",
@@ -79,6 +80,15 @@ const savingsTool = {
         type: "string",
         enum: ["residenziale", "business"],
         description: "Tipo cliente: residenziale (uso domestico) o business (Partita IVA, azienda)."
+      },
+      tariff_type: {
+        type: "string",
+        enum: ["fisso", "variabile"],
+        description: "(Opzionale) Tipo tariffa attuale. Per variabili il confronto è simmetrico (stesso PUN)."
+      },
+      spread_eur_kwh: {
+        type: "number",
+        description: "(Opzionale) Spread attuale in €/kWh per tariffe LUCE variabili."
       },
       nome: { type: "string", description: "(Opzionale) Nome intestatario per precompilare il form" },
       cognome: { type: "string", description: "(Opzionale) Cognome per precompilare il form" },
