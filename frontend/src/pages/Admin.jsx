@@ -491,27 +491,30 @@ function AffiliatesTab({ token }) {
 // ── Sync ARERA Tab ────────────────────────────────────────────────
 
 function SyncTab({ token }) {
-  const [status, setStatus] = useState(null);
+  const [syncResult, setSyncResult] = useState(null);
   const [syncing, setSyncing] = useState(false);
   const [stats, setStats] = useState(null);
 
-  useEffect(() => {
+  const loadStats = () => {
     fetch('/api/admin/data-stats', { headers: { 'x-auth-token': token } })
       .then(r => r.json()).then(setStats).catch(() => {});
-  }, [token]);
+  };
+
+  useEffect(() => { loadStats(); }, [token]);
 
   const triggerSync = async () => {
     setSyncing(true);
-    setStatus('Avvio sync...');
+    setSyncResult(null);
     try {
       const r = await fetch('/api/admin/sync-arera', {
         method: 'POST',
         headers: { 'x-auth-token': token },
       });
       const d = await r.json();
-      setStatus(d.message || 'Sync completato');
+      setSyncResult(d);
+      loadStats();
     } catch {
-      setStatus('Errore: sync fallito');
+      setSyncResult({ status: 'error', message: 'Sync fallito' });
     }
     setSyncing(false);
   };
@@ -534,14 +537,41 @@ function SyncTab({ token }) {
         >
           {syncing ? '⏳ Sync in corso...' : '🔄 Avvia sincronizzazione'}
         </button>
-        {status && (
-          <div style={{
-            marginTop: 12, padding: '10px 14px', borderRadius: 8,
-            background: status.includes('Errore') ? 'rgba(239,68,68,0.08)' : 'rgba(16,185,129,0.08)',
-            border: `1px solid ${status.includes('Errore') ? 'rgba(239,68,68,0.2)' : 'rgba(16,185,129,0.2)'}`,
-            fontSize: 12, color: status.includes('Errore') ? '#f87171' : '#6ee7b7',
-          }}>
-            {status}
+        {syncing && (
+          <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 8, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', fontSize: 12, color: '#fbbf24' }}>
+            ⏳ Sync in corso... (30-60 secondi, scarica XML dal Portale Offerte ARERA)
+          </div>
+        )}
+        {syncResult && syncResult.status === 'completed' && (
+          <div style={{ marginTop: 16 }}>
+            <div style={{
+              padding: '14px 18px', borderRadius: 10,
+              background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)',
+              fontSize: 13, color: '#6ee7b7', marginBottom: 12,
+            }}>
+              ✅ {syncResult.message}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
+              {[
+                { label: '⚡ LUCE', color: '#f59e0b', total: syncResult.luce?.total, sub: `${syncResult.luce?.privati || 0} privati · ${syncResult.luce?.aziende || 0} aziende` },
+                { label: '🔥 GAS', color: '#3b82f6', total: syncResult.gas?.total, sub: `${syncResult.gas?.privati || 0} privati · ${syncResult.gas?.aziende || 0} aziende` },
+                { label: '📦 TOTALE', color: '#10b981', total: syncResult.totale, sub: `${syncResult.elapsed}s` },
+              ].map(s => (
+                <div key={s.label} style={{
+                  padding: 14, borderRadius: 10, textAlign: 'center',
+                  background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
+                }}>
+                  <div style={{ fontSize: 24, fontWeight: 900, color: s.color }}>{s.total?.toLocaleString() || '...'}</div>
+                  <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>{s.label}</div>
+                  <div style={{ fontSize: 9, color: '#64748b', marginTop: 2 }}>{s.sub}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {syncResult && syncResult.status === 'error' && (
+          <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 8, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', fontSize: 12, color: '#f87171' }}>
+            ❌ {syncResult.message}
           </div>
         )}
       </div>

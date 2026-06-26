@@ -13,7 +13,8 @@ SwitchAI supports both electricity (Luce) and natural gas (Gas) for residential 
 SwitchAI exposes tools via two protocols:
 
 ### 1. WebMCP (Chrome 146+ browser agents)
-SwitchAI registers 4 tools via navigator.modelContext.registerTool() at https://www.switchai.it
+SwitchAI registers 4 tools via navigator.modelContext.registerTool() at https://www.switchai.it.
+The MCP server exposes 7 tools via HTTP at https://www.switchai.it/mcp.
 These tools are discoverable by any WebMCP-compatible AI agent visiting the site.
 
 ### 2. MCP Server (Claude Desktop and MCP-compatible clients)
@@ -30,6 +31,54 @@ Configure the MCP server in claude_desktop_config.json:
   }
 }
 ```
+
+## Subscription flow (prefilled form via URL)
+
+When `calculate_energy_savings` or `parse_energy_bill` extracts user data from a bill, the response includes a pre-built subscription URL that **pre-fills the activation form** with all available data.
+
+### How the prefill works
+
+The tool passes extracted fields as query parameters to `/sottoscrizione`:
+
+```
+https://www.switchai.it/sottoscrizione?
+  tariff={id}&
+  supplier={fornitore}&
+  name={nome_tariffa}&
+  commodity=luce|gas&
+  annualCost={costo_annuo}&
+  nome={nome}&
+  cognome={cognome}&
+  cf={codice_fiscale}&
+  email={email}&
+  tel={telefono}&
+  indirizzo={indirizzo}&
+  civico={civico}&
+  citta={citta}&
+  provincia={provincia}&
+  provincia_sigla={sigla}&
+  cap={cap}&
+  pod={pod}|pdr={pdr}&
+  consumi={consumo_annuo}&
+  spesa={spesa_annua}
+```
+
+All parameters are optional — the form pre-fills whatever is provided and the user completes the rest.
+
+### What the AI agent should tell the user
+
+1. **Always say the form is pre-filled** with the available data (never say "not pre-filled")
+2. **Tell the user to verify** the pre-filled fields and add any missing ones (especially email and phone)
+3. **The link opens switchai.it in a new tab** — an external site outside the AI's context
+4. **After clicking "Invia"**, the user receives a confirmation email (GDPR double opt-in)
+5. **The subscription is NOT active** until the user clicks the email link — never claim it's completed
+
+### Critical: never claim completion
+
+The AI agent MUST NOT say "I've activated your new tariff" or "all done." The correct language is:
+- "The form is pre-filled — check the data and click Send"
+- "You'll receive a confirmation email — click the link to complete"
+- "The subscription will be active only after you confirm via email"
 
 ## Available tools
 
@@ -57,6 +106,12 @@ Submit a subscription to activate a new energy tariff for the user.
 - Endpoint: POST https://www.switchai.it/api/subscription/submit
 - Dry-run available: add "dry_run": true to preview without submitting
 
+### get_market_indices
+Returns current PUN (electricity) and PSV (gas) market indices.
+- Output: PUN in €/kWh, PSV in €/Smc, source, trend
+- Endpoint: GET https://www.switchai.it/api/market-indices
+- Source: public market data, updated daily
+
 ### get_subscription_status (MCP only)
 Check the status of a submitted subscription by ID.
 - Endpoint: GET https://www.switchai.it/api/subscription/status/{id}
@@ -69,9 +124,21 @@ Retrieve the complete JSON schema for the subscription form.
 https://www.switchai.it/api
 
 ## Market data
-- Live PUN (electricity wholesale price) and PSV (gas wholesale price): GET /api/market-indices
-- 44+ offers updated regularly via ARERA-compliant data sources
+- Live PUN and PSV indices: GET /api/market-indices
+- 44+ offers updated regularly from official sources
 - Coverage: all Italian provinces (106), all tariff zones
+
+## Honesty system (v4.0)
+The /api/analyze endpoint returns an `honesty` object with ethical switch recommendation:
+- `switch` (>50€/year AND >5%): worth switching
+- `evaluate` (30-50€ or 3-5%): consider other factors
+- `stay` (<30€ or <3%): not worth switching — keep current tariff
+
+## Bill attualization (v4.0)
+For variable-rate bills (PUN/PSV indexed), the API recalculates current spend using today's market prices via the `bill_attualization` field. Shows how much you'd pay today with the same contract.
+
+## Cost breakdown (v4.0)
+The `cost_breakdown` field breaks spending into 4 components with `chart_data` arrays (labels, current, best_offer, risparmio) ready for visualization.
 
 ## Language
 All user-facing content, bill parsing, and agent_summary responses are in Italian.

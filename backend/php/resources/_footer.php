@@ -9,15 +9,13 @@
 <div style="display:flex;justify-content:center;flex-wrap:wrap;gap:6px 24px;padding:20px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);margin-bottom:20px">
 <a href="/come-funziona" style="color:var(--text-secondary);text-decoration:none;font-size:13px">Come funziona</a>
 <a href="/risorse/" style="color:var(--text-secondary);text-decoration:none;font-size:13px">Risorse</a>
-<a href="/offerte" style="color:var(--text-secondary);text-decoration:none;font-size:13px">Catalogo offerte</a>
-<a href="/panoramica" style="color:var(--text-secondary);text-decoration:none;font-size:13px">Panoramica mercato</a>
-<a href="/mercato" style="color:var(--text-secondary);text-decoration:none;font-size:13px">Storico PUN/PSV</a>
-<a href="/per-llm" style="color:var(--text-muted);text-decoration:none;font-size:13px">Documentazione LLM</a>
+<a href="/faq" style="color:var(--text-secondary);text-decoration:none;font-size:13px">FAQ</a>
+<a href="/per-llm" style="color:var(--text-secondary);text-decoration:none;font-size:13px">Per LLM</a>
 </div>
 <div style="display:flex;justify-content:center;flex-wrap:wrap;gap:4px 20px;font-size:12px">
 <a href="/privacy" style="color:var(--text-secondary);text-decoration:none;font-weight:600">Privacy Policy</a>
 <a href="/cookie" style="color:var(--text-secondary);text-decoration:none;font-weight:600">Cookie Policy</a>
-<span style="color:var(--text-muted)">© <?= date('Y') ?> SwitchAI+</span>
+<span style="color:var(--text-muted)">© <?= date('Y') ?> SwitchAI</span>
 <span style="color:var(--text-muted)">switchai.it</span>
 </div>
 </div>

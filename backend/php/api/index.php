@@ -281,12 +281,49 @@ try {
                 if (!is_file($syncFile)) {
                     errorResponse('Script sync non trovato', 500);
                 }
-                // Esegue sync in background (non blocca la risposta)
-                $cmd = 'php ' . escapeshellarg($syncFile) . ' > /dev/null 2>&1 &';
-                exec($cmd);
+                require_once $syncFile;
+
+                $brandMeta = $brand_metadata ?? [];
+                $params = $parametri_mercato ?? [];
+
+                // Esegue sync per LUCE e GAS
+                $luceResult = arera_run_sync('E', $brandMeta, $params);
+                $gasResult = arera_run_sync('G', $brandMeta, $params);
+
+                $luceCount = $luceResult['success'] ? $luceResult['count'] : 0;
+                $gasCount = $gasResult['success'] ? $gasResult['count'] : 0;
+
+                // Conta offerte per tipo cliente (privati vs aziende)
+                $luceFile = ARERA_DATA_DIR . '/db-offerte-luce.json';
+                $gasFile = ARERA_DATA_DIR . '/db-offerte-gas.json';
+                $lucePrivati = 0; $luceAziende = 0;
+                $gasPrivati = 0; $gasAziende = 0;
+
+                if (is_file($luceFile)) {
+                    $luceData = json_decode(file_get_contents($luceFile), true) ?: [];
+                    foreach ($luceData as $o) {
+                        $uso = strtolower($o['uso'] ?? '');
+                        if (str_contains($uso, 'domestico')) $lucePrivati++;
+                        else $luceAziende++;
+                    }
+                }
+                if (is_file($gasFile)) {
+                    $gasData = json_decode(file_get_contents($gasFile), true) ?: [];
+                    foreach ($gasData as $o) {
+                        $uso = strtolower($o['uso'] ?? '');
+                        if (str_contains($uso, 'domestico')) $gasPrivati++;
+                        else $gasAziende++;
+                    }
+                }
+
+                $elapsed = round(($luceResult['elapsed'] ?? 0) + ($gasResult['elapsed'] ?? 0), 2);
                 jsonResponse([
-                    'status' => 'started',
-                    'message' => 'Sync ARERA avviato in background. Controlla i log tra qualche minuto.',
+                    'status'   => 'completed',
+                    'luce'     => ['total' => $luceCount, 'privati' => $lucePrivati, 'aziende' => $luceAziende],
+                    'gas'      => ['total' => $gasCount, 'privati' => $gasPrivati, 'aziende' => $gasAziende],
+                    'totale'   => $luceCount + $gasCount,
+                    'elapsed'  => $elapsed,
+                    'message'  => "Sync completato in {$elapsed}s: {$luceCount} offerte LUCE + {$gasCount} GAS importate.",
                 ]);
             } catch (Throwable $e) {
                 errorResponse('Errore sync: ' . $e->getMessage(), 500);
@@ -722,6 +759,13 @@ function handleDynamicSitemap(): void {
         ['loc' => 'https://www.switchai.it/privacy', 'priority' => '0.5', 'changefreq' => 'monthly'],
         ['loc' => 'https://www.switchai.it/cookie', 'priority' => '0.3', 'changefreq' => 'monthly'],
         ['loc' => 'https://www.switchai.it/faq', 'priority' => '0.7', 'changefreq' => 'weekly'],
+        ['loc' => 'https://www.switchai.it/risorse/', 'priority' => '0.7', 'changefreq' => 'weekly'],
+        ['loc' => 'https://www.switchai.it/risorse/come-funziona-bolletta-luce', 'priority' => '0.6', 'changefreq' => 'monthly'],
+        ['loc' => 'https://www.switchai.it/risorse/come-funziona-bolletta-gas', 'priority' => '0.6', 'changefreq' => 'monthly'],
+        ['loc' => 'https://www.switchai.it/risorse/glossario-energia', 'priority' => '0.7', 'changefreq' => 'monthly'],
+        ['loc' => 'https://www.switchai.it/risorse/prezzo-fisso-vs-indicizzato', 'priority' => '0.6', 'changefreq' => 'monthly'],
+        ['loc' => 'https://www.switchai.it/risorse/calcolo-spesa-annua', 'priority' => '0.5', 'changefreq' => 'monthly'],
+        ['loc' => 'https://www.switchai.it/risorse/come-leggere-bolletta', 'priority' => '0.6', 'changefreq' => 'monthly'],
     ];
     foreach ($static as $url) {
         $lastmod = date('Y-m-d');
