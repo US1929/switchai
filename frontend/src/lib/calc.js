@@ -17,13 +17,14 @@ export function calcLuceCost(tariff, kwh, pun, formData = {}) {
 
   const costo_fisso = parseItalianNum(tariff["costo_fisso"]) || 0;
   const tipo = tariff["tariffa"]?.toLowerCase();
-  
+
   // Costanti regolatorie ARERA (da constants.js — fonte unica)
-  const { PERDITE_RETE_BT, QUOTA_FISSA_RETI, TRASPORTO_VAR, ONERI_SISTEMA, ACCISE, COSTO_POTENZA_KW } = LUCE;
+  const { PERDITE_RETE_BT, QUOTA_FISSA_RETI, TRASPORTO_VAR, ONERI_SISTEMA, ACCISE, ACCISE_SOGLIA_ESENTE, ACCISE_SOGLIA_COMPENSATA, COSTO_POTENZA_KW } = LUCE;
 
   let energyCost = 0;
+  let prezzo = null;
   if (tipo === "fissa" || tipo === "fisso") {
-    const prezzo = parseItalianNum(tariff["prezzo tot kwh"]);
+    prezzo = parseItalianNum(tariff["prezzo tot kwh"]);
     if (!prezzo || prezzo < 0.01) return null;
 
     if (f1 > 0 || f2 > 0 || f3 > 0) {
@@ -37,14 +38,26 @@ export function calcLuceCost(tariff, kwh, pun, formData = {}) {
   } else {
     const spread = parseItalianNum(tariff["spread"]) || 0;
     const punBase = parseItalianNum(tariff["Pun"]) || pun;
-    // Tariffe variabili: (PUN + spread) × perdite di rete BT
-    energyCost = kwh * (punBase + spread) * PERDITE_RETE_BT;
+    // ARERA v4.0: perdite rete BT si applicano SOLO al PUN, non allo spread
+    energyCost = kwh * (punBase * PERDITE_RETE_BT + spread);
   }
+
+  // Sanity check: prezzo fisso < costo regolato minimo è fisicamente impossibile
+  if (prezzo !== null && prezzo < 0.05) return null;
 
   const costo_potenza = COSTO_POTENZA_KW * potenza;
   const trasporto = kwh * TRASPORTO_VAR;
   const oneri = kwh * ONERI_SISTEMA;
-  const accise = kwh * ACCISE;
+  // Accise: DL 504/1995 — soglia esenzione 1800 kWh/anno, compensazione fino a 2640 kWh/anno
+  let accise = 0;
+  if (kwh <= ACCISE_SOGLIA_ESENTE) {
+    accise = 0;
+  } else if (kwh <= ACCISE_SOGLIA_COMPENSATA) {
+    accise = (kwh - ACCISE_SOGLIA_ESENTE) * ACCISE;
+  } else {
+    const esenzioneResidua = Math.max(0, ACCISE_SOGLIA_ESENTE - (kwh - ACCISE_SOGLIA_COMPENSATA));
+    accise = (kwh - esenzioneResidua) * ACCISE;
+  }
 
   const annualFixed = costo_fisso + costo_potenza + QUOTA_FISSA_RETI;
   const subtotal = energyCost + annualFixed + trasporto + oneri + accise;
@@ -55,14 +68,15 @@ export function calcLuceCost(tariff, kwh, pun, formData = {}) {
 
 export function calcGasCost(tariff, smc, psv) {
   // Costanti regolatorie ARERA gas (da constants.js — fonte unica)
-  const { QUOTA_FISSA_RETI, TRASPORTO_VAR, ONERI_SISTEMA, ACCISE, SOGLIA_IVA_10, IVA_10, IVA_22 } = GAS;
+  const { QUOTA_FISSA_RETI, TRASPORTO_VAR, ONERI_SISTEMA, ACCISE, ADDIZIONALE_REGIONALE, SOGLIA_IVA_10, IVA_10, IVA_22 } = GAS;
 
   const costo_fisso = parseItalianNum(tariff["costo_fisso"]) || 0;
   const tipo = tariff["tariffa"]?.toLowerCase();
 
   let energyCost = 0;
+  let prezzo = null;
   if (tipo === "fissa" || tipo === "fisso") {
-    const prezzo = parseItalianNum(tariff["prezzo tot smc"]);
+    prezzo = parseItalianNum(tariff["prezzo tot smc"]);
     if (!prezzo || prezzo < 0.01) return null;
     energyCost = prezzo * smc;
   } else {
@@ -71,10 +85,14 @@ export function calcGasCost(tariff, smc, psv) {
     energyCost = smc * (psvBase + spread);
   }
 
+  // Sanity check: prezzo gas < 0.15 €/Smc è sospetto (sotto costi regolati)
+  if (prezzo !== null && prezzo < 0.15) return null;
+
   const trasporto = smc * TRASPORTO_VAR;
   const oneri = smc * ONERI_SISTEMA;
   const accise = smc * ACCISE;
-  const subtotal = energyCost + costo_fisso + QUOTA_FISSA_RETI + trasporto + oneri + accise;
+  const addizionale = smc * ADDIZIONALE_REGIONALE;
+  const subtotal = energyCost + costo_fisso + QUOTA_FISSA_RETI + trasporto + oneri + accise + addizionale;
 
   const iva10 = Math.min(smc, SOGLIA_IVA_10) / (smc || 1) * subtotal * IVA_10;
   const iva22 = Math.max(0, smc - SOGLIA_IVA_10) / (smc || 1) * subtotal * IVA_22;
@@ -170,9 +188,9 @@ export function getCurrentPricePerUnit(llmData, punEurKwh, psvEurSmc, commodity,
   const spread = parseFloat(llmData.spread) || 0;
 
   if ((tipo === 'variabile' || tipo === 'variable') && spread > 0) {
-    // Tariffa variabile: prezzo attuale = (indice di mercato + spread) × perdite di rete
+    // ARERA v4.0: perdite rete BT si applicano SOLO al PUN, non allo spread
     if (commodity === 'luce' && punEurKwh > 0) {
-      return (punEurKwh + spread) * LUCE.PERDITE_RETE_BT;
+      return punEurKwh * LUCE.PERDITE_RETE_BT + spread;
     } else if (commodity === 'gas' && psvEurSmc > 0) {
       return psvEurSmc + spread;
     }
@@ -278,11 +296,20 @@ export function isPriceAnomalous(pricePerUnit, commodity) {
 export function estimateRegulatedCosts(commodity, consumption, potenza = 3.0) {
   // Costanti da constants.js (fonte unica)
   if (commodity === 'luce') {
-    const { TRASPORTO_VAR, ONERI_SISTEMA, ACCISE, COSTO_POTENZA_KW, QUOTA_FISSA_RETI, IVA, CANONE_RAI_ANNUO } = LUCE;
+    const { TRASPORTO_VAR, ONERI_SISTEMA, ACCISE, ACCISE_SOGLIA_ESENTE, ACCISE_SOGLIA_COMPENSATA, COSTO_POTENZA_KW, QUOTA_FISSA_RETI, IVA, CANONE_RAI_ANNUO } = LUCE;
     const kwh = consumption || 2700;
     const trasporto = kwh * TRASPORTO_VAR;
     const oneri = kwh * ONERI_SISTEMA;
-    const accise = kwh * ACCISE;
+    // Accise DL 504/1995 con soglie progressive
+    let accise = 0;
+    if (kwh <= ACCISE_SOGLIA_ESENTE) {
+      accise = 0;
+    } else if (kwh <= ACCISE_SOGLIA_COMPENSATA) {
+      accise = (kwh - ACCISE_SOGLIA_ESENTE) * ACCISE;
+    } else {
+      const esenzioneResidua = Math.max(0, ACCISE_SOGLIA_ESENTE - (kwh - ACCISE_SOGLIA_COMPENSATA));
+      accise = (kwh - esenzioneResidua) * ACCISE;
+    }
     const costoPotenza = COSTO_POTENZA_KW * potenza;
     const quotaFissaReti = QUOTA_FISSA_RETI;
     const canoneRai = CANONE_RAI_ANNUO;
@@ -300,19 +327,21 @@ export function estimateRegulatedCosts(commodity, consumption, potenza = 3.0) {
       note: 'Questi costi sono uguali con qualsiasi fornitore',
     };
   } else {
-    const { TRASPORTO_VAR, ONERI_SISTEMA, ACCISE, QUOTA_FISSA_RETI, SOGLIA_IVA_10, IVA_10, IVA_22 } = GAS;
+    const { TRASPORTO_VAR, ONERI_SISTEMA, ACCISE, ADDIZIONALE_REGIONALE, QUOTA_FISSA_RETI, SOGLIA_IVA_10, IVA_10, IVA_22 } = GAS;
     const smc = consumption || 1000;
     const trasporto = smc * TRASPORTO_VAR;
     const oneri = smc * ONERI_SISTEMA;
     const accise = smc * ACCISE;
+    const addizionale = smc * ADDIZIONALE_REGIONALE;
     const quotaFissaReti = QUOTA_FISSA_RETI;
-    const subtotalRegulated = trasporto + oneri + accise + quotaFissaReti;
+    const subtotalRegulated = trasporto + oneri + accise + addizionale + quotaFissaReti;
     const iva10 = Math.min(smc, SOGLIA_IVA_10) / (smc || 1) * subtotalRegulated * IVA_10;
     const iva22 = Math.max(0, smc - SOGLIA_IVA_10) / (smc || 1) * subtotalRegulated * IVA_22;
     return {
       trasporto: Math.round(trasporto),
       oneri: Math.round(oneri),
       accise: Math.round(accise),
+      addizionale: Math.round(addizionale),
       costoPotenza: 0,
       quotaFissaReti: Math.round(quotaFissaReti),
       totale: Math.round(subtotalRegulated + (smc > 0 ? iva10 + iva22 : 0)),

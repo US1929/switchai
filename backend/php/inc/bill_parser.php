@@ -471,22 +471,26 @@ function parseNumberForConsumption(string $s): float {
  * Costanti regolatorie ARERA — FONTE UNICA per backend PHP.
  * Aggiornare QUI per propagare a TUTTI i calcoli.
  *
- * Fonti: ARERA (oneri, trasporto, perdite), Testo Unico Accise (imposte).
- * Data ultimo aggiornamento: 2026-06-15
+ * Fonti: ARERA Del. 449/2020 (perdite), Del. 575/2025/R/eel (trasporto, potenza),
+ *        Comunicato Q2 2026 (oneri), DL 504/1995 (accise)
+ * Data ultimo aggiornamento: 2026-06-26
  */
 if (!defined('LUCE_PERDITE_RETE_BT'))       define('LUCE_PERDITE_RETE_BT', 1.102);
-if (!defined('QUOTA_FISSA_RETI_LUCE'))       define('QUOTA_FISSA_RETI_LUCE', 24.00);
-if (!defined('LUCE_TRASPORTO_VAR'))          define('LUCE_TRASPORTO_VAR', 0.0089);
-if (!defined('ONERI_SISTEMA_LUCE'))          define('ONERI_SISTEMA_LUCE', 0.038);
+if (!defined('QUOTA_FISSA_RETI_LUCE'))       define('QUOTA_FISSA_RETI_LUCE', 23.04);   // Del. 575/2025
+if (!defined('LUCE_TRASPORTO_VAR'))          define('LUCE_TRASPORTO_VAR', 0.01204);   // TRAS 0.01190 + UC3 0.00007 + UC6 0.00007
+if (!defined('ONERI_SISTEMA_LUCE'))          define('ONERI_SISTEMA_LUCE', 0.0303);    // ASOS 0.02866 + ARIM 0.00164
 if (!defined('LUCE_ACCISE'))                define('LUCE_ACCISE', 0.0227);
-if (!defined('LUCE_COSTO_POTENZA_KW'))       define('LUCE_COSTO_POTENZA_KW', 21.48);
+if (!defined('LUCE_ACCISE_SOGLIA_ESENTE'))   define('LUCE_ACCISE_SOGLIA_ESENTE', 1800);    // DL 504/1995
+if (!defined('LUCE_ACCISE_SOGLIA_COMPENSATA')) define('LUCE_ACCISE_SOGLIA_COMPENSATA', 2640);
+if (!defined('LUCE_COSTO_POTENZA_KW'))       define('LUCE_COSTO_POTENZA_KW', 23.52);   // Del. 575/2025
 if (!defined('LUCE_IVA'))                   define('LUCE_IVA', 0.10);
 if (!defined('CANONE_RAI_ANNUO'))           define('CANONE_RAI_ANNUO', 90.00);  // Canone RAI in bolletta LUCE (€/anno)
 
 if (!defined('QUOTA_FISSA_RETI_GAS'))        define('QUOTA_FISSA_RETI_GAS', 23.00);
 if (!defined('GAS_TRASPORTO_VAR'))           define('GAS_TRASPORTO_VAR', 0.15);
 if (!defined('GAS_ONERI_SISTEMA'))           define('GAS_ONERI_SISTEMA', 0.03);
-if (!defined('GAS_ACCISE'))                 define('GAS_ACCISE', 0.15);
+if (!defined('GAS_ACCISE'))                 define('GAS_ACCISE', 0.149959);
+if (!defined('GAS_ADDIZIONALE_REGIONALE'))   define('GAS_ADDIZIONALE_REGIONALE', 0.0093);
 if (!defined('GAS_SOGLIA_IVA_10'))           define('GAS_SOGLIA_IVA_10', 480);
 if (!defined('GAS_IVA_10'))                 define('GAS_IVA_10', 0.10);
 if (!defined('GAS_IVA_22'))                 define('GAS_IVA_22', 0.22);
@@ -502,6 +506,8 @@ function getAreraConstants(): array {
             'trasporto_var'      => LUCE_TRASPORTO_VAR,
             'oneri_sistema'      => ONERI_SISTEMA_LUCE,
             'accise'             => LUCE_ACCISE,
+            'accise_soglia_esente' => LUCE_ACCISE_SOGLIA_ESENTE,
+            'accise_soglia_compensata' => LUCE_ACCISE_SOGLIA_COMPENSATA,
             'costo_potenza_kw'   => LUCE_COSTO_POTENZA_KW,
             'iva'                => LUCE_IVA,
             'canone_rai'         => CANONE_RAI_ANNUO,
@@ -513,13 +519,14 @@ function getAreraConstants(): array {
             'trasporto_var'      => GAS_TRASPORTO_VAR,
             'oneri_sistema'      => GAS_ONERI_SISTEMA,
             'accise'             => GAS_ACCISE,
+            'addizionale_regionale' => GAS_ADDIZIONALE_REGIONALE,
             'soglia_iva_10'      => GAS_SOGLIA_IVA_10,
             'iva_10'             => GAS_IVA_10,
             'iva_22'             => GAS_IVA_22,
             'prezzo_riferimento' => 0.55,
             'quota_fissa_riferimento' => 120,
         ],
-        'aggiornato_il' => '2026-06-15',
+        'aggiornato_il' => '2026-06-26',
     ];
 }
 
@@ -623,7 +630,7 @@ function calculateSavingsBreakdown(array $data): array {
     if ($commodity === 'LUCE') {
         $currentPriceKwh = 0.16;
         $currentFixedMonthly = 10.00;
-        $currentTransportKwh = 0.0089;
+        $currentTransportKwh = LUCE_TRASPORTO_VAR;
     } else {
         $currentPriceSmc = 0.55;
         $currentFixedMonthly = 10.00;
@@ -631,18 +638,28 @@ function calculateSavingsBreakdown(array $data): array {
 
     if ($currentAnnualSpend <= 0) {
         if ($commodity === 'LUCE' && $yearlyKwh > 0) {
-            $costo_potenza = 21.48 * $potenza;
+            $costo_potenza = LUCE_COSTO_POTENZA_KW * $potenza;
             $oneri = $yearlyKwh * ONERI_SISTEMA_LUCE;
-            $accise = $yearlyKwh * 0.0227;
-            $subtotal = ($yearlyKwh * $currentPriceKwh) + ($currentFixedMonthly * 12) + $costo_potenza + QUOTA_FISSA_RETI_LUCE + ($yearlyKwh * $currentTransportKwh) + $oneri + $accise;
+            $trasporto = $yearlyKwh * LUCE_TRASPORTO_VAR;
+            // Accise DL 504/1995
+            if ($yearlyKwh <= LUCE_ACCISE_SOGLIA_ESENTE) {
+                $accise = 0;
+            } elseif ($yearlyKwh <= LUCE_ACCISE_SOGLIA_COMPENSATA) {
+                $accise = ($yearlyKwh - LUCE_ACCISE_SOGLIA_ESENTE) * LUCE_ACCISE;
+            } else {
+                $esenzioneResidua = max(0, LUCE_ACCISE_SOGLIA_ESENTE - ($yearlyKwh - LUCE_ACCISE_SOGLIA_COMPENSATA));
+                $accise = ($yearlyKwh - $esenzioneResidua) * LUCE_ACCISE;
+            }
+            $subtotal = ($yearlyKwh * $currentPriceKwh) + ($currentFixedMonthly * 12) + $costo_potenza + QUOTA_FISSA_RETI_LUCE + $trasporto + $oneri + $accise;
             $currentAnnualSpend = $subtotal * 1.10;
         } elseif ($commodity === 'GAS' && $yearlySmc > 0) {
-            $trasporto = $yearlySmc * 0.15;
-            $oneri = $yearlySmc * 0.03;
-            $accise = $yearlySmc * 0.15;
-            $subtotal = ($yearlySmc * $currentPriceSmc) + ($currentFixedMonthly * 12) + QUOTA_FISSA_RETI_GAS + $trasporto + $oneri + $accise;
-            $iva10 = min($yearlySmc, 480) / ($yearlySmc ?: 1) * $subtotal * 0.10;
-            $iva22 = max(0, $yearlySmc - 480) / ($yearlySmc ?: 1) * $subtotal * 0.22;
+            $trasporto = $yearlySmc * GAS_TRASPORTO_VAR;
+            $oneri = $yearlySmc * GAS_ONERI_SISTEMA;
+            $accise = $yearlySmc * GAS_ACCISE;
+            $addizionale = $yearlySmc * GAS_ADDIZIONALE_REGIONALE;
+            $subtotal = ($yearlySmc * $currentPriceSmc) + ($currentFixedMonthly * 12) + QUOTA_FISSA_RETI_GAS + $trasporto + $oneri + $accise + $addizionale;
+            $iva10 = min($yearlySmc, GAS_SOGLIA_IVA_10) / ($yearlySmc ?: 1) * $subtotal * GAS_IVA_10;
+            $iva22 = max(0, $yearlySmc - GAS_SOGLIA_IVA_10) / ($yearlySmc ?: 1) * $subtotal * GAS_IVA_22;
             $currentAnnualSpend = $subtotal + ($yearlySmc > 0 ? $iva10 + $iva22 : 0);
         }
     }
@@ -653,7 +670,7 @@ function calculateSavingsBreakdown(array $data): array {
 
     foreach ($tariffs as $tariff) {
         $fixedFee = (float)($tariff['fixed_fee_monthly'] ?? 0);
-        $transportFee = (float)($tariff['transport_fee_kwh'] ?? 0.0089);
+        $transportFee = (float)($tariff['transport_fee_kwh'] ?? LUCE_TRASPORTO_VAR);
         $annualCost = 0.0;
         $breakdown = [];
         $explanationParts = [];
@@ -664,17 +681,14 @@ function calculateSavingsBreakdown(array $data): array {
             $tariffPun = isset($tariff['pun']) ? (float)$tariff['pun'] : null;
 
             // Determina il prezzo energia da usare
+            // ARERA v4.0: PERDITE_RETE_BT (10.2%) si applicano SOLO al PUN, non allo spread
             if ($isVariable && $livePunEurKwh !== null && $spread !== null) {
-                // Tariffa variabile CON PUN live: usa PUN corrente + spread contrattuale
-                // PERDITE_RETE_BT (10.2%) si applicano al prezzo energia variabile
-                $effectiveEnergyPrice = ($livePunEurKwh + $spread) * LUCE_PERDITE_RETE_BT;
+                $effectiveEnergyPrice = $livePunEurKwh * LUCE_PERDITE_RETE_BT + $spread;
             } elseif ($isVariable && $livePunEurKwh !== null && $spread === null && $tariffPun !== null) {
-                // Spread mancante: stima da price_mono_kwh - PUN storico
                 $priceMono = $tariff['price_mono_kwh'];
                 $estimatedSpread = max(0, (float)$priceMono - $tariffPun);
-                $effectiveEnergyPrice = ($livePunEurKwh + $estimatedSpread) * LUCE_PERDITE_RETE_BT;
+                $effectiveEnergyPrice = $livePunEurKwh * LUCE_PERDITE_RETE_BT + $estimatedSpread;
             } elseif ($isVariable && $livePunEurKwh !== null && $spread === null && $tariffPun === null) {
-                // Nessun dato spread/PUN: usa price_mono_kwh congelato (fallback)
                 $priceMono = $tariff['price_mono_kwh'];
                 if ($priceMono === null) continue;
                 $effectiveEnergyPrice = (float)$priceMono;
@@ -682,6 +696,8 @@ function calculateSavingsBreakdown(array $data): array {
                 // Tariffa FISSA o PUN live non disponibile: usa prezzo contrattuale
                 $priceMono = $tariff['price_mono_kwh'];
                 if ($priceMono === null) continue;
+                // Sanity check: prezzo fisso < costo regolato minimo è impossibile
+                if (!$isVariable && (float)$priceMono < 0.05) continue;
                 $effectiveEnergyPrice = (float)$priceMono;
             }
 
@@ -709,14 +725,23 @@ function calculateSavingsBreakdown(array $data): array {
                 $energyCost = $yearlyKwh * $effectiveEnergyPrice;
             }
 
-            $costo_potenza = 21.48 * $potenza;
+            $costo_potenza = LUCE_COSTO_POTENZA_KW * $potenza;
             $oneri = $yearlyKwh * ONERI_SISTEMA_LUCE;
-            $accise = $yearlyKwh * 0.0227;
+            $trasporto = $yearlyKwh * LUCE_TRASPORTO_VAR;
+            // Accise DL 504/1995 con soglie progressive
+            if ($yearlyKwh <= LUCE_ACCISE_SOGLIA_ESENTE) {
+                $accise = 0;
+            } elseif ($yearlyKwh <= LUCE_ACCISE_SOGLIA_COMPENSATA) {
+                $accise = ($yearlyKwh - LUCE_ACCISE_SOGLIA_ESENTE) * LUCE_ACCISE;
+            } else {
+                $esenzioneResidua = max(0, LUCE_ACCISE_SOGLIA_ESENTE - ($yearlyKwh - LUCE_ACCISE_SOGLIA_COMPENSATA));
+                $accise = ($yearlyKwh - $esenzioneResidua) * LUCE_ACCISE;
+            }
 
             $fixedCost = $fixedFee * 12 + $costo_potenza + QUOTA_FISSA_RETI_LUCE;
-            $transportCost = $yearlyKwh * $transportFee;
-            $subtotal = $energyCost + $fixedCost + $transportCost + $oneri + $accise;
+            $subtotal = $energyCost + $fixedCost + $trasporto + $oneri + $accise;
             $annualCost = $subtotal * 1.10;
+            $transportCost = $trasporto; // per retrocompatibilità display
 
             $currentEnergyCost = $yearlyKwh * $currentPriceKwh;
             $currentFixedCost = $currentFixedMonthly * 12 + $costo_potenza + QUOTA_FISSA_RETI_LUCE;
@@ -769,19 +794,22 @@ function calculateSavingsBreakdown(array $data): array {
                 // Tariffa FISSA o PSV live non disponibile: usa prezzo contrattuale
                 $priceSmc = $tariff['price_smc'];
                 if ($priceSmc === null) continue;
+                // Sanity check: prezzo gas < 0.15 €/Smc è sospetto
+                if (!$isVariable && (float)$priceSmc < 0.15) continue;
                 $effectiveEnergyPrice = (float)$priceSmc;
             }
 
             $energyCost = $yearlySmc * $effectiveEnergyPrice;
-            $trasporto = $yearlySmc * 0.15;
-            $oneri = $yearlySmc * 0.03;
-            $accise = $yearlySmc * 0.15;
+            $trasporto = $yearlySmc * GAS_TRASPORTO_VAR;
+            $oneri = $yearlySmc * GAS_ONERI_SISTEMA;
+            $accise = $yearlySmc * GAS_ACCISE;
+            $addizionale = $yearlySmc * GAS_ADDIZIONALE_REGIONALE;
 
             $fixedCost = $fixedFee * 12 + QUOTA_FISSA_RETI_GAS;
-            $subtotal = $energyCost + $fixedCost + $trasporto + $oneri + $accise;
+            $subtotal = $energyCost + $fixedCost + $trasporto + $oneri + $accise + $addizionale;
 
-            $iva10 = min($yearlySmc, 480) / ($yearlySmc ?: 1) * $subtotal * 0.10;
-            $iva22 = max(0, $yearlySmc - 480) / ($yearlySmc ?: 1) * $subtotal * 0.22;
+            $iva10 = min($yearlySmc, GAS_SOGLIA_IVA_10) / ($yearlySmc ?: 1) * $subtotal * GAS_IVA_10;
+            $iva22 = max(0, $yearlySmc - GAS_SOGLIA_IVA_10) / ($yearlySmc ?: 1) * $subtotal * GAS_IVA_22;
             $annualCost = $subtotal + ($yearlySmc > 0 ? $iva10 + $iva22 : 0);
 
             $currentEnergyCost = $yearlySmc * $currentPriceSmc;

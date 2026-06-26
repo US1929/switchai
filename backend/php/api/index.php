@@ -841,12 +841,21 @@ function handleV2Analyze(array $input): void {
             $nonNeg = 0.045; // trasporto+oneri+accise ~0.045 €/kWh
             $estimatedUserSpread = max(0.002, round($avgPriceBill - $livePunEurKwh - $nonNeg, 4));
         }
-        // Ricalcolo spesa attuale a PUN corrente
+        // Ricalcolo spesa attuale a PUN corrente (ARERA v4.0)
         $potenza = (float)($input['potenza_impegnata'] ?? $profile['potenza_impegnata'] ?? 3.0);
-        $energyCostNow = $consumo * ($livePunEurKwh + $estimatedUserSpread) * LUCE_PERDITE_RETE_BT;
-        $costoPotenza = 21.48 * $potenza;
+        // ARERA v4.0: perdite rete SOLO sul PUN, non sullo spread
+        $energyCostNow = $consumo * ($livePunEurKwh * LUCE_PERDITE_RETE_BT + $estimatedUserSpread);
+        $costoPotenza = LUCE_COSTO_POTENZA_KW * $potenza;
         $oneriNow = $consumo * ONERI_SISTEMA_LUCE;
-        $acciseNow = $consumo * LUCE_ACCISE;
+        // Accise DL 504/1995 con soglie
+        if ($consumo <= LUCE_ACCISE_SOGLIA_ESENTE) {
+            $acciseNow = 0;
+        } elseif ($consumo <= LUCE_ACCISE_SOGLIA_COMPENSATA) {
+            $acciseNow = ($consumo - LUCE_ACCISE_SOGLIA_ESENTE) * LUCE_ACCISE;
+        } else {
+            $esenzioneResidua = max(0, LUCE_ACCISE_SOGLIA_ESENTE - ($consumo - LUCE_ACCISE_SOGLIA_COMPENSATA));
+            $acciseNow = ($consumo - $esenzioneResidua) * LUCE_ACCISE;
+        }
         $trasportoNow = $consumo * LUCE_TRASPORTO_VAR;
         $fixedNow = ($quotaFissaMensile > 0 ? $quotaFissaMensile : 10.00) * 12 + $costoPotenza + QUOTA_FISSA_RETI_LUCE;
         $subtotalNow = $energyCostNow + $fixedNow + $trasportoNow + $oneriNow + $acciseNow;
@@ -874,8 +883,9 @@ function handleV2Analyze(array $input): void {
         $trasportoNow = $consumo * GAS_TRASPORTO_VAR;
         $oneriNow = $consumo * GAS_ONERI_SISTEMA;
         $acciseNow = $consumo * GAS_ACCISE;
+        $addizionaleNow = $consumo * GAS_ADDIZIONALE_REGIONALE;
         $fixedNow = ($quotaFissaMensile > 0 ? $quotaFissaMensile : 10.00) * 12 + QUOTA_FISSA_RETI_GAS;
-        $subtotalNow = $energyCostNow + $fixedNow + $trasportoNow + $oneriNow + $acciseNow;
+        $subtotalNow = $energyCostNow + $fixedNow + $trasportoNow + $oneriNow + $acciseNow + $addizionaleNow;
         $iva10 = min($consumo, GAS_SOGLIA_IVA_10) / ($consumo ?: 1) * $subtotalNow * GAS_IVA_10;
         $iva22 = max(0, $consumo - GAS_SOGLIA_IVA_10) / ($consumo ?: 1) * $subtotalNow * GAS_IVA_22;
         $spesaAttualizzata = round($subtotalNow + $iva10 + $iva22, 2);

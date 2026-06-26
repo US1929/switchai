@@ -367,9 +367,11 @@ function mcp_analyze(array $args): string {
         if ($estimatedSpread <= 0) {
             $estimatedSpread = max(0.002, round(($spesa / $consumo) - $livePunEurKwh - 0.045, 4));
         }
-        $energyCostNow = $consumo * ($livePunEurKwh + $estimatedSpread) * LUCE_PERDITE_RETE_BT;
+        // ARERA v4.0: perdite rete SOLO sul PUN
+        $energyCostNow = $consumo * ($livePunEurKwh * LUCE_PERDITE_RETE_BT + $estimatedSpread);
         $quotaFissaMensile = (float)($args['quota_fissa_mensile'] ?? 0);
-        $fixedNow = ($quotaFissaMensile > 0 ? $quotaFissaMensile : 10.00) * 12 + (21.48 * 3.0) + QUOTA_FISSA_RETI_LUCE;
+        $costoPotenza = LUCE_COSTO_POTENZA_KW * 3.0;
+        $fixedNow = ($quotaFissaMensile > 0 ? $quotaFissaMensile : 10.00) * 12 + $costoPotenza + QUOTA_FISSA_RETI_LUCE;
         $oneriAcciseTrasporto = $consumo * (ONERI_SISTEMA_LUCE + LUCE_ACCISE + LUCE_TRASPORTO_VAR);
         $subtotalNow = $energyCostNow + $fixedNow + $oneriAcciseTrasporto;
         $spesaAttualizzata = round($subtotalNow * 1.10, 2);
