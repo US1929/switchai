@@ -258,12 +258,27 @@ try {
                 $apiKeys = (int)$db->query('SELECT COUNT(*) FROM api_keys WHERE disabled = 0')->fetchColumn();
                 $rateLogs = (int)$db->query('SELECT COUNT(*) FROM rate_log')->fetchColumn();
                 $affiliates = (int)$db->query('SELECT COUNT(*) FROM affiliate_links WHERE is_active = 1')->fetchColumn();
+
+                // Stato file ARERA locali
+                $dataDir = __DIR__ . '/../data/offerte';
+                $luceFile = $dataDir . '/db-offerte-luce.json';
+                $gasFile = $dataDir . '/db-offerte-gas.json';
+                $luceCount = is_file($luceFile) ? count(json_decode(file_get_contents($luceFile), true) ?: []) : 0;
+                $gasCount = is_file($gasFile) ? count(json_decode(file_get_contents($gasFile), true) ?: []) : 0;
+                $luceSize = is_file($luceFile) ? round(filesize($luceFile) / 1048576, 1) : 0;
+                $gasSize = is_file($gasFile) ? round(filesize($gasFile) / 1048576, 1) : 0;
+
                 jsonResponse([
                     'users' => $users,
                     'api_keys' => $apiKeys,
                     'rate_logs' => $rateLogs,
                     'affiliates' => $affiliates,
                     'mysql' => 'connected',
+                    'arera' => [
+                        'luce' => ['count' => $luceCount, 'size_mb' => $luceSize],
+                        'gas'  => ['count' => $gasCount, 'size_mb' => $gasSize],
+                        'total' => $luceCount + $gasCount,
+                    ],
                 ]);
             } catch (Throwable $e) {
                 jsonResponse([
