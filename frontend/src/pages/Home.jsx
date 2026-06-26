@@ -479,7 +479,7 @@ export default function Home() {
             </div>
 
             <TariffTable
-              items={rankedItems}
+              items={displayed}
               commodity={commodity}
               currentSpend={results.currentSpend}
               hasRealSpend={results.hasRealSpend}
