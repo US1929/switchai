@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 const TABS = [
   { id: 'traffic', label: '📊 Traffico', icon: '📊' },
   { id: 'apikeys', label: '🔑 API Keys B2B', icon: '🔑' },
+  { id: 'affiliates', label: '💰 Affiliazioni', icon: '💰' },
 ];
 
 export default function Admin() {
@@ -56,6 +57,7 @@ export default function Admin() {
         {/* Content */}
         {tab === 'traffic' && <TrafficTab token={token} />}
         {tab === 'apikeys' && <ApiKeysTab token={token} />}
+        {tab === 'affiliates' && <AffiliatesTab token={token} />}
       </div>
     </main>
   );
@@ -266,6 +268,216 @@ function ApiKeysTab({ token }) {
                   )}
                 </div>
               </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── Affiliates Tab ────────────────────────────────────────────────
+
+function AffiliatesTab({ token }) {
+  const [links, setLinks] = useState([]);
+  const [offers, setOffers] = useState([]);
+  const [search, setSearch] = useState('');
+  const [form, setForm] = useState({ tariff_id: '', affiliate_url: '', network: '', supplier: '', tariff_name: '', commodity: '' });
+  const [saving, setSaving] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+
+  const loadLinks = () => {
+    fetch('/api/admin/affiliates', { headers: { 'x-auth-token': token } })
+      .then(r => r.json())
+      .then(d => setLinks(d.affiliates || []));
+  };
+
+  const loadOffers = async () => {
+    try {
+      const [luce, gas] = await Promise.all([
+        fetch('/api/tariffe/luce').then(r => r.json()),
+        fetch('/api/tariffe/gas').then(r => r.json()),
+      ]);
+      const all = [...(luce.offers || []), ...(gas.offers || [])];
+      setOffers(all);
+    } catch { /* offerte non disponibili */ }
+  };
+
+  useEffect(() => { loadLinks(); loadOffers(); }, []);
+
+  const saveLink = async () => {
+    if (!form.tariff_id || !form.affiliate_url) return;
+    setSaving(true);
+    await fetch('/api/admin/affiliates', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-auth-token': token },
+      body: JSON.stringify(form),
+    });
+    setSaving(false);
+    setShowForm(false);
+    setForm({ tariff_id: '', affiliate_url: '', network: '', supplier: '', tariff_name: '', commodity: '' });
+    loadLinks();
+  };
+
+  const deleteLink = async (tariffId) => {
+    await fetch('/api/admin/affiliates', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', 'x-auth-token': token },
+      body: JSON.stringify({ tariff_id: tariffId }),
+    });
+    loadLinks();
+  };
+
+  const pickOffer = (offer) => {
+    setForm({
+      tariff_id: offer.id || '',
+      affiliate_url: '',
+      network: '',
+      supplier: offer.supplier_name || '',
+      tariff_name: offer.name || '',
+      commodity: offer.commodity || '',
+    });
+    setShowForm(true);
+  };
+
+  const linkMap = new Map(links.map(l => [l.tariff_id, l]));
+  const filtered = offers.filter(o => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return (o.supplier_name || '').toLowerCase().includes(q)
+        || (o.name || '').toLowerCase().includes(q)
+        || (o.id || '').toLowerCase().includes(q);
+  }).slice(0, 100);
+
+  return (
+    <div>
+      {/* Stats */}
+      <div className="glass-card" style={{ padding: '16px 22px', marginBottom: 20, textAlign: 'center' }}>
+        <div style={{ fontSize: 36, fontWeight: 900, color: '#f59e0b' }}>{links.length}</div>
+        <div style={{ fontSize: 12, color: '#64748b' }}>link di affiliazione attivi</div>
+      </div>
+
+      {/* Add form */}
+      <div style={{ marginBottom: 20 }}>
+        {!showForm ? (
+          <button className="btn btn-electric" onClick={() => setShowForm(true)} style={{ fontSize: 13 }}>
+            ➕ Nuovo link affiliazione
+          </button>
+        ) : (
+          <div className="glass-card" style={{ padding: '16px 22px' }}>
+            <h3 style={{ fontSize: 14, fontWeight: 700, color: '#f1f5f9', marginBottom: 14 }}>➕ Aggiungi/Modifica link</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: 200 }}>
+                  <label style={{ fontSize: 10, color: '#64748b', textTransform: 'uppercase', fontWeight: 600, display: 'block', marginBottom: 4 }}>Tariff ID</label>
+                  <input className="input-field" value={form.tariff_id} onChange={e => setForm({...form, tariff_id: e.target.value})} placeholder="ff96f52a-..." />
+                </div>
+                <div style={{ flex: 1, minWidth: 120 }}>
+                  <label style={{ fontSize: 10, color: '#64748b', textTransform: 'uppercase', fontWeight: 600, display: 'block', marginBottom: 4 }}>Network</label>
+                  <input className="input-field" value={form.network} onChange={e => setForm({...form, network: e.target.value})} placeholder="tradedoubler, awin..." />
+                </div>
+              </div>
+              <div>
+                <label style={{ fontSize: 10, color: '#64748b', textTransform: 'uppercase', fontWeight: 600, display: 'block', marginBottom: 4 }}>URL Affiliazione</label>
+                <input className="input-field" value={form.affiliate_url} onChange={e => setForm({...form, affiliate_url: e.target.value})} placeholder="https://tracking.com/redirect?offer=..." style={{ width: '100%' }} />
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button className="btn btn-electric" onClick={saveLink} disabled={saving || !form.tariff_id || !form.affiliate_url} style={{ fontSize: 13 }}>
+                  {saving ? '⏳' : '💾 Salva'}
+                </button>
+                <button className="btn btn-outline" onClick={() => setShowForm(false)} style={{ fontSize: 13 }}>Annulla</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Offerte + link */}
+      <div className="glass-card" style={{ padding: '16px 22px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
+          <h3 style={{ fontSize: 14, fontWeight: 700, color: '#f1f5f9' }}>📋 Offerte e link</h3>
+          <input
+            className="input-field"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="🔍 Cerca fornitore o tariffa..."
+            style={{ fontSize: 12, padding: '8px 12px', width: 250 }}
+          />
+        </div>
+
+        {/* Lista link esistenti */}
+        {links.length > 0 && (
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 11, color: '#f59e0b', fontWeight: 600, textTransform: 'uppercase', marginBottom: 8 }}>
+              💰 {links.length} link di affiliazione
+            </div>
+            {links.map(l => (
+              <div key={l.tariff_id} style={{
+                padding: '10px 12px', borderRadius: 8, marginBottom: 6,
+                background: 'rgba(245,158,11,0.05)', border: '1px solid rgba(245,158,11,0.15)',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8,
+              }}>
+                <div style={{ flex: 1, minWidth: 200 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#f1f5f9' }}>
+                    {l.supplier} — {l.tariff_name}
+                    {l.network && <span style={{ marginLeft: 6, fontSize: 9, color: '#64748b', background: 'rgba(255,255,255,0.06)', padding: '1px 6px', borderRadius: 4 }}>{l.network}</span>}
+                  </div>
+                  <a href={l.affiliate_url} target="_blank" rel="noreferrer" style={{ fontSize: 10, color: '#f59e0b', wordBreak: 'break-all' }}>
+                    {l.affiliate_url.length > 80 ? l.affiliate_url.slice(0, 80) + '...' : l.affiliate_url}
+                  </a>
+                </div>
+                <button
+                  onClick={() => deleteLink(l.tariff_id)}
+                  style={{
+                    fontSize: 11, padding: '4px 10px', borderRadius: 6,
+                    background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)',
+                    color: '#f87171', cursor: 'pointer', fontWeight: 600, flexShrink: 0,
+                  }}
+                >
+                  Rimuovi
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Offerte disponibili */}
+        <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600, textTransform: 'uppercase', marginBottom: 8 }}>
+          📦 {offers.length > 0 ? `${offers.length} offerte caricate` : 'Nessuna offerta caricata — esegui ARERA sync'}
+        </div>
+        {filtered.map(o => {
+          const linked = linkMap.get(o.id);
+          return (
+            <div key={o.id} style={{
+              padding: '8px 12px', borderRadius: 8, marginBottom: 4, fontSize: 12,
+              background: linked ? 'rgba(16,185,129,0.05)' : 'rgba(255,255,255,0.02)',
+              border: `1px solid ${linked ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.04)'}`,
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8,
+            }}>
+              <div style={{ flex: 1, minWidth: 180 }}>
+                <span style={{ fontWeight: 600, color: '#f1f5f9' }}>{o.supplier_name}</span>
+                <span style={{ color: '#94a3b8', marginLeft: 4 }}>— {o.name}</span>
+                <span style={{
+                  marginLeft: 6, fontSize: 9, fontWeight: 600, padding: '1px 6px', borderRadius: 4,
+                  background: o.type === 'FISSO' ? 'rgba(59,130,246,0.12)' : 'rgba(168,85,247,0.12)',
+                  color: o.type === 'FISSO' ? '#60a5fa' : '#a78bfa',
+                }}>
+                  {o.type === 'FISSO' ? 'FISSO' : 'VARIABILE'}
+                </span>
+                <span style={{ marginLeft: 4, fontSize: 9, color: '#64748b' }}>{o.commodity}</span>
+                {linked && <span style={{ marginLeft: 6, fontSize: 9, color: '#6ee7b7', fontWeight: 600 }}>💰 AFFILIATO</span>}
+              </div>
+              <button
+                onClick={() => linked ? deleteLink(o.id) : pickOffer(o)}
+                style={{
+                  fontSize: 11, padding: '4px 10px', borderRadius: 6, cursor: 'pointer', fontWeight: 600, flexShrink: 0,
+                  background: linked ? 'rgba(239,68,68,0.1)' : 'rgba(245,158,11,0.1)',
+                  border: `1px solid ${linked ? 'rgba(239,68,68,0.2)' : 'rgba(245,158,11,0.2)'}`,
+                  color: linked ? '#f87171' : '#f59e0b',
+                }}
+              >
+                {linked ? 'Rimuovi' : '+ Affilia'}
+              </button>
             </div>
           );
         })}

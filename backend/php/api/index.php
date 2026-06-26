@@ -248,6 +248,81 @@ try {
             }
             break;
 
+        // GET /api/admin/data-stats — statistiche database (richiede auth)
+        case $uri === '/api/admin/data-stats' && $method === 'GET':
+            requireAuth();
+            try {
+                require_once __DIR__ . '/../inc/db_mysql.php';
+                $db = getMySQL();
+                $users = (int)$db->query('SELECT COUNT(*) FROM users')->fetchColumn();
+                $apiKeys = (int)$db->query('SELECT COUNT(*) FROM api_keys WHERE disabled = 0')->fetchColumn();
+                $rateLogs = (int)$db->query('SELECT COUNT(*) FROM rate_log')->fetchColumn();
+                $affiliates = (int)$db->query('SELECT COUNT(*) FROM affiliate_links WHERE is_active = 1')->fetchColumn();
+                jsonResponse([
+                    'users' => $users,
+                    'api_keys' => $apiKeys,
+                    'rate_logs' => $rateLogs,
+                    'affiliates' => $affiliates,
+                    'mysql' => 'connected',
+                ]);
+            } catch (Throwable $e) {
+                jsonResponse([
+                    'mysql' => 'error',
+                    'error' => $e->getMessage(),
+                ]);
+            }
+            break;
+
+        // GET /api/admin/affiliates — lista link affiliazione (richiede auth)
+        case $uri === '/api/admin/affiliates' && $method === 'GET':
+            requireAuth();
+            require_once __DIR__ . '/../inc/db_mysql.php';
+            try {
+                $links = getAllAffiliateLinks();
+                jsonResponse(['affiliates' => $links]);
+            } catch (Throwable $e) {
+                errorResponse('Errore database: ' . $e->getMessage(), 500);
+            }
+            break;
+
+        // POST /api/admin/affiliates — crea/aggiorna link affiliazione (richiede auth)
+        case $uri === '/api/admin/affiliates' && $method === 'POST':
+            requireAuth();
+            require_once __DIR__ . '/../inc/db_mysql.php';
+            try {
+                $tariffId = $input['tariff_id'] ?? '';
+                $url = $input['affiliate_url'] ?? '';
+                if (empty($tariffId) || empty($url)) {
+                    errorResponse('tariff_id e affiliate_url obbligatori', 400);
+                }
+                upsertAffiliateLink(
+                    $tariffId,
+                    $url,
+                    $input['supplier'] ?? '',
+                    $input['tariff_name'] ?? '',
+                    $input['commodity'] ?? '',
+                    $input['network'] ?? ''
+                );
+                jsonResponse(['status' => 'ok']);
+            } catch (Throwable $e) {
+                errorResponse('Errore database: ' . $e->getMessage(), 500);
+            }
+            break;
+
+        // DELETE /api/admin/affiliates — disattiva link (richiede auth)
+        case $uri === '/api/admin/affiliates' && $method === 'DELETE':
+            requireAuth();
+            require_once __DIR__ . '/../inc/db_mysql.php';
+            try {
+                $tariffId = $input['tariff_id'] ?? '';
+                if (empty($tariffId)) errorResponse('tariff_id obbligatorio', 400);
+                deleteAffiliateLink($tariffId);
+                jsonResponse(['status' => 'deleted']);
+            } catch (Throwable $e) {
+                errorResponse('Errore database: ' . $e->getMessage(), 500);
+            }
+            break;
+
         // GET /api/stats/traffic — report traffico LLM vs umano (richiede auth)
         case $uri === '/api/stats/traffic' && $method === 'GET':
             requireAuth();
