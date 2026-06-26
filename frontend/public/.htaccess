@@ -64,6 +64,9 @@
   # Pagine offerta generate dinamicamente (per crawler/SEO)
   RewriteRule ^offerta/([a-zA-Z0-9\-]+)$ api/index.php [QSA,L]
 
+  # Risorse SEO — pagine PHP indicizzabili (router dedicato)
+  RewriteRule ^risorse(/.*)?$ risorse.php [QSA,L]
+
   # MCP Server pubblico (JSON-RPC via HTTP POST)
   RewriteRule ^mcp/?$ mcp/index.php [QSA,L]
 

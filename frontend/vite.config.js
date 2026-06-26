@@ -32,12 +32,26 @@ function copyBackendPlugin() {
         { src: 'inc/db_mysql.php', dest: 'inc/db_mysql.php' },
         { src: 'inc/auth.php', dest: 'inc/auth.php' },
         { src: 'inc/arera_sync.php', dest: 'inc/arera_sync.php' },
+        { src: 'risorse.php', dest: 'risorse.php' },
         { src: 'router.php', dest: 'router.php' },
       ]
 
       // Crea directory data/offerte per ARERA sync
       const dataOfferteDir = resolve(distDir, 'data', 'offerte')
       try { mkdirSync(dataOfferteDir, { recursive: true }) } catch {}
+
+      // Copia risorse SEO
+      const resourcesDir = resolve(__dirname, '..', 'backend', 'php', 'resources')
+      const resourcesDest = resolve(distDir, 'resources')
+      if (existsSync(resourcesDir)) {
+        try { mkdirSync(resourcesDest, { recursive: true }) } catch {}
+        const resourceFiles = ['index.php', 'bolletta-luce.php', 'bolletta-gas.php', 'glossario.php', 'fisso-indicizzato.php', 'calcolo.php', 'come-leggere.php', '_header.php', '_footer.php']
+        for (const f of resourceFiles) {
+          const src = resolve(resourcesDir, f)
+          const dest = resolve(resourcesDest, f)
+          if (existsSync(src)) { cpSync(src, dest); console.log(`  ✅ Copiato resources/${f} → dist/resources/${f}`) }
+        }
+      }
 
       // Copia .env da frontend/ (NON da public/ — così non viene auto-copiato da Vite)
       // Cerca in frontend/ (default), poi fallback a public/ per retrocompatibilità
