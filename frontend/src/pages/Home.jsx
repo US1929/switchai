@@ -193,9 +193,9 @@ export default function Home() {
     }).catch(() => {});
   }, []);
 
-  // Calcola prezzo corrente e quota fissa per confronto per-riga
-  const punEurKwh = marketData?.pun_eur_kwh || (marketData?.pun_value ? marketData.pun_value / 1000 : 0);
-  const psvEurSmc = marketData?.psv_eur_smc || (marketData?.psv_value ? marketData.psv_value / 1000 : 0);
+  // PUN/PSV live da /api/market-indices (campi: pun, psv — già in €/kWh e €/Smc)
+  const punEurKwh = marketData?.pun || 0;
+  const psvEurSmc = marketData?.psv || 0;
   const currentPricePerUnit = getCurrentPricePerUnit(llmExtractedData, punEurKwh, psvEurSmc, commodity, consumption);
   const currentFixedMonthly = getCurrentFixedMonthly(llmExtractedData, commodity);
 

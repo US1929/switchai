@@ -522,6 +522,7 @@ if (!defined('LUCE_ACCISE_SOGLIA_COMPENSATA')) define('LUCE_ACCISE_SOGLIA_COMPEN
 if (!defined('LUCE_COSTO_POTENZA_KW'))       define('LUCE_COSTO_POTENZA_KW', 23.52);
 if (!defined('LUCE_IVA'))                   define('LUCE_IVA', 0.10);
 if (!defined('LUCE_ACCISE_SOGLIA_ESENTE'))   define('LUCE_ACCISE_SOGLIA_ESENTE', 1800);
+if (!defined('CANONE_RAI_ANNUO'))            define('CANONE_RAI_ANNUO', 90.00);
 
 if (!defined('QUOTA_FISSA_RETI_GAS'))        define('QUOTA_FISSA_RETI_GAS', 23.00);
 if (!defined('GAS_TRASPORTO_VAR'))           define('GAS_TRASPORTO_VAR', 0.15);
@@ -566,6 +567,88 @@ function getAreraConstants(): array {
     ];
 }
 
+/**
+ * Auto-fetch PUN/PSV live da PortaleEnergia.it con cache statica (1 ora).
+ * Chiamato automaticamente da calculateSavingsBreakdown() se live_pun_eur_kwh
+ * o live_psv_eur_smc non sono forniti dal chiamante.
+ *
+ * @return array{pun: ?float, psv: ?float}
+ */
+function _fetchLiveMarketIndices(): array {
+    static $cache = null;
+    static $cacheTime = 0;
+
+    // Cache in-process (statica): evita fetch multipli nella stessa request
+    if ($cache !== null && (time() - $cacheTime) < 3600) {
+        return $cache;
+    }
+
+    $pun = null;
+    $psv = null;
+
+    // Prova fetch da PortaleEnergia.it (stessa fonte di handleV2Analyze)
+    try {
+        $peUrl = 'https://portaleenergia.it/api/dashboard?period=today';
+        $ctx = stream_context_create(['http' => [
+            'timeout' => 6,
+            'header' => "User-Agent: Mozilla/5.0 (compatible; SwitchAIBot/1.0)\r\nAccept: application/json\r\n",
+        ]]);
+        $peJson = @file_get_contents($peUrl, false, $ctx);
+
+        // cURL fallback
+        if ($peJson === false && function_exists('curl_init')) {
+            $ch = curl_init($peUrl);
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT => 6,
+                CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; SwitchAIBot/1.0)',
+            ]);
+            $peJson = curl_exec($ch);
+            curl_close($ch);
+        }
+
+        if ($peJson) {
+            $peData = json_decode($peJson, true);
+            if (is_array($peData)) {
+                $punRaw = $peData['pun'] ?? null;
+                $psvRaw = $peData['psv'] ?? null;
+                // €/MWh → €/kWh (o €/Smc per PSV)
+                if ($punRaw && isset($punRaw['price'])) {
+                    $pun = round((float)$punRaw['price'] / 1000, 6);
+                }
+                if ($psvRaw && isset($psvRaw['price'])) {
+                    $psv = round((float)$psvRaw['price'] / 1000, 6);
+                }
+            }
+        }
+    } catch (\Throwable $e) {
+        error_log("_fetchLiveMarketIndices: errore fetch - " . $e->getMessage());
+    }
+
+    $cache = ['pun' => $pun, 'psv' => $psv];
+    $cacheTime = time();
+
+    if ($pun !== null || $psv !== null) {
+        error_log("bill_parser: PUN/PSV auto-fetch OK — PUN=" . ($pun ? round($pun*1000,1).'€/MWh' : 'N/D') . " PSV=" . ($psv ? round($psv*1000,1).'€/MWh' : 'N/D'));
+    }
+
+    return $cache;
+}
+
+/** @return ?float PUN live in €/kWh, o null se non disponibile */
+function _fetchLivePunForCalculation(bool $need = true): ?float {
+    if (!$need) return null;
+    $indices = _fetchLiveMarketIndices();
+    return $indices['pun'];
+}
+
+/** @return ?float PSV live in €/Smc, o null se non disponibile */
+function _fetchLivePsvForCalculation(bool $need = true): ?float {
+    if (!$need) return null;
+    $indices = _fetchLiveMarketIndices();
+    return $indices['psv'];
+}
+
 function calculateSavingsBreakdown(array $data): array {
     $commodity = $data['commodity'] ?? '';
     $zone = $data['zone'] ?? 'NORD';
@@ -586,6 +669,13 @@ function calculateSavingsBreakdown(array $data): array {
     $potenza = (float)($data['potenza_impegnata'] ?? 3.0);
     $livePunEurKwh = isset($data['live_pun_eur_kwh']) ? (float)$data['live_pun_eur_kwh'] : null;
     $livePsvEurSmc = isset($data['live_psv_eur_smc']) ? (float)$data['live_psv_eur_smc'] : null;
+
+    // ── AUTO-FETCH PUN/PSV live se non fornito (cache statica 1h) ──
+    // Così TUTTI gli endpoint usano il PUN corrente, non quello storico delle offerte.
+    if (($livePunEurKwh === null && $commodity === 'LUCE') || ($livePsvEurSmc === null && $commodity === 'GAS')) {
+        $livePunEurKwh = _fetchLivePunForCalculation($commodity === 'LUCE');
+        $livePsvEurSmc = _fetchLivePsvForCalculation($commodity === 'GAS');
+    }
 
     // Prezzi di riferimento Tutela (o mercato standard)
     if ($commodity === 'LUCE') {

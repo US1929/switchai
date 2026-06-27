@@ -36,8 +36,9 @@ export function calcLuceCost(tariff, kwh, pun, formData = {}) {
       energyCost = kwh * prezzo;
     }
   } else {
+    // ARERA symmetric method: usa PUN live (parametro 'pun'), fallback al PUN statico dell'offerta
     const spread = parseItalianNum(tariff["spread"]) || 0;
-    const punBase = parseItalianNum(tariff["Pun"]) || pun;
+    const punBase = (pun && pun > 0) ? pun : (parseItalianNum(tariff["Pun"]) || 0);
     // ARERA v4.0: perdite rete BT si applicano SOLO al PUN, non allo spread
     energyCost = kwh * (punBase * PERDITE_RETE_BT + spread);
   }
@@ -80,8 +81,9 @@ export function calcGasCost(tariff, smc, psv) {
     if (!prezzo || prezzo < 0.01) return null;
     energyCost = prezzo * smc;
   } else {
+    // ARERA symmetric method: usa PSV live (parametro 'psv'), fallback al PSV statico dell'offerta
     const spread = parseItalianNum(tariff["spread"]) || 0;
-    const psvBase = parseItalianNum(tariff["psv Aprile 2025/"]) || psv;
+    const psvBase = (psv && psv > 0) ? psv : (parseItalianNum(tariff["psv"]) || parseItalianNum(tariff["psv Aprile 2025/"]) || 0);
     energyCost = smc * (psvBase + spread);
   }
 
