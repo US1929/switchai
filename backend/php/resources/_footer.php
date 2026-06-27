@@ -1,25 +1,29 @@
-</main>
+	</main>
 
-<?php if (isset($schema) && $schema): ?>
-<script type="application/ld+json"><?= json_encode($schema, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
-<?php endif; ?>
+	<?php if (isset($schema) && $schema): ?>
+	<script type="application/ld+json"><?= json_encode($schema, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
+	<?php endif; ?>
 
-<footer>
-<div style="max-width:800px;margin:0 auto">
-<div style="display:flex;justify-content:center;flex-wrap:wrap;gap:6px 24px;padding:20px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);margin-bottom:20px">
-<a href="/come-funziona" style="color:var(--text-secondary);text-decoration:none;font-size:13px">Come funziona</a>
-<a href="/risorse/" style="color:var(--text-secondary);text-decoration:none;font-size:13px">Risorse</a>
-<a href="/faq" style="color:var(--text-secondary);text-decoration:none;font-size:13px">FAQ</a>
-<a href="/per-llm" style="color:var(--text-secondary);text-decoration:none;font-size:13px">Per LLM</a>
-</div>
-<div style="display:flex;justify-content:center;flex-wrap:wrap;gap:4px 20px;font-size:12px">
-<a href="/privacy" style="color:var(--text-secondary);text-decoration:none;font-weight:600">Privacy Policy</a>
-<a href="/cookie" style="color:var(--text-secondary);text-decoration:none;font-weight:600">Cookie Policy</a>
-<span style="color:var(--text-muted)">© <?= date('Y') ?> SwitchAI</span>
-<span style="color:var(--text-muted)">switchai.it</span>
-</div>
-</div>
-</footer>
+	<footer>
+	<div style="max-width:800px;margin:0 auto">
+	<div style="display:flex;justify-content:center;flex-wrap:wrap;gap:6px 24px;padding:20px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);margin-bottom:20px">
+	<a href="/come-funziona" style="color:var(--text-secondary);text-decoration:none;font-size:13px">Come funziona</a>
+	<a href="/risorse/" style="color:var(--text-secondary);text-decoration:none;font-size:13px">Risorse</a>
+	<a href="/faq" style="color:var(--text-secondary);text-decoration:none;font-size:13px">FAQ</a>
+	<a href="/per-llm" style="color:var(--text-secondary);text-decoration:none;font-size:13px">Per LLM</a>
+	</div>
+	<div style="text-align:center;margin-bottom:16px;font-size:11px;color:var(--text-muted);line-height:1.6">
+	Dati offerte: <a href="https://www.ilportaleofferte.it" target="_blank" rel="noopener" style="color:var(--text-muted)">Portale Offerte ARERA</a>, rilasciati sotto licenza <a href="https://creativecommons.org/licenses/by/4.0/deed.it" target="_blank" rel="noopener" style="color:var(--text-muted)">CC BY 4.0</a>.
+	Metodo di calcolo allineato al comparatore pubblico ufficiale.
+	</div>
+	<div style="display:flex;justify-content:center;flex-wrap:wrap;gap:4px 20px;font-size:12px">
+	<a href="/privacy" style="color:var(--text-secondary);text-decoration:none;font-weight:600">Privacy Policy</a>
+	<a href="/cookie" style="color:var(--text-secondary);text-decoration:none;font-weight:600">Cookie Policy</a>
+	<span style="color:var(--text-muted)">© <?= date('Y') ?> SwitchAI</span>
+	<span style="color:var(--text-muted)">switchai.it</span>
+	</div>
+	</div>
+	</footer>
 
-</body>
-</html>
+	</body>
+	</html>

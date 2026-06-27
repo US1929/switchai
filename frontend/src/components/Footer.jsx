@@ -14,6 +14,11 @@ export default function Footer() {
           {' — '}AI agent per cambio automatico fornitore energia. Mercato italiano.
         </div>
 
+        <div style={{ marginBottom: 14, fontSize: 11, color: '#475569', lineHeight: 1.6 }}>
+          Dati offerte: <a href="https://www.ilportaleofferte.it" target="_blank" rel="noopener" style={{ color: '#64748b' }}>Portale Offerte ARERA</a>, rilasciati sotto licenza <a href="https://creativecommons.org/licenses/by/4.0/deed.it" target="_blank" rel="noopener" style={{ color: '#64748b' }}>CC BY 4.0</a>.
+          Metodo di calcolo allineato al comparatore pubblico ufficiale.
+        </div>
+
         <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '4px 20px', marginBottom: 16 }}>
           <Link to="/come-funziona" style={{ color: '#94a3b8', textDecoration: 'none' }}>Come funziona</Link>
           <Link to="/per-llm" style={{ color: '#64748b', textDecoration: 'none' }}>Documentazione LLM</Link>
