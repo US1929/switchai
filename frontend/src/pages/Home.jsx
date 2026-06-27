@@ -51,7 +51,6 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [results, setResults] = useState(null);
-  const [showAll, setShowAll] = useState(false);
   const [llmResponse, setLlmResponse] = useState('');
   const [llmExtractedData, setLlmExtractedData] = useState(null);
   const [copyFeedback, setCopyFeedback] = useState('');
@@ -202,7 +201,26 @@ export default function Home() {
   const currentFixedMonthly = getCurrentFixedMonthly(llmExtractedData, commodity);
 
   const rankedItems = results ? getRankingBadges(results.items, commodity) : [];
-  const displayed = results ? (showAll ? rankedItems : rankedItems.slice(0, 5)) : [];
+  const [activeSuppliers, setActiveSuppliers] = useState(null); // null = tutti, Set = filtrati
+  const [showAll, setShowAll] = useState(false);
+
+  // Estrai fornitori unici con conteggio offerte
+  const supplierCounts = results ? [...new Map(results.items.map(i => [i.tariff?.supplier_name || i.tariff?.brand, {
+    name: i.tariff?.supplier_name || i.tariff?.brand || 'Sconosciuto',
+    count: 0
+  }])).values()].map(s => ({
+    ...s,
+    count: results.items.filter(i => (i.tariff?.supplier_name || i.tariff?.brand) === s.name).length
+  })).sort((a, b) => b.count - a.count) : [];
+
+  // Fornitori "grandi" (mappatura nomi canonici)
+  const GRANDI_FORNITORI = ['Enel Energia', 'Eni Plenitude', 'Edison', 'A2A Energia', 'Iren Luce Gas e Servizi', 'Hera Comm', 'Sorgenia', 'Engie', 'Fastweb Energia', 'Acea Energia', 'Octopus Energy', 'NeN Energia', 'Alperia', "E.ON Energia"];
+
+  // Filtra items per fornitori selezionati
+  const filteredItems = activeSuppliers
+    ? rankedItems.filter(i => activeSuppliers.has(i.tariff?.supplier_name || i.tariff?.brand))
+    : rankedItems;
+  const displayed = results ? (showAll ? filteredItems : filteredItems.slice(0, 5)) : [];
   const maxSavings = results?.hasRealSpend && results?.items[0]?.savings > 0 ? results.items[0].savings : 0;
 
   const billData = llmExtractedData?.spesa_annua
@@ -435,7 +453,7 @@ export default function Home() {
           <div className="container" style={{ maxWidth: 880, paddingTop: 30 }}>
             <div className="animate-fade-in" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16, marginBottom: 28 }}>
               <div>
-                <h2 style={{ fontSize: 24, fontWeight: 800, marginBottom: 4 }}>{results.items.length} offerte trovate</h2>
+                <h2 style={{ fontSize: 24, fontWeight: 800, marginBottom: 4 }}>{filteredItems.length} offerte{activeSuppliers ? ' filtrate' : ' trovate'}</h2>
                 <p style={{ color: '#94a3b8', fontSize: 14 }}>
                   {results.hasRealSpend ? <>Spesa attuale: <b style={{ color: '#f1f5f9' }}>{formatEuro(results.currentSpend)}</b></> : <>Spesa stimata: <b style={{ color: '#64748b' }}>{formatEuro(results.currentSpend)}</b> (indicativa)</>}
                 </p>
@@ -480,6 +498,86 @@ export default function Home() {
               />
             </div>
 
+            {/* ── Filtri fornitori ─────────────────────────────────── */}
+            {supplierCounts.length > 2 && (
+              <div style={{ marginBottom: 20 }}>
+                {/* Pulsanti gruppo rapidi */}
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+                  <button
+                    onClick={() => setActiveSuppliers(null)}
+                    style={{
+                      padding: '4px 12px', borderRadius: 14, border: '1px solid rgba(255,255,255,0.08)',
+                      background: !activeSuppliers ? 'rgba(245,158,11,0.15)' : 'transparent',
+                      color: !activeSuppliers ? '#f59e0b' : '#94a3b8', fontSize: 11, fontWeight: 600,
+                      cursor: 'pointer', transition: 'all .15s',
+                    }}
+                  >
+                    🏷️ Tutti ({rankedItems.length})
+                  </button>
+                  <button
+                    onClick={() => {
+                      const presenti = GRANDI_FORNITORI.filter(g => supplierCounts.some(s => (s.name || '').includes(g) || g.includes(s.name || '')));
+                      setActiveSuppliers(new Set(presenti));
+                    }}
+                    style={{
+                      padding: '4px 12px', borderRadius: 14, border: '1px solid rgba(255,255,255,0.08)',
+                      background: activeSuppliers && activeSuppliers.size > 0 ? 'rgba(59,130,246,0.12)' : 'transparent',
+                      color: activeSuppliers && activeSuppliers.size > 0 ? '#60a5fa' : '#94a3b8', fontSize: 11, fontWeight: 600,
+                      cursor: 'pointer', transition: 'all .15s',
+                    }}
+                  >
+                    ⭐ Grandi fornitori ({(GRANDI_FORNITORI.filter(g => supplierCounts.some(s => (s.name||'').includes(g) || g.includes(s.name||'')))).length})
+                  </button>
+                  {activeSuppliers && (
+                    <button
+                      onClick={() => setActiveSuppliers(null)}
+                      style={{
+                        padding: '4px 12px', borderRadius: 14, border: '1px solid rgba(239,68,68,0.3)',
+                        background: 'transparent', color: '#f87171', fontSize: 11, fontWeight: 600,
+                        cursor: 'pointer', transition: 'all .15s',
+                      }}
+                    >
+                      ✕ Resetta filtro
+                    </button>
+                  )}
+                </div>
+
+                {/* Chip singoli fornitori */}
+                <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', maxHeight: activeSuppliers ? 'none' : 72, overflow: 'hidden', transition: 'max-height .3s' }}>
+                  {supplierCounts.map(({ name, count }) => {
+                    const isActive = !activeSuppliers || activeSuppliers.has(name);
+                    const isGrande = GRANDI_FORNITORI.some(g => name.includes(g) || g.includes(name));
+                    return (
+                      <button
+                        key={name}
+                        onClick={() => {
+                          setActiveSuppliers(prev => {
+                            const next = prev ? new Set(prev) : new Set(supplierCounts.map(s => s.name));
+                            if (next.has(name)) next.delete(name); else next.add(name);
+                            return next.size === supplierCounts.length ? null : next;
+                          });
+                        }}
+                        title={`${name}: ${count} offerte`}
+                        style={{
+                          padding: '3px 10px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.06)',
+                          background: isActive ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.01)',
+                          color: isActive ? '#e2e8f0' : '#475569', fontSize: 11, fontWeight: isGrande ? 600 : 400,
+                          cursor: 'pointer', transition: 'all .15s', opacity: isActive ? 1 : 0.4,
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {isGrande && <span style={{ marginRight: 2 }}>⭐</span>}
+                        {name} <span style={{ color: '#64748b', marginLeft: 2 }}>({count})</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div style={{ fontSize: 10, color: '#475569', marginTop: 6 }}>
+                  {activeSuppliers ? `${filteredItems.length} di ${rankedItems.length} offerte` : `${rankedItems.length} offerte — clicca un fornitore per filtrare`}
+                </div>
+              </div>
+            )}
+
             <TariffTable
               items={displayed}
               commodity={commodity}
@@ -494,9 +592,9 @@ export default function Home() {
               selectedKeys={[]}
               onToggleSelect={() => {}}
             />
-            {results.items.length > 5 && (
+            {filteredItems.length > 5 && (
               <button className="btn btn-outline" onClick={() => setShowAll(!showAll)} style={{ width: '100%', marginTop: 16 }}>
-                {showAll ? 'Mostra solo le prime 5 ↑' : `Mostra tutte le ${results.items.length} ↓`}
+                {showAll ? 'Mostra solo le prime 5 ↑' : `Mostra tutte le ${filteredItems.length} ↓`}
               </button>
             )}
 
