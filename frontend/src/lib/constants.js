@@ -91,7 +91,7 @@ export const MERCATO = {
   /** PUN di riferimento (€/kWh) quando il dato live non è disponibile */
   PUN_REF: 0.125,
   /** PSV di riferimento (€/Smc) quando il dato live non è disponibile */
-  PSV_REF: 0.450,
+  PSV_REF: 0.500, // allineato con backend (fallback quando /api/market-indices non disponibile)
 };
 
 /**

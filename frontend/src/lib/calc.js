@@ -19,7 +19,7 @@ export function calcLuceCost(tariff, kwh, pun, formData = {}) {
   const tipo = tariff["tariffa"]?.toLowerCase();
 
   // Costanti regolatorie ARERA (da constants.js — fonte unica)
-  const { PERDITE_RETE_BT, QUOTA_FISSA_RETI, TRASPORTO_VAR, ONERI_SISTEMA, ACCISE, ACCISE_SOGLIA_ESENTE, ACCISE_SOGLIA_COMPENSATA, COSTO_POTENZA_KW } = LUCE;
+  const { PERDITE_RETE_BT, QUOTA_FISSA_RETI, TRASPORTO_VAR, ONERI_SISTEMA, ACCISE, ACCISE_SOGLIA_ESENTE, ACCISE_SOGLIA_COMPENSATA, COSTO_POTENZA_KW, IVA } = LUCE;
 
   let energyCost = 0;
   let prezzo = null;
@@ -49,20 +49,12 @@ export function calcLuceCost(tariff, kwh, pun, formData = {}) {
   const costo_potenza = COSTO_POTENZA_KW * potenza;
   const trasporto = kwh * TRASPORTO_VAR;
   const oneri = kwh * ONERI_SISTEMA;
-  // Accise: DL 504/1995 — soglia esenzione 1800 kWh/anno, compensazione fino a 2640 kWh/anno
-  let accise = 0;
-  if (kwh <= ACCISE_SOGLIA_ESENTE) {
-    accise = 0;
-  } else if (kwh <= ACCISE_SOGLIA_COMPENSATA) {
-    accise = (kwh - ACCISE_SOGLIA_ESENTE) * ACCISE;
-  } else {
-    const esenzioneResidua = Math.max(0, ACCISE_SOGLIA_ESENTE - (kwh - ACCISE_SOGLIA_COMPENSATA));
-    accise = (kwh - esenzioneResidua) * ACCISE;
-  }
+  // Accise DL 504/1995: esenti ≤1800 kWh, compensate >2640 kWh → tassati solo 1800-2640
+  const accise = Math.max(0, Math.min(kwh, ACCISE_SOGLIA_COMPENSATA) - ACCISE_SOGLIA_ESENTE) * ACCISE;
 
   const annualFixed = costo_fisso + costo_potenza + QUOTA_FISSA_RETI;
   const subtotal = energyCost + annualFixed + trasporto + oneri + accise;
-  const annualIVA = subtotal * 0.10;
+  const annualIVA = subtotal * IVA;
 
   return subtotal + annualIVA;
 }
@@ -83,7 +75,7 @@ export function calcGasCost(tariff, smc, psv) {
   } else {
     // ARERA symmetric method: usa PSV live (parametro 'psv'), fallback al PSV statico dell'offerta
     const spread = parseItalianNum(tariff["spread"]) || 0;
-    const psvBase = (psv && psv > 0) ? psv : (parseItalianNum(tariff["psv"]) || parseItalianNum(tariff["psv Aprile 2025/"]) || 0);
+    const psvBase = (psv && psv > 0) ? psv : (parseItalianNum(tariff["psv"]) || 0);
     energyCost = smc * (psvBase + spread);
   }
 
@@ -145,7 +137,7 @@ export function buildBreakdown(tariff, commodity, consumption, currentSpend, new
         if (diff > 0) parts.push(`Risparmi ${diff.toFixed(0)}€ sulla materia prima: prezzo fisso a ${prezzo.toFixed(4)} €/Smc vs ~${refPrice.toFixed(2)} €/Smc attuali`);
       }
     } else {
-      const psvEff = parseItalianNum(tariff["psv Aprile 2025/"]) || psv;
+      const psvEff = parseItalianNum(tariff["psv"]) || psv;
       const prezzoEff = psvEff + spread;
       parts.push(`Tariffa variabile PSV (${psvEff.toFixed(4)}) + spread ${spread.toFixed(4)} = ${prezzoEff.toFixed(4)} €/Smc`);
     }
@@ -302,21 +294,11 @@ export function estimateRegulatedCosts(commodity, consumption, potenza = 3.0, ti
     const kwh = consumption || 2700;
     const trasporto = kwh * TRASPORTO_VAR;
     const oneri = kwh * ONERI_SISTEMA;
-    // Accise DL 504/1995 con soglie progressive (solo residenziale)
-    let accise = 0;
-    if (tipoCliente === 'residenziale') {
-      if (kwh <= ACCISE_SOGLIA_ESENTE) {
-        accise = 0;
-      } else if (kwh <= ACCISE_SOGLIA_COMPENSATA) {
-        accise = (kwh - ACCISE_SOGLIA_ESENTE) * ACCISE;
-      } else {
-        const esenzioneResidua = Math.max(0, ACCISE_SOGLIA_ESENTE - (kwh - ACCISE_SOGLIA_COMPENSATA));
-        accise = (kwh - esenzioneResidua) * ACCISE;
-      }
-    } else {
-      // Business: accise piene su tutto il consumo
-      accise = kwh * ACCISE;
-    }
+    // Accise DL 504/1995: esenti ≤1800 kWh, compensate >2640 kWh → solo 1800-2640 tassati
+    // Business: accise piene su tutto il consumo (nessuna esenzione)
+    const accise = tipoCliente === 'residenziale'
+      ? Math.max(0, Math.min(kwh, ACCISE_SOGLIA_COMPENSATA) - ACCISE_SOGLIA_ESENTE) * ACCISE
+      : kwh * ACCISE;
     const costoPotenza = COSTO_POTENZA_KW * potenza;
     const quotaFissaReti = QUOTA_FISSA_RETI;
     // Canone RAI SOLO per utenze residenziali LUCE (non si paga per business/P.IVA)

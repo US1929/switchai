@@ -106,6 +106,7 @@ export default function Home() {
         if (psvEurSmc > 0) body.psv_eur_smc = psvEurSmc;
 
         const r = await fetch('/api/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        if (!r.ok) throw new Error(`API V2 error ${r.status}: ${r.statusText}`);
         const d = await r.json();
         if (d.top3?.length) {
           const items = d.top3.map(o => ({
@@ -158,7 +159,7 @@ export default function Home() {
       console.error('Metodo tradizionale fallito:', e2);
       setError('Impossibile caricare le offerte. Verifica la connessione e riprova.');
     } finally { setLoading(false); }
-  }, [commodity, consumption, currentSpend, isLuce]);
+  }, [commodity, consumption, currentSpend, isLuce, punEurKwh, psvEurSmc]);
 
   const handleLlmPaste = () => {
     try {

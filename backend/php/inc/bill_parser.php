@@ -691,14 +691,8 @@ function calculateSavingsBreakdown(array $data): array {
         if ($commodity === 'LUCE' && $yearlyKwh > 0) {
             $costo_potenza = LUCE_COSTO_POTENZA_KW * $potenza;
             $oneri = $yearlyKwh * ONERI_SISTEMA_LUCE;
-            if ($yearlyKwh <= LUCE_ACCISE_SOGLIA_ESENTE) {
-                $accise = 0;
-            } elseif ($yearlyKwh <= LUCE_ACCISE_SOGLIA_COMPENSATA) {
-                $accise = ($yearlyKwh - LUCE_ACCISE_SOGLIA_ESENTE) * LUCE_ACCISE;
-            } else {
-                $esenzioneResidua = max(0, LUCE_ACCISE_SOGLIA_ESENTE - ($yearlyKwh - LUCE_ACCISE_SOGLIA_COMPENSATA));
-                $accise = ($yearlyKwh - $esenzioneResidua) * LUCE_ACCISE;
-            }
+            // Accise DL 504/1995: esenti ≤1800 kWh, compensate >2640 kWh → tassati solo 1800-2640
+            $accise = max(0, min($yearlyKwh, LUCE_ACCISE_SOGLIA_COMPENSATA) - LUCE_ACCISE_SOGLIA_ESENTE) * LUCE_ACCISE;
             $subtotal = ($yearlyKwh * $currentPriceKwh) + ($currentFixedMonthly * 12) + $costo_potenza + QUOTA_FISSA_RETI_LUCE + ($yearlyKwh * $currentTransportKwh) + $oneri + $accise;
             $currentAnnualSpend = $subtotal * 1.10;
         } elseif ($commodity === 'GAS' && $yearlySmc > 0) {
@@ -759,20 +753,14 @@ function calculateSavingsBreakdown(array $data): array {
             $costo_potenza = LUCE_COSTO_POTENZA_KW * $potenza;
             $oneri = $yearlyKwh * ONERI_SISTEMA_LUCE;
 
-            // ARERA v4.0: accise con compensazione oltre 2640 kWh
-            if ($yearlyKwh <= LUCE_ACCISE_SOGLIA_ESENTE) {
-                $accise = 0;
-            } elseif ($yearlyKwh <= LUCE_ACCISE_SOGLIA_COMPENSATA) {
-                $accise = ($yearlyKwh - LUCE_ACCISE_SOGLIA_ESENTE) * LUCE_ACCISE;
-            } else {
-                $esenzioneResidua = max(0, LUCE_ACCISE_SOGLIA_ESENTE - ($yearlyKwh - LUCE_ACCISE_SOGLIA_COMPENSATA));
-                $accise = ($yearlyKwh - $esenzioneResidua) * LUCE_ACCISE;
-            }
+            // Accise DL 504/1995: esenti ≤1800 kWh, compensate >2640 kWh → tassati solo 1800-2640
+            $accise = max(0, min($yearlyKwh, LUCE_ACCISE_SOGLIA_COMPENSATA) - LUCE_ACCISE_SOGLIA_ESENTE) * LUCE_ACCISE;
 
             $fixedCost = $fixedFee * 12 + $costo_potenza + QUOTA_FISSA_RETI_LUCE;
             $transportCost = $yearlyKwh * $transportFee;
             $subtotal = $energyCost + $fixedCost + $transportCost + $oneri + $accise;
-            $annualIVA = $subtotal * LUCE_IVA;
+            $ivaRate = ($tipoCliente === 'business') ? 0.22 : LUCE_IVA;
+            $annualIVA = $subtotal * $ivaRate;
             $annualCost = $subtotal + $annualIVA;
 
             // ARERA breakdown v4.0 — separazione componenti regolate
@@ -900,7 +888,6 @@ function calculateSavingsBreakdown(array $data): array {
 
         // Sanity check: prezzo sospettosamente basso (< 0,05 €/kWh o < 0,20 €/Smc)
         $priceWarning = null;
-        $unitPrice = $commodity === 'LUCE' ? ($tariff['price_mono_kwh'] ?? null) : ($tariff['price_smc'] ?? null);
         $threshold = $commodity === 'LUCE' ? 0.05 : 0.20;
         if ($unitPrice !== null && $unitPrice > 0 && $unitPrice < $threshold) {
             $priceWarning = "Prezzo molto inferiore alla media di mercato. Potrebbe essere un'offerta promozionale o contenere condizioni particolari. Verifica sempre il contratto prima di sottoscrivere.";

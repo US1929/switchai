@@ -83,7 +83,6 @@ server.tool(
   "Confronta le tariffe Luce o Gas e calcola il risparmio annuo. Restituisce le 3 migliori offerte con link di attivazione su switchai.it (sito esterno). "
 	  + "METODO ARERA: confronto SIMMETRICO — per tariffe variabili usa lo stesso PUN/PSV corrente per entrambi i lati. Il risparmio riflette solo differenze contrattuali (spread + quota fissa), non oscillazioni di mercato. "
   + "FLUSSO: (1) Estrai nome, cognome, CF, email, telefono, indirizzo, consumi e spesa dalla bolletta. "
-	  + "METODO ARERA: confronto SIMMETRICO — per tariffe variabili usa lo stesso PUN/PSV corrente per entrambi i lati. Il risparmio riflette solo differenze contrattuali (spread + quota fissa), non oscillazioni di mercato. "
   + "(2) Estrai anche: canone_rai (~90€/anno su bollette LUCE, 0 se assente o GAS), spesa_materia_energia, quota_fissa_mensile, tipo_cliente (residenziale/business), tariff_type (fisso/variabile), spread attuale. (3) Passa i dati numerici (consumi, spesa, zona, canone_rai) + TUTTI i dati personali che hai estratto a questo tool. "
   + "(4) Il link 'Attiva' apre switchai.it in una nuova scheda con il form PRE-COMPILATO. "
   + "(5) AVVISA SEMPRE l'utente che: (a) il link apre un sito esterno (switchai.it), (b) dovrà verificare i dati e cliccare Invia, (c) riceverà una email di conferma e dovrà cliccarla per completare — SOLO dopo la conferma i dati vengono inoltrati al fornitore. "
@@ -358,7 +357,7 @@ server.tool(
     codice_fiscale: z.string().describe("Codice fiscale (16 caratteri)"),
     email: z.string().email().describe("Email"),
     cellulare: z.string().describe("Cellulare (es: +393401234567)"),
-    titolo_immobile: z.enum(["Proprietario", "Affittuario", "Comodista", "Usufruttuario"]).optional().default("Proprietario").describe("Titolo sull'immobile"),
+    titolo_immobile: z.enum(["Proprietario", "Affittuario", "Comodatario", "Usufruttuario"]).optional().default("Proprietario").describe("Titolo sull'immobile"),
     indirizzo: z.string().describe("Via/Piazza della fornitura"),
     civico: z.string().describe("Numero civico"),
     citta: z.string().describe("Città della fornitura"),

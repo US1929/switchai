@@ -533,6 +533,12 @@ function handleTriggerScraper(): void {
         errorResponse('Server configuration error', 500);
     }
 
+    // Verifica API key PRIMA del rate limit (anti-DoS: non consumare slot senza auth)
+    if (!hash_equals($expectedKey, $apiKey)) {
+        error_log("TRIGGER-SCRAPER: Unauthorized attempt from IP " . ($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
+        errorResponse('Unauthorized', 401);
+    }
+
     // Protezione anti-brute-force: accetta max 1 richiesta ogni 60 secondi
     $rateLimitFile = sys_get_temp_dir() . '/switchai_scraper_ratelimit';
     $now = time();
@@ -541,12 +547,6 @@ function handleTriggerScraper(): void {
         errorResponse('Rate limit: max 1 refresh per minuto. Attendere.', 429);
     }
     @file_put_contents($rateLimitFile, $now, LOCK_EX);
-
-    // Verifica API key con hash (timing-safe)
-    if (!hash_equals($expectedKey, $apiKey)) {
-        error_log("TRIGGER-SCRAPER: Unauthorized attempt from IP " . ($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
-        errorResponse('Unauthorized', 401);
-    }
 
     // Forza refresh della cache delle tariffe
     try {
@@ -978,7 +978,8 @@ function handleV2Analyze(array $input): void {
         if ($estimatedUserSpread === null || $estimatedUserSpread <= 0) {
             $avgPriceBill = $spesaAnnua / $consumo;
             $nonNeg = 0.045; // trasporto+oneri+accise ~0.045 €/kWh
-            $estimatedUserSpread = max(0.002, round($avgPriceBill - $livePunEurKwh - $nonNeg, 4));
+            // ARERA v4.0: perdite rete SOLO sul PUN → anche nella retro-stima
+            $estimatedUserSpread = max(0.002, round($avgPriceBill - ($livePunEurKwh * LUCE_PERDITE_RETE_BT) - $nonNeg, 4));
         }
         // Ricalcolo spesa attuale a PUN corrente (ARERA v4.0)
         $potenza = (float)($input['potenza_impegnata'] ?? $profile['potenza_impegnata'] ?? 3.0);
@@ -986,15 +987,8 @@ function handleV2Analyze(array $input): void {
         $energyCostNow = $consumo * ($livePunEurKwh * LUCE_PERDITE_RETE_BT + $estimatedUserSpread);
         $costoPotenza = LUCE_COSTO_POTENZA_KW * $potenza;
         $oneriNow = $consumo * ONERI_SISTEMA_LUCE;
-        // Accise DL 504/1995 con soglie
-        if ($consumo <= LUCE_ACCISE_SOGLIA_ESENTE) {
-            $acciseNow = 0;
-        } elseif ($consumo <= LUCE_ACCISE_SOGLIA_COMPENSATA) {
-            $acciseNow = ($consumo - LUCE_ACCISE_SOGLIA_ESENTE) * LUCE_ACCISE;
-        } else {
-            $esenzioneResidua = max(0, LUCE_ACCISE_SOGLIA_ESENTE - ($consumo - LUCE_ACCISE_SOGLIA_COMPENSATA));
-            $acciseNow = ($consumo - $esenzioneResidua) * LUCE_ACCISE;
-        }
+        // Accise DL 504/1995: esenti ≤1800 kWh, compensate >2640 kWh → tassati solo 1800-2640
+        $acciseNow = max(0, min($consumo, LUCE_ACCISE_SOGLIA_COMPENSATA) - LUCE_ACCISE_SOGLIA_ESENTE) * LUCE_ACCISE;
         $trasportoNow = $consumo * LUCE_TRASPORTO_VAR;
         $fixedNow = ($quotaFissaMensile > 0 ? $quotaFissaMensile : 10.00) * 12 + $costoPotenza + QUOTA_FISSA_RETI_LUCE;
         $subtotalNow = $energyCostNow + $fixedNow + $trasportoNow + $oneriNow + $acciseNow;
@@ -1191,14 +1185,6 @@ function handleV2Analyze(array $input): void {
     $honestyBadge = $recommendation === 'switch' ? '✅ CONVIENE' : ($recommendation === 'evaluate' ? '⚠️ VALUTA' : '❌ NON CONVIENE');
     $summary .= $disclaimer;
 
-    // $attualization is defined later — skip if not yet set
-    if (isset($attualization) && $attualization && $recommendation === 'switch') {
-        $summary .= " Nota: la bolletta è di qualche mese fa. " . $attualization['impatto_confronto'];
-    }
-    if (isset($attualization) && $attualization && $attualization['confronto']['direzione'] === 'diminuito') {
-        $summary .= " Il PUN è sceso rispetto alla tua bolletta: il risparmio reale è probabilmente inferiore a quanto mostrato.";
-    }
-
     // Why better analysis — per l'LLM per spiegare il risparmio
     $whyBetter = null;
     if ($best && $best['savings_eur'] > 0) {
@@ -1292,6 +1278,14 @@ function handleV2Analyze(array $input): void {
                 : "Il PUN è salito rispetto alla bolletta. Il confronto usa già il PUN corrente ({$todayPriceMwh} €/MWh) in modo simmetrico.",
             'metodo' => 'Confronto simmetrico ARERA: stesso PUN Forward per entrambe le tariffe variabili. Il risparmio riflette solo differenze contrattuali (spread + quota fissa).',
         ];
+    }
+
+    // Aggiungi note dell'attualizzazione al summary (dopo che $attualization è stata calcolata)
+    if ($attualization && $recommendation === 'switch') {
+        $summary .= " Nota: la bolletta è di qualche mese fa. " . $attualization['impatto_confronto'];
+    }
+    if ($attualization && ($attualization['confronto']['direzione'] ?? '') === 'diminuito') {
+        $summary .= " Il PUN è sceso rispetto alla tua bolletta: il risparmio reale è probabilmente inferiore a quanto mostrato.";
     }
 
     // Chart-ready cost breakdown (per grafici comparativi)

@@ -10,7 +10,7 @@ $uri = $_SERVER['REQUEST_URI'];
 $path = parse_url($uri, PHP_URL_PATH);
 
 // ── Blocca accesso a file interni ────────────────────────────────────
-if (preg_match('#^/(inc|data|logs)/#', $path)) {
+if (preg_match('#^/(inc|data|logs)/#', $path) || str_ends_with($path, '.env')) {
     http_response_code(404);
     echo json_encode(['error' => 'Not found']);
     return true;

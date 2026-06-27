@@ -68,8 +68,8 @@ export default function StickyReferenceBar({
           </div>
           <div style={{ fontSize: 10, color: '#64748b' }}>
             /{unit}
-            {isVariable && punDisplay ? (
-              <span style={{ color: '#f59e0b' }}> · {isLuce ? 'PUN' : 'PSV'} {punDisplay || psvDisplay}</span>
+            {isVariable && (isLuce ? punDisplay : psvDisplay) ? (
+              <span style={{ color: '#f59e0b' }}> · {isLuce ? 'PUN' : 'PSV'} {isLuce ? punDisplay : psvDisplay}</span>
             ) : null}
             {isVariable && isLuce ? (
               <span style={{ display: 'block', color: '#64748b', fontSize: 9, marginTop: 1 }}>

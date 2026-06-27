@@ -332,6 +332,15 @@ function getTariffsByCommodity(string $commodity): array {
     return array_values(array_filter(loadTariffs(), fn($t) => $t['commodity'] === $commodity && $t['active']));
 }
 
-function getTariffsForCalculation(string $commodity, string $zone = 'NORD'): array {
-    return getTariffsByCommodity($commodity);
+function getTariffsForCalculation(string $commodity, string $zone = 'NORD', ?string $tipoCliente = null): array {
+    $tariffs = getTariffsByCommodity($commodity);
+    // Filtra per tipo cliente (residenziale/business) se specificato
+    if ($tipoCliente !== null && $tipoCliente !== '') {
+        $tariffs = array_filter($tariffs, function($t) use ($tipoCliente) {
+            $tc = $t['extra']['tipo_cliente'] ?? null;
+            if ($tc === null) return true; // se non specificato, includi (backward compat)
+            return strtolower($tc) === strtolower($tipoCliente);
+        });
+    }
+    return array_values($tariffs);
 }

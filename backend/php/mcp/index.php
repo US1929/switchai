@@ -365,7 +365,7 @@ function mcp_analyze(array $args): string {
             }
         }
         if ($estimatedSpread <= 0) {
-            $estimatedSpread = max(0.002, round(($spesa / $consumo) - $livePunEurKwh - 0.045, 4));
+            $estimatedSpread = max(0.002, round(($spesa / $consumo) - ($livePunEurKwh * LUCE_PERDITE_RETE_BT) - 0.045, 4));
         }
         // ARERA v4.0: perdite rete SOLO sul PUN
         $energyCostNow = $consumo * ($livePunEurKwh * LUCE_PERDITE_RETE_BT + $estimatedSpread);
