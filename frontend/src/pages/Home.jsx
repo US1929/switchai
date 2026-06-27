@@ -159,7 +159,7 @@ export default function Home() {
       console.error('Metodo tradizionale fallito:', e2);
       setError('Impossibile caricare le offerte. Verifica la connessione e riprova.');
     } finally { setLoading(false); }
-  }, [commodity, consumption, currentSpend, isLuce, punEurKwh, psvEurSmc]);
+  }, [commodity, consumption, currentSpend, isLuce, marketData]);
 
   const handleLlmPaste = () => {
     try {
