@@ -406,8 +406,10 @@ function mcp_analyze(array $args): string {
         'commodity'              => $commodity,
         'yearly_consumption_kwh'  => $commodity === 'LUCE' ? $consumo : 0,
         'yearly_consumption_smc'  => $commodity === 'GAS' ? $consumo : 0,
+        'potenza_impegnata'       => (float)($args['potenza_impegnata'] ?? 3.0),
         'zone'                    => $zona,
         'current_annual_spend'    => $spesaNettaConfronto,
+        'tipo_cliente'            => $args['tipo_cliente'] ?? 'residenziale',
         'live_pun_eur_kwh'       => $livePunEurKwh,
         'live_psv_eur_smc'       => $livePsvEurSmc,
     ]);

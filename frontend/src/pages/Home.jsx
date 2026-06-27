@@ -147,7 +147,8 @@ export default function Home() {
       const computed = deduped.map(t => {
         const punRef = punEurKwh || MERCATO.PUN_REF;
         const psvRef = psvEurSmc || MERCATO.PSV_REF;
-        const cost = isLuceLocal ? calcLuceCost(t, consumoLocal, punRef) : calcGasCost(t, consumoLocal, psvRef);
+        const formData = { potenza: extractedData?.potenza_impegnata || 3.0, f1: extractedData?.f1 || 0, f2: extractedData?.f2 || 0, f3: extractedData?.f3 || 0 };
+        const cost = isLuceLocal ? calcLuceCost(t, consumoLocal, punRef, formData) : calcGasCost(t, consumoLocal, psvRef);
         if (!cost || cost <= 0) return null;
         const savings = hasRealSpend ? (spendBase - cost) : null;
         const savingsPct = hasRealSpend && spendBase > 0 ? ((spendBase - cost) / spendBase) * 100 : null;
