@@ -203,6 +203,12 @@ export default function Home() {
   const rankedItems = results ? getRankingBadges(results.items, commodity) : [];
   const [activeSuppliers, setActiveSuppliers] = useState(null); // null = tutti, Set = filtrati
   const [showAll, setShowAll] = useState(false);
+  const [selectedKeys, setSelectedKeys] = useState([]);
+  const [showCompare, setShowCompare] = useState(false);
+
+  const toggleSelect = useCallback((key) => {
+    setSelectedKeys(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
+  }, []);
 
   // Estrai fornitori unici con conteggio offerte
   const supplierCounts = results ? [...new Map(results.items.map(i => [i.tariff?.supplier_name || i.tariff?.brand, {
@@ -589,8 +595,8 @@ export default function Home() {
               consumption={consumption}
               punEurKwh={punEurKwh}
               psvEurSmc={psvEurSmc}
-              selectedKeys={[]}
-              onToggleSelect={() => {}}
+              selectedKeys={selectedKeys}
+              onToggleSelect={toggleSelect}
             />
             {filteredItems.length > 5 && (
               <button className="btn btn-outline" onClick={() => setShowAll(!showAll)} style={{ width: '100%', marginTop: 16 }}>
@@ -629,6 +635,115 @@ export default function Home() {
             </div>
           </div>
         </section>
+      )}
+
+      {/* ── FLOATING CONFRONTA BAR ─────────────────────────────── */}
+      {results && selectedKeys.length >= 2 && (
+        <div style={{
+          position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100,
+          background: 'rgba(15,23,42,0.96)', backdropFilter: 'blur(16px)',
+          borderTop: '1px solid rgba(255,255,255,0.06)',
+          padding: '12px 24px',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16,
+        }}>
+          <span style={{ fontSize: 13, color: '#94a3b8' }}>
+            <b style={{ color: '#f1f5f9' }}>{selectedKeys.length}</b> offerte selezionate
+          </span>
+          <button
+            onClick={() => setShowCompare(true)}
+            style={{
+              padding: '10px 28px', borderRadius: 10,
+              background: 'linear-gradient(135deg, #3b82f6, #2563eb)',
+              border: 'none', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+            }}
+          >🔍 Confronta selezionate</button>
+          <button
+            onClick={() => setSelectedKeys([])}
+            style={{
+              background: 'none', border: '1px solid rgba(255,255,255,0.1)',
+              color: '#94a3b8', fontSize: 12, cursor: 'pointer',
+              padding: '8px 16px', borderRadius: 8,
+            }}
+          >✕ Deseleziona tutto</button>
+        </div>
+      )}
+
+      {/* ── CONFRONTA MODAL ─────────────────────────────────────── */}
+      {showCompare && selectedKeys.length >= 2 && results && (
+        <div
+          onClick={() => setShowCompare(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 999,
+            background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: '#0f172a', border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: 20, padding: '28px 24px', maxWidth: 1000, width: '100%',
+              maxHeight: '90vh', overflowY: 'auto',
+              boxShadow: '0 32px 80px rgba(0,0,0,0.6)',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h2 style={{ fontSize: 18, fontWeight: 800, color: '#f1f5f9' }}>
+                🔍 Confronto offerte ({selectedKeys.length})
+              </h2>
+              <button onClick={() => setShowCompare(false)} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: 20 }}>✕</button>
+            </div>
+            <div style={{ display: 'grid', gap: 16, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+              {rankedItems.filter(item => selectedKeys.includes(`${item.tariff.brand}|${item.tariff.offerta}`)).map((item, i) => {
+                const annual = item.annualCost || 0;
+                const savings = results.currentSpend ? Math.max(0, results.currentSpend - annual) : 0;
+                const savingsPct = results.currentSpend > 0 ? Math.round((savings / results.currentSpend) * 100) : 0;
+                const prezzo = item.tariff?.['prezzo tot kwh'] || item.tariff?.['prezzo tot smc'] || item.tariff?.price_per_unit || 0;
+                return (
+                  <div key={i} style={{
+                    background: 'linear-gradient(135deg, rgba(19,24,39,0.9), rgba(13,17,32,0.95))',
+                    border: '1px solid rgba(255,255,255,0.06)', borderRadius: 16, padding: 20,
+                  }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', marginBottom: 2 }}>
+                      {item.tariff.brand || item.tariff.supplier_name || ''}
+                    </div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: '#f1f5f9', marginBottom: 8, lineHeight: 1.3 }}>
+                      {item.tariff.offerta}
+                    </div>
+                    <div style={{ fontSize: 24, fontWeight: 800, color: '#fff', marginBottom: 4 }}>
+                      {typeof prezzo === 'number' ? prezzo.toFixed(4).replace('.', ',') : prezzo}
+                      <span style={{ fontSize: 11, color: '#64748b', fontWeight: 400, marginLeft: 4 }}>
+                        €/{commodity === 'luce' ? 'kWh' : 'Smc'}
+                      </span>
+                    </div>
+                    {annual > 0 && (
+                      <div style={{ fontSize: 13, color: '#94a3b8', marginBottom: 8 }}>
+                        <span style={{ fontWeight: 700, color: '#fff' }}>{annual.toFixed(0)}€</span>/anno
+                      </div>
+                    )}
+                    <div style={{ marginTop: 6 }}>
+                      <span style={{ fontSize: 10, color: '#64748b' }}>Risparmio: </span>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: savings > 0 ? '#10b981' : '#64748b' }}>
+                        {savings > 0 ? `${savings.toFixed(0)}€ (${savingsPct}%)` : '—'}
+                      </span>
+                    </div>
+                    {(item.tariff?.spread !== null && item.tariff?.spread !== undefined) && (
+                      <div style={{ fontSize: 10, color: '#475569', marginTop: 4 }}>
+                        Spread: {item.tariff.spread} · QF: {item.tariff?.fixed_fee_monthly || '—'}€/mese
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{ marginTop: 20, textAlign: 'center' }}>
+              <button onClick={() => setShowCompare(false)} style={{
+                padding: '10px 28px', borderRadius: 10, background: 'rgba(255,255,255,0.06)',
+                border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8', fontSize: 13, cursor: 'pointer',
+              }}>Chiudi</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── How it works ────────────────────────────────────────── */}
