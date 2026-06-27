@@ -6,12 +6,12 @@
  *
  * Fonti ufficiali:
  *   - Perdite rete BT: ARERA Del. 449/2020 (coefficiente perdita BT)
- *   - Trasporto: ARERA Del. 575/2025/R/eel (TRAS + UC3 + UC6)
+ *   - Trasporto: Portale Offerte ARERA Q3 2026 (TRAS + UC3 + UC6 + gestione contatore)
  *   - Oneri sistema: ARERA Comunicato Q2 2026 (ASOS + ARIM)
  *   - Accise: DL 504/1995 e s.m.i., soglie di esenzione
  *   - IVA: DPR 633/1972, usi domestici/residenziali
  *
- * Data ultimo aggiornamento: 2026-06-26
+ * Data ultimo aggiornamento: 2026-06-27 (allineamento Q3 2026)
  */
 
 // ── LUCE ────────────────────────────────────────────────────────
@@ -22,11 +22,11 @@ export const LUCE = {
   /** Quota fissa annua trasporto + gestione contatore (€/anno) — ARERA Del. 575/2025 */
   QUOTA_FISSA_RETI: 23.04,
 
-  /** Trasporto variabile (€/kWh) — TRAS 0.01190 + UC3 0.00007 + UC6 0.00007 (Del. 575/2025) */
-  TRASPORTO_VAR: 0.01204,
+  /** Trasporto variabile (€/kWh) — TRAS + UC3 + UC6 + gestione contatore (Q3 2026) */
+  TRASPORTO_VAR: 0.01473,
 
-  /** Oneri di sistema (€/kWh) — ASOS 0.02866 + ARIM 0.00164 (Comunicato Q2 2026) */
-  ONERI_SISTEMA: 0.0303,
+  /** Oneri di sistema (€/kWh) — ASOS + ARIM (Q3 2026) */
+  ONERI_SISTEMA: 0.030295,
 
   /** Accisa erariale elettricità residenziale (€/kWh) — DL 504/1995 */
   ACCISE: 0.0227,
@@ -38,7 +38,7 @@ export const LUCE = {
   ACCISE_SOGLIA_COMPENSATA: 2640,
 
   /** Quota potenza impegnata (€/kW/anno) — ARERA Del. 575/2025 */
-  COSTO_POTENZA_KW: 23.52,
+  COSTO_POTENZA_KW: 23.76, // Q3 2026: 1.98 €/kW/mese × 12
 
   /** Aliquota IVA agevolata usi domestici */
   IVA: 0.10,

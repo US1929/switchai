@@ -510,16 +510,17 @@ function parseNumberForConsumption(string $s): float {
  * Aggiornare QUI per propagare a TUTTI i calcoli.
  *
  * Fonti: ARERA Del. 575/2025 (trasporto Q2 2026), ARERA Comunicato Q2 2026 (oneri),
+ *   Portale Offerte ARERA Q3 2026 (trasporto variabile, costo potenza),
  *   Testo Unico Accise DL 504/1995 (imposte).
- * Data ultimo aggiornamento: 2026-06-23
+ * Data ultimo aggiornamento: 2026-06-27 (allineamento Q3 2026)
  */
 if (!defined('LUCE_PERDITE_RETE_BT'))       define('LUCE_PERDITE_RETE_BT', 1.102);
 if (!defined('QUOTA_FISSA_RETI_LUCE'))       define('QUOTA_FISSA_RETI_LUCE', 23.04);
-if (!defined('LUCE_TRASPORTO_VAR'))          define('LUCE_TRASPORTO_VAR', 0.01204);
-if (!defined('ONERI_SISTEMA_LUCE'))          define('ONERI_SISTEMA_LUCE', 0.0303);
+if (!defined('LUCE_TRASPORTO_VAR'))          define('LUCE_TRASPORTO_VAR', 0.01473);  // Q3 2026: TRAS + UC3 + UC6 + gestione contatore
+if (!defined('ONERI_SISTEMA_LUCE'))          define('ONERI_SISTEMA_LUCE', 0.030295); // Q3 2026: ASOS + ARIM
 if (!defined('LUCE_ACCISE'))                define('LUCE_ACCISE', 0.0227);
 if (!defined('LUCE_ACCISE_SOGLIA_COMPENSATA')) define('LUCE_ACCISE_SOGLIA_COMPENSATA', 2640);
-if (!defined('LUCE_COSTO_POTENZA_KW'))       define('LUCE_COSTO_POTENZA_KW', 23.52);
+if (!defined('LUCE_COSTO_POTENZA_KW'))       define('LUCE_COSTO_POTENZA_KW', 23.76); // Q3 2026: 1.98 €/kW/mese × 12
 if (!defined('LUCE_IVA'))                   define('LUCE_IVA', 0.10);
 if (!defined('LUCE_ACCISE_SOGLIA_ESENTE'))   define('LUCE_ACCISE_SOGLIA_ESENTE', 1800);
 if (!defined('CANONE_RAI_ANNUO'))            define('CANONE_RAI_ANNUO', 90.00);
@@ -563,7 +564,7 @@ function getAreraConstants(): array {
             'prezzo_riferimento' => 0.55,
             'quota_fissa_riferimento' => 120,
         ],
-        'aggiornato_il' => '2026-06-23',
+        'aggiornato_il' => '2026-06-27',
     ];
 }
 
