@@ -771,18 +771,26 @@ function handleDynamicSitemap(): void {
         echo "  <url>\n    <loc>{$url['loc']}</loc>\n    <lastmod>{$lastmod}</lastmod>\n{$cf}    <priority>{$url['priority']}</priority>\n  </url>\n";
     }
 
-    // Offerte dinamiche (da dati live — sempre aggiornate)
+    // Offerte: aggregate per fornitore (NO pagine individuali — sono noindex)
     try {
         $tariffs = loadTariffs();
-        $added = [];
+        $suppliers = [];
         foreach ($tariffs as $t) {
-            if (isset($added[$t['id']])) continue;
-            $added[$t['id']] = true;
+            $sid = $t['supplier_name'];
+            if (!isset($suppliers[$sid])) {
+                $suppliers[$sid] = ['luce' => 0, 'gas' => 0];
+            }
+            if ($t['commodity'] === 'LUCE') $suppliers[$sid]['luce']++;
+            else $suppliers[$sid]['gas']++;
+        }
+        foreach ($suppliers as $name => $counts) {
+            $slug = strtolower(str_replace([' ', 'è', 'à', 'ì', 'ò', 'ù'], ['-', 'e', 'a', 'i', 'o', 'u'], $name));
+            $slug = preg_replace('/[^a-z0-9-]/', '', $slug);
             echo "  <url>\n";
-            echo "    <loc>https://www.switchai.it/offerta/{$t['id']}</loc>\n";
+            echo "    <loc>https://www.switchai.it/fornitori/{$slug}</loc>\n";
             echo "    <lastmod>" . date('Y-m-d') . "</lastmod>\n";
             echo "    <changefreq>weekly</changefreq>\n";
-            echo "    <priority>0.7</priority>\n";
+            echo "    <priority>0.6</priority>\n";
             echo "  </url>\n";
         }
     } catch (\Throwable $e) {
@@ -825,17 +833,37 @@ function handleOffertaPage(string $id): void {
     header('Content-Type: text/html; charset=UTF-8');
     echo '<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8">';
     echo '<meta name="viewport" content="width=device-width, initial-scale=1.0">';
-    echo '<meta name="robots" content="index, follow">';
-    echo '<title>' . htmlspecialchars($offer['supplier_name'] . ' ' . $offer['name']) . ' — SwitchAI</title>';
-    echo '<meta name="description" content="' . htmlspecialchars($offer['supplier_name'] . ' ' . $offer['name'] . ' — ' . ($offer['type'] === 'FISSO' ? 'Prezzo Fisso' : 'Prezzo Variabile') . ' ' . ($isLuce ? 'Luce' : 'Gas') . '. Confronta e attiva su SwitchAI.">');
+    // NOINDEX: pagine offerta sono thin content (template identico, cambiano solo numeri).
+    // Google penalizza le "doorway pages". Il valore SEO è nelle pagine /risorse/ e homepage.
+    echo '<meta name="robots" content="noindex, follow">';
+    echo '<link rel="canonical" href="https://www.switchai.it/">';
+    echo '<title>' . htmlspecialchars($offer['supplier_name'] . ' ' . $offer['name']) . ' — Confronta su SwitchAI</title>';
+    echo '<meta name="description" content="' . htmlspecialchars($offer['supplier_name'] . ' — ' . $offer['name'] . ': tariffa ' . ($isLuce ? 'Luce' : 'Gas') . ' ' . ($offer['type'] === 'FISSO' ? 'a prezzo fisso' : 'a prezzo variabile') . '. Confronta le migliori offerte e attiva online su SwitchAI.">');
+    // JSON-LD arricchito per crawl (anche se noindex, i bot lo leggono)
+    $codiceOfferta = $extra['codice_offerta'] ?? $offer['id'];
+    $descLD = 'Offerta ' . ($isLuce ? 'Luce' : 'Gas') . ' ' . ($offer['type'] === 'FISSO' ? 'a prezzo fisso' : 'a prezzo variabile');
+    $descLD .= ' di ' . $offer['supplier_name'] . '.';
+    if (!empty($extra['vantaggi'])) $descLD .= ' ' . $extra['vantaggi'];
+    $descLD .= ' Confronta su SwitchAI, il comparatore energia basato su AI.';
+    $validUntil = !empty($extra['validita_offerta']) ? $extra['validita_offerta'] : date('Y-m-d', strtotime('+30 days'));
     echo '<script type="application/ld+json">' . json_encode([
         '@context' => 'https://schema.org',
         '@type' => 'Product',
-        'name' => $offer['supplier_name'] . ' ' . $offer['name'],
-        'description' => 'Tariffa ' . ($isLuce ? 'Luce' : 'Gas') . ' ' . ($offer['type'] === 'FISSO' ? 'a prezzo fisso' : 'a prezzo variabile'),
-        'offers' => ['@type' => 'Offer', 'price' => $prezzoUnit, 'priceCurrency' => 'EUR', 'availability' => 'https://schema.org/InStock'],
-        'brand' => ['@type' => 'Organization', 'name' => $offer['supplier_name']]
-    ], JSON_UNESCAPED_UNICODE) . '</script>';
+        'name' => $offer['supplier_name'] . ' — ' . $offer['name'],
+        'description' => $descLD,
+        'sku' => $codiceOfferta,
+        'category' => $isLuce ? 'Energia Elettrica' : 'Gas Naturale',
+        'offers' => [
+            '@type' => 'Offer',
+            'price' => $prezzoUnit,
+            'priceCurrency' => 'EUR',
+            'availability' => 'https://schema.org/InStock',
+            'priceValidUntil' => $validUntil,
+            'areaServed' => ['@type' => 'Country', 'name' => 'IT'],
+        ],
+        'brand' => ['@type' => 'Organization', 'name' => $offer['supplier_name']],
+        'manufacturer' => ['@type' => 'Organization', 'name' => $offer['supplier_name']],
+    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . '</script>';
     echo '<style>body{font-family:system-ui,sans-serif;max-width:700px;margin:2rem auto;padding:0 1.5rem;line-height:1.8;color:#333} h1{font-size:1.5rem} .label{color:#777;font-size:.85rem} .value{font-weight:600} .cta{display:inline-block;margin-top:1rem;padding:12px 28px;background:#f59e0b;color:#fff;border-radius:8px;text-decoration:none;font-weight:700} table{width:100%;border-collapse:collapse;margin:1rem 0} th,td{padding:8px 12px;text-align:left;border-bottom:1px solid #eee} th{background:#f9f9f9}</style>';
     echo '</head><body>';
     echo '<p style="color:#777;font-size:.85rem"><a href="/" style="color:#f59e0b">← SwitchAI</a> — ' . ($isLuce ? '⚡ Luce' : '🔥 Gas') . ' — ' . date('d/m/Y') . '</p>';
