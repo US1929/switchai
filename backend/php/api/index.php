@@ -207,9 +207,14 @@ try {
             handleDynamicSitemap();
             break;
 
-        // GET /offerta/{id} — pagina offerta per crawler (HTML + JSON-LD)
+        // GET /offerta/{id} — pagina offerta per crawler (HTML + JSON-LD, noindex)
         case preg_match('#^/offerta/([a-zA-Z0-9\-]+)$#', $uri, $offerMatch) && $method === 'GET':
             handleOffertaPage($offerMatch[1]);
+            break;
+
+        // GET /fornitori/{slug} — pagina fornitore per SEO (indicizzata, contenuto ricco)
+        case preg_match('#^/fornitori/([a-z0-9\-]+)$#', $uri, $supplierMatch) && $method === 'GET':
+            handleFornitorePage($supplierMatch[1]);
             break;
 
         // POST /api/analyze — endpoint unificato V2 (parse + confronto + risk)
@@ -886,6 +891,91 @@ function handleOffertaPage(string $id): void {
 
     echo '<p style="font-size:.85rem;color:#777">Dati aggiornati in tempo reale. Fonte: SwitchAI (switchai.it)</p>';
     echo '<a href="/sottoscrizione?tariff=' . urlencode($offer['id']) . '&supplier=' . urlencode($offer['supplier_name']) . '&name=' . urlencode($offer['name']) . '&commodity=' . ($isLuce ? 'luce' : 'gas') . '" class="cta">Attiva Online →</a>';
+    echo '</body></html>';
+}
+
+// ── FORNITORE PAGE (pagina SEO per crawler, indicizzata) ─────────
+
+function handleFornitorePage(string $slug): void {
+    $allTariffs = loadTariffs();
+    $supplierOffers = [];
+    $supplierName = '';
+    $supplierLogo = '';
+
+    foreach ($allTariffs as $t) {
+        $s = strtolower(str_replace([' ', 'è', 'à', 'ì', 'ò', 'ù'], ['-', 'e', 'a', 'i', 'o', 'u'], $t['supplier_name']));
+        $s = preg_replace('/[^a-z0-9-]/', '', $s);
+        if ($s === $slug) {
+            $supplierOffers[] = $t;
+            if (!$supplierName) $supplierName = $t['supplier_name'];
+            if (!$supplierLogo && !empty($t['logo'])) $supplierLogo = $t['logo'];
+        }
+    }
+
+    if (empty($supplierOffers)) {
+        http_response_code(404);
+        header('X-Robots-Tag: noindex, nofollow');
+        echo '<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8"><meta name="robots" content="noindex, nofollow"><title>Fornitore non trovato — SwitchAI</title>';
+        echo '<style>body{font-family:system-ui,sans-serif;max-width:700px;margin:2rem auto;padding:0 1.5rem;line-height:1.8;color:#333}</style>';
+        echo '</head><body><h1>Fornitore non trovato</h1><p><a href="/">← Torna a SwitchAI</a></p></body></html>';
+        return;
+    }
+
+    $luce = array_filter($supplierOffers, fn($o) => $o['commodity'] === 'LUCE');
+    $gas  = array_filter($supplierOffers, fn($o) => $o['commodity'] === 'GAS');
+    $fissi = array_filter($supplierOffers, fn($o) => $o['type'] === 'FISSO');
+    $variabili = array_filter($supplierOffers, fn($o) => $o['type'] === 'VARIABILE');
+
+    header('Content-Type: text/html; charset=UTF-8');
+    echo '<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8">';
+    echo '<meta name="viewport" content="width=device-width, initial-scale=1.0">';
+    echo '<meta name="robots" content="index, follow">';
+    echo '<title>' . htmlspecialchars($supplierName) . ' — Offerte Luce e Gas a confronto | SwitchAI</title>';
+    $metaDesc = 'Confronta ' . count($supplierOffers) . ' offerte di ' . $supplierName . ': ' . count($luce) . ' Luce e ' . count($gas) . ' Gas. ';
+    $metaDesc .= 'Prezzi aggiornati, ' . count($fissi) . ' a prezzo fisso, ' . count($variabili) . ' a prezzo variabile. Dati ufficiali ARERA Portale Offerte.';
+    echo '<meta name="description" content="' . htmlspecialchars($metaDesc) . '">';
+    // JSON-LD Organization
+    echo '<script type="application/ld+json">' . json_encode([
+        '@context' => 'https://schema.org',
+        '@type' => 'Organization',
+        'name' => $supplierName,
+        'description' => 'Fornitore di energia elettrica e gas naturale nel mercato libero italiano. ' . count($supplierOffers) . ' offerte confrontabili su SwitchAI.',
+        'url' => 'https://www.switchai.it/fornitori/' . $slug,
+        'areaServed' => ['@type' => 'Country', 'name' => 'IT'],
+    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . '</script>';
+    echo '<style>body{font-family:system-ui,sans-serif;max-width:800px;margin:2rem auto;padding:0 1.5rem;line-height:1.8;color:#333;background:#fafafa} h1{font-size:1.6rem;margin-bottom:.25rem} .sub{color:#777;font-size:.9rem;margin-bottom:1.5rem} .stats{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:1.5rem} .stat{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:12px 18px;text-align:center;min-width:80px} .stat .num{font-size:1.4rem;font-weight:800;color:#0f172a} .stat .lbl{font-size:.7rem;color:#64748b;text-transform:uppercase} table{width:100%;border-collapse:collapse;margin:1rem 0;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.06)} th,td{padding:10px 14px;text-align:left;border-bottom:1px solid #f1f5f9;font-size:.9rem} th{background:#f8fafc;color:#475569;font-weight:600;font-size:.8rem;text-transform:uppercase} .cta{display:inline-block;padding:10px 24px;background:#f59e0b;color:#fff;border-radius:8px;text-decoration:none;font-weight:700;font-size:.9rem} .fisso{color:#10b981;font-weight:600} .variabile{color:#f59e0b;font-weight:600}</style>';
+    echo '</head><body>';
+    echo '<p style="color:#777;font-size:.85rem"><a href="/" style="color:#f59e0b">← SwitchAI</a> — Fornitori — ' . date('d/m/Y') . '</p>';
+    echo '<h1>' . htmlspecialchars($supplierName) . '</h1>';
+    echo '<p class="sub">' . count($supplierOffers) . ' offerte nel mercato libero. Dati ufficiali <a href="https://www.ilportaleofferte.it" target="_blank" rel="noopener">Portale Offerte ARERA</a> — licenza CC BY 4.0.</p>';
+
+    // Stats
+    echo '<div class="stats">';
+    echo '<div class="stat"><div class="num">' . count($luce) . '</div><div class="lbl">Offerte Luce ⚡</div></div>';
+    echo '<div class="stat"><div class="num">' . count($gas) . '</div><div class="lbl">Offerte Gas 🔥</div></div>';
+    echo '<div class="stat"><div class="num">' . count($fissi) . '</div><div class="lbl">Prezzo Fisso 🔒</div></div>';
+    echo '<div class="stat"><div class="num">' . count($variabili) . '</div><div class="lbl">Prezzo Variabile 🔀</div></div>';
+    echo '</div>';
+
+    // Tabella offerte
+    echo '<table><thead><tr><th>Offerta</th><th>Tipo</th><th>Prezzo</th><th>Quota fissa</th><th>Dettagli</th></tr></thead><tbody>';
+    foreach ($supplierOffers as $o) {
+        $isLuce = $o['commodity'] === 'LUCE';
+        $unit = $isLuce ? 'kWh' : 'Smc';
+        $prezzo = $isLuce ? ($o['price_mono_kwh'] ?? null) : ($o['price_smc'] ?? null);
+        $extra = $o['extra'] ?? [];
+        echo '<tr>';
+        echo '<td><a href="/offerta/' . urlencode($o['id']) . '" style="color:#0f172a;text-decoration:none;font-weight:600">' . htmlspecialchars($o['name']) . '</a></td>';
+        echo '<td><span class="' . ($o['type'] === 'FISSO' ? 'fisso' : 'variabile') . '">' . ($o['type'] === 'FISSO' ? 'Fisso' : 'Variabile') . '</span></td>';
+        echo '<td>' . ($prezzo !== null ? number_format($prezzo, 4, ',', '') . ' €/' . $unit : '—') . '</td>';
+        echo '<td>' . (isset($o['fixed_fee_monthly']) ? number_format($o['fixed_fee_monthly'], 2, ',', '') . ' €/mese' : '—') . '</td>';
+        echo '<td style="font-size:.8rem;color:#64748b">' . ($extra['prezzo_bloccato_mesi'] ?? '') . ($extra['validita_offerta'] ? ' valida fino al ' . $extra['validita_offerta'] : '') . '</td>';
+        echo '</tr>';
+    }
+    echo '</tbody></table>';
+
+    echo '<p style="margin-top:1.5rem"><a href="/" class="cta">⚡ Confronta tutte le offerte su SwitchAI →</a></p>';
+    echo '<p style="color:#94a3b8;font-size:.75rem;margin-top:2rem">Dati aggiornati in tempo reale. Fonte: Portale Offerte ARERA (CC BY 4.0). SwitchAI — switchai.it</p>';
     echo '</body></html>';
 }
 

@@ -17,7 +17,7 @@ if (preg_match('#^/(inc|data|logs)/#', $path) || str_ends_with($path, '.env')) {
 }
 
 // ── Offerte e sitemap: pagine dinamiche per crawler ──────────────────
-if (preg_match('#^/offerta/#', $path) || $path === '/sitemap.xml') {
+if (preg_match('#^/offerta/#', $path) || preg_match('#^/fornitori/#', $path) || $path === '/sitemap.xml') {
     $_SERVER['SCRIPT_NAME'] = '/api/index.php';
     $_SERVER['SCRIPT_FILENAME'] = __DIR__ . '/api/index.php';
     require __DIR__ . '/api/index.php';
