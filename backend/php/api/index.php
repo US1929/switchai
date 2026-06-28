@@ -840,7 +840,8 @@ function handleOffertaPage(string $id): void {
     echo '<title>' . htmlspecialchars($offer['supplier_name'] . ' ' . $offer['name']) . ' — Confronta su SwitchAI</title>';
     echo '<meta name="description" content="' . htmlspecialchars($offer['supplier_name'] . ' — ' . $offer['name'] . ': tariffa ' . ($isLuce ? 'Luce' : 'Gas') . ' ' . ($offer['type'] === 'FISSO' ? 'a prezzo fisso' : 'a prezzo variabile') . '. Confronta le migliori offerte e attiva online su SwitchAI.">');
     // JSON-LD arricchito per crawl (anche se noindex, i bot lo leggono)
-    $codiceOfferta = $extra['codice_offerta'] ?? $offer['id'];
+    // SKU: usa codice offerta ARERA se disponibile, altrimenti nome fornitore+tariffa
+    $sku = $extra['codice_offerta'] ?? ($offer['supplier_name'] . ' - ' . $offer['name']);
     $descLD = 'Offerta ' . ($isLuce ? 'Luce' : 'Gas') . ' ' . ($offer['type'] === 'FISSO' ? 'a prezzo fisso' : 'a prezzo variabile');
     $descLD .= ' di ' . $offer['supplier_name'] . '.';
     if (!empty($extra['vantaggi'])) $descLD .= ' ' . $extra['vantaggi'];
@@ -851,16 +852,17 @@ function handleOffertaPage(string $id): void {
         '@type' => 'Product',
         'name' => $offer['supplier_name'] . ' — ' . $offer['name'],
         'description' => $descLD,
-        'sku' => $codiceOfferta,
+        'sku' => $sku,
         'category' => $isLuce ? 'Energia Elettrica' : 'Gas Naturale',
-        'offers' => [
+        // Schema.org richiede 'offers' come array, anche per una singola offerta
+        'offers' => [[
             '@type' => 'Offer',
             'price' => $prezzoUnit,
             'priceCurrency' => 'EUR',
             'availability' => 'https://schema.org/InStock',
             'priceValidUntil' => $validUntil,
             'areaServed' => ['@type' => 'Country', 'name' => 'IT'],
-        ],
+        ]],
         'brand' => ['@type' => 'Organization', 'name' => $offer['supplier_name']],
         'manufacturer' => ['@type' => 'Organization', 'name' => $offer['supplier_name']],
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . '</script>';
