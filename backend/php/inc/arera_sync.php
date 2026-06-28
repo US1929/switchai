@@ -577,6 +577,48 @@ function arera_save_json(array $data, string $target, string $tmp): void {
     arera_log("Saved atomically → {$target}");
 }
 
+/**
+ * Estrae PUN/PSV forward dai dati offerta e li salva in config.json.
+ * Il Portale Offerte include il PUN/PSV forward in ogni offerta variabile
+ * (campo Pun/Psv). Tutte le offerte dello stesso mese hanno lo stesso valore.
+ */
+function _arera_save_forward_params(array $data, string $type): void {
+    $configFile = ARERA_DATA_DIR . '/config.json';
+    $config = is_file($configFile) ? json_decode(file_get_contents($configFile), true) : [];
+    if (!is_array($config)) $config = [];
+
+    $now = date('Y-m-d');
+
+    if ($type === 'luce') {
+        // Estrai PUN dalla prima offerta variabile LUCE
+        foreach ($data as $o) {
+            $punRaw = $o['Pun'] ?? null;
+            if ($punRaw !== null && (float)$punRaw > 0) {
+                $config['PUN'] = (float)$punRaw;
+                $config['PUN_label'] = "PUN forward ARERA — {$now}";
+                arera_log("Saved forward PUN: " . arera_format((float)$punRaw * 1000, 1) . " €/MWh");
+                break;
+            }
+        }
+    }
+
+    if ($type === 'gas') {
+        // Estrai PSV dalla prima offerta variabile GAS
+        foreach ($data as $o) {
+            $psvRaw = $o['Psv'] ?? $o['psv Aprile 2025/'] ?? null;
+            if ($psvRaw !== null && (float)$psvRaw > 0) {
+                $config['PSV'] = (float)$psvRaw;
+                $config['PSV_label'] = "PSV forward ARERA — {$now}";
+                arera_log("Saved forward PSV: " . arera_format((float)$psvRaw * 1000, 1) . " €/MWh");
+                break;
+            }
+        }
+    }
+
+    $config['updated_at'] = date('c');
+    file_put_contents($configFile, json_encode($config, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE), LOCK_EX);
+}
+
 function arera_run_sync(string $type, array $brandMetadata, array $params, ?string $filterRegione = null): array {
     $dir = ARERA_DATA_DIR;
     if (!is_dir($dir)) @mkdir($dir, 0755, true);
@@ -608,6 +650,9 @@ function arera_run_sync(string $type, array $brandMetadata, array $params, ?stri
 
         arera_save_json($data, $targetJson, $tmpJson);
         @unlink($tmpXml);
+
+        // ── Salva PUN/PSV forward in config.json (per calcoli ARERA) ─
+        _arera_save_forward_params($data, $type);
 
         $elapsed = round(microtime(true) - $start, 2);
         arera_log("Done ({$elapsed}s) — " . count($data) . " offers → {$targetJson}");

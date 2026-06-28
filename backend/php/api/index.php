@@ -928,12 +928,23 @@ function handleV2Analyze(array $input): void {
         $profile['spesa_stimata'] = true;
     }
 
-    // ── FETCH LIVE PUN/PSV (PRIMA del confronto, per calcolo simmetrico ARERA) ─
+    // ── FETCH PUN/PSV (priorità: forward ARERA → spot live) ─
+    // Il metodo ARERA richiede il PUN forward (media 4 trimestri), non lo spot.
+    // Il sync ARERA salva il forward PUN in config.json; se disponibile (<60gg), lo usa.
     $livePunEurKwh = null;
     $livePsvEurSmc = null;
     $pun = null;
     $psv = null;
     $peData = null;
+
+    // Priorità 1: PUN forward ARERA (da config.json, dal sync mensile)
+    $areraPun = getAreraForwardPun();
+    if ($areraPun !== null) {
+        $livePunEurKwh = $areraPun;
+        error_log("handleV2Analyze: using ARERA forward PUN = " . round($areraPun * 1000, 1) . " €/MWh");
+    }
+
+    // Priorità 2: PUN/PSV spot live da PortaleEnergia.it (fallback)
     try {
         $peUrl = 'https://portaleenergia.it/api/dashboard?period=today';
         $peJson = @file_get_contents($peUrl, false, stream_context_create(['http' => ['timeout' => 6, 'header' => "User-Agent: Mozilla/5.0\r\n"]]));
@@ -941,8 +952,8 @@ function handleV2Analyze(array $input): void {
             $peData = json_decode($peJson, true);
             $pun = $peData['pun'] ?? null;
             $psv = $peData['psv'] ?? null;
-            if ($pun) $livePunEurKwh = round((float)$pun['price'] / 1000, 6); // €/MWh → €/kWh
-            if ($psv) $livePsvEurSmc = round((float)$psv['price'] / 1000, 6); // €/MWh → €/Smc
+            if ($pun && $livePunEurKwh === null) $livePunEurKwh = round((float)$pun['price'] / 1000, 6);
+            if ($psv) $livePsvEurSmc = round((float)$psv['price'] / 1000, 6);
         }
     } catch (Throwable $e) { /* PUN/PSV non disponibile, si usa fallback */ }
 

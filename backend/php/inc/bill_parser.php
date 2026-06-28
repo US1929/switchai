@@ -569,7 +569,41 @@ function getAreraConstants(): array {
 }
 
 /**
- * Auto-fetch PUN/PSV live da PortaleEnergia.it con cache statica (1 ora).
+ * Recupera il PUN forward ARERA dal config salvato dall'ARERA sync.
+ * Il Portale Offerte pubblica il PUN forward dentro ogni offerta (campo Pun).
+ * Durante il sync, arera_sync.php salva questo valore in config.json.
+ *
+ * @return ?float PUN forward in €/kWh, o null se non disponibile o troppo vecchio (>60gg)
+ */
+function getAreraForwardPun(): ?float {
+    $configFile = __DIR__ . '/../data/offerte/config.json';
+    if (!is_file($configFile)) return null;
+
+    $config = json_decode(file_get_contents($configFile), true);
+    if (!is_array($config)) return null;
+
+    $pun = $config['PUN'] ?? null;
+    $updated = $config['updated_at'] ?? null;
+
+    if ($pun === null || (float)$pun <= 0) return null;
+
+    // Se il dato ha più di 60 giorni, consideralo obsoleto
+    if ($updated) {
+        $age = time() - strtotime($updated);
+        if ($age > 60 * 86400) {
+            error_log("bill_parser: ARERA forward PUN too old ({$age}s), falling back to live spot");
+            return null;
+        }
+    }
+
+    return (float)$pun;
+}
+
+/**
+ * Auto-fetch PUN/PSV per calcoli. Priorità:
+ * 1. PUN forward ARERA (da config.json, aggiornato dal sync mensile)
+ * 2. PUN spot live (da PortaleEnergia.it, come fallback)
+ *
  * Chiamato automaticamente da calculateSavingsBreakdown() se live_pun_eur_kwh
  * o live_psv_eur_smc non sono forniti dal chiamante.
  *
@@ -587,50 +621,59 @@ function _fetchLiveMarketIndices(): array {
     $pun = null;
     $psv = null;
 
-    // Prova fetch da PortaleEnergia.it (stessa fonte di handleV2Analyze)
-    try {
-        $peUrl = 'https://portaleenergia.it/api/dashboard?period=today';
-        $ctx = stream_context_create(['http' => [
-            'timeout' => 6,
-            'header' => "User-Agent: Mozilla/5.0 (compatible; SwitchAIBot/1.0)\r\nAccept: application/json\r\n",
-        ]]);
-        $peJson = @file_get_contents($peUrl, false, $ctx);
+    // Priorità 1: PUN forward ARERA (dal sync mensile, metodo ufficiale)
+    $areraPun = getAreraForwardPun();
+    if ($areraPun !== null) {
+        $pun = $areraPun;
+        error_log("bill_parser: using ARERA forward PUN = " . round($pun*1000,1) . " €/MWh");
+    }
 
-        // cURL fallback
-        if ($peJson === false && function_exists('curl_init')) {
-            $ch = curl_init($peUrl);
-            curl_setopt_array($ch, [
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_TIMEOUT => 6,
-                CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; SwitchAIBot/1.0)',
-            ]);
-            $peJson = curl_exec($ch);
-            curl_close($ch);
-        }
+    // Priorità 2: PUN spot live da PortaleEnergia.it (fallback)
+    if ($pun === null) {
+        try {
+            $peUrl = 'https://portaleenergia.it/api/dashboard?period=today';
+            $ctx = stream_context_create(['http' => [
+                'timeout' => 6,
+                'header' => "User-Agent: Mozilla/5.0 (compatible; SwitchAIBot/1.0)\r\nAccept: application/json\r\n",
+            ]]);
+            $peJson = @file_get_contents($peUrl, false, $ctx);
 
-        if ($peJson) {
-            $peData = json_decode($peJson, true);
-            if (is_array($peData)) {
-                $punRaw = $peData['pun'] ?? null;
-                $psvRaw = $peData['psv'] ?? null;
-                // €/MWh → €/kWh (o €/Smc per PSV)
-                if ($punRaw && isset($punRaw['price'])) {
-                    $pun = round((float)$punRaw['price'] / 1000, 6);
-                }
-                if ($psvRaw && isset($psvRaw['price'])) {
-                    $psv = round((float)$psvRaw['price'] / 1000, 6);
+            // cURL fallback
+            if ($peJson === false && function_exists('curl_init')) {
+                $ch = curl_init($peUrl);
+                curl_setopt_array($ch, [
+                    CURLOPT_RETURNTRANSFER => true,
+                    CURLOPT_TIMEOUT => 6,
+                    CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; SwitchAIBot/1.0)',
+                ]);
+                $peJson = curl_exec($ch);
+                curl_close($ch);
+            }
+
+            if ($peJson) {
+                $peData = json_decode($peJson, true);
+                if (is_array($peData)) {
+                    $punRaw = $peData['pun'] ?? null;
+                    $psvRaw = $peData['psv'] ?? null;
+                    // €/MWh → €/kWh (o €/Smc per PSV)
+                    if ($punRaw && isset($punRaw['price']) && $pun === null) {
+                        $pun = round((float)$punRaw['price'] / 1000, 6);
+                    }
+                    if ($psvRaw && isset($psvRaw['price'])) {
+                        $psv = round((float)$psvRaw['price'] / 1000, 6);
+                    }
                 }
             }
+        } catch (\Throwable $e) {
+            error_log("_fetchLiveMarketIndices: errore fetch - " . $e->getMessage());
         }
-    } catch (\Throwable $e) {
-        error_log("_fetchLiveMarketIndices: errore fetch - " . $e->getMessage());
     }
 
     $cache = ['pun' => $pun, 'psv' => $psv];
     $cacheTime = time();
 
     if ($pun !== null || $psv !== null) {
-        error_log("bill_parser: PUN/PSV auto-fetch OK — PUN=" . ($pun ? round($pun*1000,1).'€/MWh' : 'N/D') . " PSV=" . ($psv ? round($psv*1000,1).'€/MWh' : 'N/D'));
+        error_log("bill_parser: PUN/PSV fetch OK — PUN=" . ($pun ? round($pun*1000,1).'€/MWh' : 'N/D') . " PSV=" . ($psv ? round($psv*1000,1).'€/MWh' : 'N/D'));
     }
 
     return $cache;
