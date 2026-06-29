@@ -3,8 +3,8 @@
 > **Dominio**: [switchai.it](https://www.switchai.it) — attivo su OVH Pro Web Hosting  
 > **Stack**: React 19 + Vite 8 | PHP 8.5 API | WebMCP (Google Chrome Labs) | MCP Server (PHP + Node.js) | Tailwind CSS 4  
 > **Design**: ispirato a Switcho.it + Billoo.it, card allineate a ComparaSemplice  
-> **Ultimo aggiornamento**: 26 Giugno 2026
-> **Versione**: 5.3.0
+> **Ultimo aggiornamento**: 29 Giugno 2026
+> **Versione**: 5.4.0
 
 ---
 
@@ -194,38 +194,32 @@ Template salvati in `data/templates/{fingerprint}.json` per migliorare parsing f
 
 ---
 
-## 5. PUN/PSV — MarketSignal con Trend
+## 5. PUN/PSV — Metodo Forward ARERA + MarketSignal
 
-**Fonte**: API pubblica `GET /api/dashboard?period=today`
+### Priorità PUN (v5.4.0)
 
-### Funzionamento
+Il calcolo confronto usa il PUN in questo ordine:
 
-- 1 chiamata al giorno con cache 24h + jitter casuale (±3 ore)
-- User-Agent mascherato da Chrome standard
-- Storico giornaliero salvato in `data/market_history.json` (ultimi 90 giorni)
-- Trend calcolato su 7 e 30 giorni
+1. **PUN forward ARERA** — da `data/offerte/config.json`, salvato automaticamente a ogni sync mensile. È il valore ufficiale del Portale Offerte (media forward 4 trimestri solari). Valido per 60 giorni.
+2. **PUN spot live** — da `portaleenergia.it/api/dashboard?period=today` (fallback se il forward non è disponibile o è scaduto).
+
+**Metodo simmetrico**: stesso PUN per entrambi i lati del confronto (spesa attuale e nuove offerte). Il risparmio riflette solo differenze contrattuali (spread + quota fissa), non oscillazioni di mercato.
+
+### Fonte Dati
+
+- **PUN forward**: Portale Offerte ARERA → incluso in ogni offerta variabile (campo `Pun`) → estratto da `arera_sync.php` e salvato in `config.json` con timestamp
+- **PUN/PSV spot**: `portaleenergia.it/api/dashboard?period=today` con cache 24h ±3 ore
+- **Storico**: `data/market_history.json` (ultimi 90 giorni) per trend analysis
+- **Warning visibile**: se il forward non è disponibile, l'`agent_summary` include: *"⚠️ PUN forward ARERA non disponibile (sync scaduto o assente). Esegui il sync ARERA dal pannello Admin per aggiornare."*
+- **Badge fonte**: `GET /api/market-indices` include `pun_source` (`forward_arera` o `spot_live`), `pun_forward_label`, `pun_forward_age_days`
 
 ### Widget MarketSignal
 
-Mostrato in homepage solo quando ci sono dati reali di trend (mai placeholder).
-
-```
-☀️ Buon momento per cambiare
-   Il PUN è in calo (-12% in 30gg). Valuta un fisso.
-   
-   PUN 146,7 €/MWh ↓5% 7gg    PSV 51,4 €/MWh
-```
-
-**Stati**:
-- ☀️ `good` — PUN in calo >5% in 30gg → buon momento per fissare il prezzo
-- ☁️ `neutral` — Mercato stabile (±5%)
-- ⛈️ `alert` — PUN in salita >10% → se hai un variabile, passa al fisso
-
-**Regola**: se il backend non ha dati sufficienti per calcolare il trend (`trend.moment` assente), il widget non viene renderizzato. Nessun placeholder, nessun "Caricamento...".
+Mostrato in homepage solo quando ci sono dati reali di trend (mai placeholder). Stati: ☀️ good, ☁️ neutral, ⛈️ alert.
 
 ### Endpoint
 
-`GET /api/market-indices` → `pun`, `psv`, `trend { direction, icon, moment, message, week_change_pct, month_change_pct }`
+`GET /api/market-indices` → `pun`, `psv`, `pun_source`, `pun_forward_label`, `pun_forward_age_days`, `trend { direction, icon, moment, message, week_change_pct, month_change_pct }`
 
 ---
 
@@ -367,18 +361,32 @@ Tutti i parametri ARERA sono in **un'unica fonte** per frontend e backend:
 | `backend/php/inc/bill_parser.php` | PHP: 17 `define()` con guard `if (!defined(...))` + `getAreraConstants()` |
 | `GET /api/arera-constants` | API pubblica che espone i valori correnti in JSON |
 
-### Valori LUCE — ARERA v4.0 (aggiornati Giugno 2026, Del. 575/2025)
+### Valori LUCE — ARERA v4.0 (aggiornati 29 Giugno 2026, Q3 2026)
 
 | Costante | Valore | Descrizione |
 |----------|--------|-------------|
 | `PERDITE_RETE_BT` | 1.102 | Coefficiente perdite Bassa Tensione (~10,2%). Applicato SOLO al PUN, non allo spread |
-| `ONERI_SISTEMA` | 0.0303 €/kWh | ASOS 0.02866 + ARIM 0.00164 (Comunicato Q2 2026) |
-| `ACCISE` | 0.0227 €/kWh | Accisa erariale. Soglie DL 504/1995: esente ≤1800 kWh/anno, compensata ≤2640 kWh/anno |
-| `TRASPORTO_VAR` | 0.01204 €/kWh | TRAS 0.01190 + UC3 0.00007 + UC6 0.00007 (Del. 575/2025) |
-| `COSTO_POTENZA_KW` | 23.52 €/kW/anno | Quota potenza impegnata (Del. 575/2025) |
-| `QUOTA_FISSA_RETI` | 23.04 €/anno | Trasporto fisso + gestione contatore (Del. 575/2025) |
+| `ONERI_SISTEMA` | 0.030295 €/kWh | ASOS + ARIM (Q3 2026) |
+| `ACCISE` | 0.0227 €/kWh | Accisa erariale. Formula: `max(0, min(kWh, 2640) - 1800) × 0.0227`. Esente ≤1800, compensata >2640 |
+| `TRASPORTO_VAR` | 0.01473 €/kWh | TRAS + UC3 + UC6 + gestione contatore (Q3 2026, allineato Portale Offerte) |
+| `COSTO_POTENZA_KW` | 23.76 €/kW/anno | Quota potenza (1,98 €/kW/mese × 12, Q3 2026) |
+| `QUOTA_FISSA_RETI` | 23.04 €/anno | Trasporto fisso + gestione contatore |
 | `CANONE_RAI_ANNUO` | 90.00 €/anno | Canone RAI (solo LUCE residenziale, non si applica a business/P.IVA) |
 | `IVA` | 10% (residenziale) / 22% (business) | IVA agevolata usi domestici |
+
+### Accise DL 504/1995 — Formula unificata (v5.4.0)
+
+La formula precedente aveva un bug nel ramo `else` (consumi >2640 kWh/anno) che sovrastimava le accise. Fix applicato in 6 posizioni (PHP ×3, JS ×3):
+
+```php
+// CORRETTO (singola formula, sostituisce 3 if/elseif/else)
+$accise = max(0, min($yearlyKwh, LUCE_ACCISE_SOGLIA_COMPENSATA) - LUCE_ACCISE_SOGLIA_ESENTE) * LUCE_ACCISE;
+// Esente ≤1800 kWh, tassato 1800-2640, compensato >2640
+```
+
+### Potenza impegnata — Propagazione (v5.4.0)
+
+Il valore `potenza_impegnata` dalla bolletta (es. 4,5 kW) non veniva passato a `calculateSavingsBreakdown()`, che usava sempre il default 3,0 kW. Impatto: ~39€/anno di differenza sul costo finale. Fix: propagato in `handleV2Analyze`, `mcp_analyze`, e frontend `calcLuceCost`.
 
 ### Valori GAS — ARERA v4.0
 
@@ -494,10 +502,20 @@ Ogni pagina HTML statica ha:
 
 ### Sitemap
 
-Generata dinamicamente da `api/index.php`:
-- 5 pagine statiche con `lastmod`, `changefreq`, `priority`
-- 30+ pagine offerta (`/offerta/{id}`) con `lastmod` e `changefreq`
-- URL referenziati con estensione `.html` (coerente con i canonical)
+Generata dinamicamente da `api/index.php`. ~386 URL:
+- **13 pagine statiche**: `/`, `/per-llm`, `/come-funziona`, `/faq`, `/privacy`, `/cookie`, `/risorse/` + 6 sub-pagine
+- **373 pagine fornitore**: `/fornitori/{slug}` — indicizzate, contenuto ricco (offerte, stats, JSON-LD Organization)
+- **NO pagine /offerta/{uuid}** — sono `noindex, follow` (thin content, evitano penalizzazione doorway pages)
+- Le pagine offerta restano accessibili (per link diretti) ma non indicizzate, con `canonical → homepage`
+
+### Pagine Fornitore (`/fornitori/{slug}`)
+
+Create per SEO, **index, follow**, contenuto unico:
+- Stats: N offerte Luce/Gas, N fissi/variabili
+- Tabella completa con prezzi, quote fisse, dettagli
+- JSON-LD Organization
+- CC BY 4.0 attribution
+- Link a `/offerta/{id}` per i dettagli (noindex)
 
 ### API: X-Robots-Tag
 
@@ -649,19 +667,88 @@ Topics: `mcp`, `webmcp`, `energy`, `tariffs`, `italy`, `ai-agent`, `llm`, `elect
 
 ---
 
-## 19. Riferimenti
+## 19. Changelog v5.4.0 — 29 Giugno 2026
+
+### 🔧 Bug Fix (15 issue da code review)
+
+| Issue | Fix |
+|-------|-----|
+| **C1** Accise DL 504/1995 sbagliate >2640 kWh | Formula unificata `max(0, min(kWh, 2640)-1800) × 0.0227` in 6 posizioni |
+| **C2** IVA business ignorata (sempre 10%) | `$tipoCliente === 'business' ? 0.22 : 0.10` in `calculateSavingsBreakdown` |
+| **C3** `CANONE_RAI_ANNUO` undefined → PHP 8.x Fatal Error | `define('CANONE_RAI_ANNUO', 90.00)` |
+| **C4** `.env` esposto via PHP built-in server | `router.php` ora blocca richieste a `*.env` |
+| **C5** StickyReferenceBar: PSV mostrava PUN per gas | `isLuce ? punDisplay : psvDisplay` |
+| **H1** Spread retro-stima ignorava `LUCE_PERDITE_RETE_BT` | Aggiunto `× 1.102` nella retro-stima |
+| **H2** `getTariffsForCalculation` ignorava zona/tipoCliente | Ora filtra per `$tipoCliente` |
+| **H3** Rate limit consumato prima di verificare API key | Auth check spostato PRIMA del rate limit |
+| **H4** `$attualization` dead code (referenziata prima dell'assegnazione) | Spostata dopo il calcolo |
+| **M1** `$unitPrice` assegnato due volte identico | Rimosso duplicato |
+| **M2** `Comodista` → `Comodatario` MCP server | Allineato enum |
+| **M3** Riga duplicata "METODO ARERA" in MCP server | Rimossa |
+| **M4** Field legacy `"psv Aprile 2025/"` in calc.js (3 posizioni) | Sostituito con `"psv"` |
+| **M5** Home.jsx: HTTP status check mancante + stale closure | `r.ok` + `marketData` in deps |
+
+### 🚀 Nuove Features
+
+| Feature | Dettaglio |
+|---------|-----------|
+| **PUN forward ARERA** | Da config.json (sync mensile), non più spot. Priorità: forward → spot live. Warning se scaduto |
+| **Potenza reale** | `potenza_impegnata` ora propagata in tutte le path di calcolo (API + frontend) |
+| **Filtro fornitori** | Chip cliccabili con conteggio, gruppo "Grandi fornitori" (14), toggle rapido |
+| **Confronto checkbox** | Checkbox su ogni offerta → barra flottante → modale comparativo affiancato |
+| **Pagine `/fornitori/{slug}`** | 373 pagine SEO indicizzate con stats, tabella offerte, JSON-LD Organization |
+| **CC BY 4.0** | Attribuzione dati ARERA nel footer (React + pagine statiche) |
+| **JSON-LD arricchito** | `offers` come array, `sku`, `category`, `priceValidUntil`, `areaServed` |
+| **PUN source tracking** | `/api/market-indices` include `pun_source`, badge nell'`agent_summary` |
+
+### 📊 Costanti ARERA Q3 2026
+
+Allineate al Portale Offerte (verificate contro Wattene):
+
+| Costante | Q2 | Q3 | Delta |
+|----------|-----|-----|-------|
+| `TRASPORTO_VAR` | 0.01204 | 0.01473 | +0.00269 |
+| `COSTO_POTENZA_KW` | 23.52 | 23.76 | +0.24 |
+| `ONERI_SISTEMA` | 0.0303 | 0.030295 | -0.000005 |
+| Differenza costo annuo (1600 kWh, 3 kW) | | | +5€ su 578€ (1%) vs Wattene |
+
+### 🗑️ Pulizia
+
+- **Sezione Plus** eliminata (tutto il codice portato nel main)
+- `DOCUMENTAZIONE_CALCOLO_ARERA.md` salvato nella root
+- Sitemap: rimossi 5000+ URL UUID, sostituiti con 373 `/fornitori/` parlanti
+- Pagine `/offerta/`: `noindex, follow` + `canonical → homepage`
+
+### 📋 Da Fare / Backlog
+
+| Priorità | Task | Note |
+|----------|------|------|
+| 🔴 Alta | **Forward PUN trimestrale reale** | Ora usiamo il PUN forward dal config.json (salvato dal sync). Il valore è quello ufficiale ARERA ma va verificato mensilmente. Futuro: integrare GME forward curve per calcolo autonomo |
+| 🔴 Alta | **Sync ARERA automatico via cron** | Su OVH è configurabile. Eseguire 1 volta/settimana per aggiornare offerte + PUN forward |
+| 🟡 Media | **F1/F2/F3 nativo** | SwitchAI usa prezzo medio monorario. Offerte biorarie (es. A2A Full Luce) andrebbero calcolate con prezzi per fascia |
+| 🟡 Media | **Gas: costo materia depurato** | `spesa_materia_energia` non gestito per GAS. La stima spread gas è meno precisa |
+| 🟡 Media | **Pagine `/fornitori/` arricchite** | Aggiungere logo, descrizione fornitore, rating, link affiliazione |
+| 🟢 Bassa | **Admin: upload manuale PUN forward** | In caso il sync fallisca, permettere upload manuale del valore |
+| 🟢 Bassa | **CDISPD nei calcoli** | Aggiungere componente dispacciamento (dal documento ARERA) |
+
+---
+
+## 20. Riferimenti
 
 - **WebMCP Spec**: [GoogleChromeLabs/webmcp-tools](https://github.com/GoogleChromeLabs/webmcp-tools)
 - **MCP Spec**: [modelcontextprotocol.io](https://modelcontextprotocol.io)
 - **llms.txt**: [llmstxt.org](https://llmstxt.org)
 - **ARERA Bolletta 2.0**: Delibera 501/2014/R/com
-- **Progetto originale (Python)**: `/Users/djanc/Documents/Progetti_IA/poetry-ripulita/`
+- **Portale Offerte ARERA**: [ilportaleofferte.it](https://www.ilportaleofferte.it) — dati sotto licenza CC BY 4.0
+- **Algoritmo ARERA**: `DOCUMENTAZIONE_CALCOLO_ARERA.md` (root)
+- **Wattene**: [wattene.it](https://wattene.it) — benchmark di confronto
 
 ---
 
-> **Versione**: 5.3.0 — 26 Giugno 2026  
+> **Versione**: 5.4.0 — 29 Giugno 2026  
 > **Dominio**: switchai.it · **Hosting**: OVH Pro · **PHP**: 8.5.0 · **MySQL**: 2 GB  
-> **Tools**: 4 WebMCP + 7 MCP pubblici · **Endpoint API**: 25+  
+> **Offerte**: 5.500+ da Portale Offerte ARERA (sync mensile) · **Fornitori**: 373  
+> **Tools**: 4 WebMCP + 7 MCP pubblici · **Endpoint API**: 28+
 > **Offerte**: 5.000+ da sync ARERA giornaliero (21 fornitori)  
 > **Parser**: ARERA 3.0 — 10/10 PDF testati  
 > **Modello**: API-first, LLM-native. Niente parsing PDF lato server.  
