@@ -1257,13 +1257,25 @@ function handleV2Analyze(array $input): void {
     $summary = '';
 
     // Contesto PUN per trasparenza metodologica
+    $punSource = getAreraForwardMeta();
     $punContext = '';
+    $punWarning = '';
+
     if ($isCurrentVariable && $livePunEurKwh !== null) {
-        $punContext = sprintf(' Confronto a PUN corrente %.1f €/MWh (metodo ARERA: stesso PUN per entrambe le tariffe variabili).', $livePunEurKwh * 1000);
+        $srcLabel = ($punSource['source'] === 'forward_arera') ? 'PUN forward ARERA' : 'PUN spot live';
+        $ageNote = ($punSource['source'] === 'forward_arera' && $punSource['age_days'] !== null)
+            ? " (agg. {$punSource['age_days']}gg fa)"
+            : '';
+        $punContext = sprintf(' Confronto a %s %.1f €/MWh%s (metodo ARERA: stesso PUN per entrambe le tariffe variabili).', $srcLabel, $livePunEurKwh * 1000, $ageNote);
     } elseif ($livePunEurKwh !== null) {
         $punContext = sprintf(' PUN corrente %.1f €/MWh usato per il calcolo offerte variabili.', $livePunEurKwh * 1000);
     } elseif ($livePsvEurSmc !== null) {
         $punContext = sprintf(' PSV corrente %.1f €/MWh usato per il calcolo offerte variabili.', $livePsvEurSmc * 1000);
+    }
+
+    // Warning se il forward ARERA non è disponibile e stiamo usando lo spot
+    if ($punSource['source'] === 'spot_live' && $livePunEurKwh !== null) {
+        $punWarning = ' ⚠️ PUN forward ARERA non disponibile (sync scaduto o assente). Uso PUN spot live ' . round($livePunEurKwh * 1000, 1) . ' €/MWh, che potrebbe differire dalla media forward trimestrale usata dal Portale Offerte. Esegui il sync ARERA dal pannello Admin per aggiornare.';
     }
 
     if ($best && $best['savings_eur'] > 0) {
@@ -1318,6 +1330,7 @@ function handleV2Analyze(array $input): void {
 
     // Attach recommendation to response
     $honestyBadge = $recommendation === 'switch' ? '✅ CONVIENE' : ($recommendation === 'evaluate' ? '⚠️ VALUTA' : '❌ NON CONVIENE');
+    if ($punWarning) $summary .= $punWarning;
     $summary .= $disclaimer;
 
     // Why better analysis — per l'LLM per spiegare il risparmio
@@ -1665,6 +1678,12 @@ function handleMarketIndices(): void {
     // Formatta per visualizzazione
     $indices['pun_display'] = number_format($indices['pun'] * 1000, 1, ',', '') . ' €/MWh (' . number_format($indices['pun'], 4, ',', '') . ' €/kWh)';
     $indices['psv_display'] = number_format($indices['psv'] * 1000, 1, ',', '') . ' €/MWh (' . number_format($indices['psv'], 4, ',', '') . ' €/Smc)';
+
+    // Metadata PUN forward ARERA (per badge UI)
+    $areraMeta = getAreraForwardMeta();
+    $indices["pun_source"] = $areraMeta["source"];
+    $indices["pun_forward_label"] = $areraMeta["label"];
+    $indices["pun_forward_age_days"] = $areraMeta["age_days"];
 
     @file_put_contents($cacheFile, json_encode($indices, JSON_UNESCAPED_UNICODE), LOCK_EX);
     jsonResponse($indices);

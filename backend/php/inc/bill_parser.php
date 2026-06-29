@@ -591,12 +591,44 @@ function getAreraForwardPun(): ?float {
     if ($updated) {
         $age = time() - strtotime($updated);
         if ($age > 60 * 86400) {
-            error_log("bill_parser: ARERA forward PUN too old ({$age}s), falling back to live spot");
+            error_log("bill_parser: ARERA forward PUN too old (" . round($age/86400) . " days), falling back to live spot");
             return null;
         }
     }
 
     return (float)$pun;
+}
+
+/**
+ * Restituisce metadati sul PUN forward ARERA (età, label, fonte).
+ * Usato per mostrare badge nell'UI (es. "ARERA forward · Giugno 2026").
+ *
+ * @return array{pun: ?float, label: ?string, age_days: ?int, source: string}
+ */
+function getAreraForwardMeta(): array {
+    $configFile = __DIR__ . '/../data/offerte/config.json';
+    $meta = ['pun' => null, 'label' => null, 'age_days' => null, 'source' => 'spot_live'];
+
+    if (!is_file($configFile)) return $meta;
+    $config = json_decode(file_get_contents($configFile), true);
+    if (!is_array($config)) return $meta;
+
+    $pun = $config['PUN'] ?? null;
+    $updated = $config['updated_at'] ?? null;
+    $label = $config['PUN_label'] ?? null;
+
+    if ($pun === null || (float)$pun <= 0) return $meta;
+
+    $ageDays = $updated ? (int)((time() - strtotime($updated)) / 86400) : null;
+
+    if ($ageDays !== null && $ageDays <= 60) {
+        $meta['pun'] = (float)$pun;
+        $meta['label'] = $label;
+        $meta['age_days'] = $ageDays;
+        $meta['source'] = 'forward_arera';
+    }
+
+    return $meta;
 }
 
 /**
