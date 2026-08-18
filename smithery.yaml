@@ -1,0 +1,50 @@
+# Smithery.ai MCP Server Configuration
+# https://smithery.ai
+
+name: io.github.US1929/switchai
+version: 2.3.0
+
+description: >
+  SwitchAI MCP Server — Italian energy tariff comparison. Analyzes ARERA 2.0
+  utility bills, compares 5.600+ live offers for electricity (Luce) and gas using
+  the ARERA symmetric PUN method. Includes live PUN/PSV market indices, 
+  affiliate link redirects to supplier sites for activation, and honesty system
+  (recommends switch only when savings > 50€/year and > 5%).
+
+repository: https://github.com/US1929/switchai
+homepage: https://www.switchai.it
+
+build:
+  type: node
+  packageManager: npm
+  sourceDir: mcp-server/
+
+runtime:
+  type: stdio
+  command: node
+  args:
+    - index.js
+
+capabilities:
+  tools:
+    - calculate_energy_savings
+    - parse_energy_bill
+    - get_available_offers
+    - get_market_indices
+
+categories:
+  - energy
+  - utilities
+  - finance
+
+tags:
+  - energy
+  - electricity
+  - gas
+  - tariffs
+  - italy
+  - arera
+  - pun
+  - psv
+  - bolletta
+  - luce

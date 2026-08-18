@@ -59,14 +59,14 @@
 <h1>SwitchAI — Documentazione per AI Agent</h1>
 <p class="subtitle">
   Questa pagina è ottimizzata per AI agent, LLM crawler e client MCP.<br>
-  URL: <code>https://www.switchai.it/per-llm</code> · Aggiornata: Giugno 2026
+  URL: <code>https://www.switchai.it/per-llm</code> · Aggiornata: Luglio 2026
 </p>
 
 <h2>Cos'è SwitchAI</h2>
 <p>
-  SwitchAI è un <strong>agente AI per il cambio automatico del fornitore energia</strong> nel mercato libero italiano.
-  Non è un comparatore tradizionale: l'utente fornisce la sua bolletta (testo o PDF), e l'AI analizza i dati,
-  confronta <strong>44+ offerte attive</strong> di Luce e Gas, e attiva la tariffa migliore direttamente.
+  SwitchAI è un <strong>agente AI per il cambio del fornitore energia</strong> nel mercato libero italiano.
+  L'utente fornisce la sua bolletta (testo o PDF), e l'AI analizza i dati,
+  confronta <strong>5.600+ offerte ARERA</strong> di Luce e Gas, e fornisce link diretti ai siti dei fornitori per l'attivazione.
 </p>
 <p>Copre tutto il territorio italiano: zone NORD, CENTRO, SUD — tutte le 106 province.</p>
 
@@ -84,7 +84,7 @@
 <table>
   <thead><tr><th>Canale</th><th>Tecnologia</th><th>Requisiti</th></tr></thead>
   <tbody>
-    <tr><td><strong>WebMCP</strong></td><td>navigator.modelContext.registerTool()</td><td>Chrome 146+ con flag WebMCP</td></tr>
+    <tr><td><strong>WebMCP</strong></td><td>document.modelContext.registerTool()</td><td>Chrome 146+ con flag WebMCP</td></tr>
     <tr><td><strong>MCP Server</strong></td><td>@modelcontextprotocol/sdk Node.js</td><td>Claude Desktop o client MCP</td></tr>
     <tr><td><strong>REST API</strong></td><td>JSON over HTTPS</td><td>Qualsiasi client HTTP</td></tr>
   </tbody>
@@ -93,15 +93,17 @@
 <h2>Tool disponibili</h2>
 
 <h3>1. calculate_energy_savings</h3>
-<p><span class="tag">WebMCP</span><span class="tag">MCP</span><span class="tag">REST</span> <code>POST /api/webmcp-endpoint</code></p>
-<p>Confronta le tariffe e calcola il risparmio. Restituisce top 3 offerte ordinate per risparmio + <code>agent_summary</code> in italiano.</p>
+<p><span class="tag">WebMCP</span><span class="tag">MCP</span><span class="tag">REST</span> <code>POST /api/analyze</code> (unico endpoint, con honesty system)</p>
+<p>Confronta le tariffe e calcola il risparmio. Restituisce top offerte ordinate per risparmio + <code>agent_summary</code> in italiano.</p>
 <table>
   <thead><tr><th>Parametro</th><th>Tipo</th><th>Descrizione</th></tr></thead>
   <tbody>
     <tr><td><code>commodity</code></td><td>LUCE|GAS</td><td>Tipo fornitura</td></tr>
+    <tr><td><code>bill_text</code></td><td>string</td><td>(Modalità bolletta) Testo completo per estrazione automatica di consumi, spesa e zona</td></tr>
     <tr><td><code>yearly_consumption_kwh</code></td><td>number</td><td>Consumo annuo kWh (solo LUCE)</td></tr>
     <tr><td><code>yearly_consumption_smc</code></td><td>number</td><td>Consumo annuo Smc (solo GAS)</td></tr>
     <tr><td><code>zone</code></td><td>NORD|CENTRO|SUD</td><td>Zona tariffaria</td></tr>
+    <tr><td><code>current_supplier</code></td><td>string</td><td>Fornitore attuale (es. 'Enel Energia')</td></tr>
     <tr><td><code>current_annual_spend</code></td><td>number</td><td>Spesa annua attuale in €</td></tr>
   </tbody>
 </table>
@@ -112,28 +114,25 @@
 
 <h3>3. get_available_offers</h3>
 <p><span class="tag">WebMCP</span><span class="tag">MCP</span><span class="tag">REST</span> <code>GET /api/tariffe/{luce|gas}</code></p>
-<p>Lista completa offerte: 25 per luce, 19 per gas. Include prezzi, tipo contratto, quota fissa, fornitore.</p>
+<p>Lista completa offerte: 3.196 per luce, 2.411 per gas. Include prezzi, tipo contratto, quota fissa, fornitore.</p>
 
-<h3>4. submit_subscription</h3>
-<p><span class="tag">WebMCP</span><span class="tag">MCP</span><span class="tag">REST</span> <code>POST /api/subscription/submit</code></p>
-<p>Attiva la sottoscrizione a una tariffa. Raccogliere il consenso esplicito dell'utente prima di chiamare questo tool. Supporta <code>"dry_run": true</code> per anteprima senza invio.</p>
+<h3>4. get_market_indices</h3>
+<p><span class="tag">WebMCP</span><span class="tag">MCP</span><span class="tag">REST</span> <code>GET /api/market-indices</code></p>
+<p>PUN (energia elettrica) e PSV (gas) correnti. Dati aggiornati giornalmente.</p>
 
 <h2>Flussi consigliati</h2>
-<h3>Flusso A — Analisi bolletta completa (raccomandato)</h3>
+<h3>Flusso A — Analisi bolletta + confronto (raccomandato)</h3>
 <pre>1. parse_energy_bill(bill_text)
    → ottieni: consumi, spesa attuale, zona, POD/PDR
 
 2. calculate_energy_savings(commodity, consumi, zona, spesa)
-   → ottieni: top 3 offerte + risparmio + agent_summary
+   → ottieni: offerte + risparmio + agent_summary + affiliate_url</pre>
 
-3. [se utente conferma] submit_subscription(tariff_id, dati_utente)
-   → attivazione completata</pre>
+<p>L'attivazione avviene direttamente sul sito del fornitore tramite il link <code>affiliate_url</code> restituito. SwitchAI non raccoglie dati personali per l'attivazione.</p>
 
 <h3>Flusso B — Confronto rapido (senza bolletta)</h3>
 <pre>1. calculate_energy_savings(commodity, consumi_stimati, zona, spesa_stimata)
-   → ottieni: top 3 offerte
-
-2. [opzionale] submit_subscription</pre>
+   → ottieni: offerte + affiliate_url</pre>
 
 <h2>Dati di mercato live</h2>
 <p><code>GET /api/market-indices</code> — PUN (prezzo energia elettrica all'ingrosso) e PSV (prezzo gas) aggiornati quotidianamente da fonti ufficiali.</p>
@@ -156,10 +155,6 @@
 <div class="note">
   Tutte le risposte API sono in italiano. Il campo <code>agent_summary</code> in calculate_energy_savings è già formattato per essere mostrato direttamente all'utente.
 </div>
-<div class="note">
-  Prima di chiamare submit_subscription, raccogliere sempre il consenso esplicito dell'utente. Usare dry_run:true per mostrare il riepilogo all'utente prima dell'invio definitivo.
-</div>
-
 <h2>Discovery files</h2>
 <ul>
   <li><a href="/webmcp.json"><code>/webmcp.json</code></a> — WebMCP tool discovery</li>

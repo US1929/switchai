@@ -5,66 +5,54 @@ export default function Privacy() {
     <main style={{ padding: '60px 24px 80px' }}>
       <div style={{ maxWidth: 780, margin: '0 auto', fontSize: 14, color: '#94a3b8', lineHeight: 1.8 }}>
         <h1 style={{ fontSize: 30, fontWeight: 900, color: '#f1f5f9', marginBottom: 8 }}>Privacy Policy</h1>
-        <p style={{ color: '#64748b', marginBottom: 40 }}>Ultimo aggiornamento: Giugno 2026</p>
+        <p style={{ color: '#64748b', marginBottom: 40 }}>Ultimo aggiornamento: Luglio 2026</p>
 
         <Section title="1. Titolare del Trattamento">
-          SwitchAI è un servizio di confronto e attivazione tariffe Luce e Gas gestito da Innovasemplice S.p.A. (di seguito "Innovasemplice" o "il Titolare"), con sede in Italia.
-          I dati personali raccolti attraverso il sito switchai.it e i tool WebMCP/MCP vengono trattati in conformità al Regolamento UE 2016/679 (GDPR) e al D.Lgs. 196/2003.
+          SwitchAI è un servizio di confronto tariffe Luce e Gas nel mercato libero italiano.
+          I dati personali raccolti attraverso il sito switchai.it e i tool WebMCP/MCP vengono
+          trattati in conformità al Regolamento UE 2016/679 (GDPR) e al D.Lgs. 196/2003.
+          Per informazioni: <b>info@switchai.it</b>
         </Section>
 
         <Section title="2. Dati raccolti">
-          <p>SwitchAI raccoglie esclusivamente i dati necessari per il confronto e l'attivazione di offerte Luce e Gas:</p>
+          <p>SwitchAI raccoglie esclusivamente i dati necessari per la registrazione dell'account e il confronto delle offerte:</p>
           <ul style={{ marginTop: 8, paddingLeft: 20 }}>
-            <li><b>Dati anagrafici</b>: nome, cognome, codice fiscale</li>
-            <li><b>Dati di contatto</b>: email, numero di telefono</li>
-            <li><b>Dati di fornitura</b>: indirizzo, CAP, città, provincia, POD/PDR</li>
-            <li><b>Dati di consumo</b>: consumo annuo kWh (luce) o Smc (gas), potenza contrattuale</li>
-            <li><b>Dati di pagamento</b>: IBAN (solo se viene scelta la domiciliazione bancaria SDD)</li>
+            <li><b>Dati di registrazione</b>: nome, cognome, email, password (crittografata)</li>
+            <li><b>Dati di consumo</b>: consumo annuo kWh (luce) o Smc (gas), spesa annua, zona tariffaria — forniti volontariamente dall'utente durante il confronto, non memorizzati</li>
+            <li><b>Dati tecnici</b>: indirizzo IP, user agent, pagine visitate (solo cookie tecnici)</li>
           </ul>
+          <p style={{ marginTop: 8 }}>SwitchAI <b>non raccoglie</b> dati sensibili, codice fiscale, POD/PDR, IBAN o dati di pagamento. L'attivazione delle offerte avviene direttamente sul sito del fornitore tramite link di reindirizzamento.</p>
         </Section>
 
         <Section title="3. Finalità del trattamento">
           I dati sono trattati per le seguenti finalità:
           <ul style={{ marginTop: 8, paddingLeft: 20 }}>
-            <li><b>Confronto e attivazione offerte</b>: per analizzare la bolletta, confrontare le tariffe disponibili e inoltrare la richiesta di attivazione al fornitore selezionato</li>
-            <li><b>Contatto</b>: per essere ricontattati da un consulente partner al fine di completare l'attivazione</li>
-            <li><b>Obblighi di legge</b>: per adempiere a obblighi previsti dalla normativa vigente</li>
+            <li><b>Registrazione account</b>: per creare e gestire l'account utente e le API key</li>
+            <li><b>Confronto offerte</b>: per analizzare la bolletta e confrontare le tariffe disponibili</li>
+            <li><b>Reindirizzamento</b>: per fornire link di affiliazione ai siti dei fornitori per l'attivazione</li>
+            <li><b>Miglioramento del servizio</b>: analisi aggregata anonima dell'utilizzo</li>
           </ul>
         </Section>
 
         <Section title="4. Base giuridica">
-          Il trattamento si basa sul <b>consenso esplicito</b> dell'interessato, raccolto tramite:
-          <ul style={{ marginTop: 8, paddingLeft: 20 }}>
-            <li><b>Checkbox</b> nel form di sottoscrizione sul sito switchai.it</li>
-            <li><b>Conferma verbale</b> registrata nella conversazione con l'assistente AI (WebMCP/MCP), con snippet testuale archiviato come prova</li>
-            <li><b>Double opt-in</b>: dopo l'invio dei dati, l'utente riceve una email con link di conferma. Solo dopo il click sul link i dati vengono inoltrati ai partner</li>
-          </ul>
+          Il trattamento si basa sul <b>consenso</b> dell'interessato per i dati di registrazione
+          e sul <b>legittimo interesse</b> per i dati tecnici anonimi necessari al funzionamento del servizio.
         </Section>
 
-        <Section title="5. Double Opt-In e prova del consenso">
-          SwitchAI utilizza un sistema di <b>double opt-in</b> per garantire la validità del consenso:
-          <ol style={{ marginTop: 8, paddingLeft: 20 }}>
-            <li>L'utente fornisce i dati e accetta esplicitamente la privacy policy</li>
-            <li>SwitchAI invia una email di conferma all'indirizzo fornito con link univoco</li>
-            <li>Solo dopo il click sul link di conferma, i dati vengono inoltrati ai partner</li>
-          </ol>
-          Per ogni sottoscrizione vengono registrati: IP, timestamp, fonte del consenso (web/mcp/webmcp), snippet della conversazione (se il consenso è stato dato via AI).
+        <Section title="5. Comunicazione a terzi">
+          I dati personali degli account registrati non vengono comunicati a terzi.
+          I dati di consumo anonimi (senza dati personali) possono essere utilizzati in forma aggregata.
+          I link di reindirizzamento portano ai siti ufficiali dei fornitori di energia o, in alcuni casi,
+          a portali di affiliazione (es. <b>TradeDoubler</b>) per l'attivazione convenzionata —
+          nessun dato personale viene trasmesso tramite questi link.
         </Section>
 
-        <Section title="6. Comunicazione a terzi">
-          I dati personali sono comunicati esclusivamente a:
-          <ul style={{ marginTop: 8, paddingLeft: 20 }}>
-            <li><b>Fornitori di energia</b>: Enel, Eni Plenitude, Edison, A2A, Iren, Hera Comm, Sorgenia, Engie, Fastweb, Illumia, Acea, Octopus Energy, Volty e altri partner</li>
-            <li><b>Cloud-Care S.r.l.</b>: piattaforma di gestione lead utilizzata per l'inoltro delle richieste di attivazione</li>
-            <li><b>Consulenti partner</b>: rete di consulenti autorizzati per il completamento dell'attivazione</li>
-          </ul>
+        <Section title="6. Conservazione">
+          I dati dell'account sono conservati fino alla richiesta di cancellazione da parte dell'utente.
+          I log tecnici anonimi sono conservati per un massimo di 12 mesi.
         </Section>
 
-        <Section title="7. Conservazione">
-          I dati sono conservati per il tempo necessario all'esecuzione del servizio e per l'adempimento degli obblighi di legge. I log di consenso (IP, timestamp, snippet) sono conservati per 10 anni come prova del consenso prestato.
-        </Section>
-
-        <Section title="8. Diritti dell'interessato">
+        <Section title="7. Diritti dell'interessato">
           In qualsiasi momento puoi esercitare i diritti previsti dagli artt. 15-22 del GDPR:
           <ul style={{ marginTop: 8, paddingLeft: 20 }}>
             <li>Accesso, rettifica, cancellazione dei dati</li>
@@ -73,15 +61,19 @@ export default function Privacy() {
             <li>Opposizione al trattamento</li>
             <li>Revoca del consenso</li>
           </ul>
-          Per esercitare i tuoi diritti, scrivi a <b>privacy@switchai.it</b>. Hai inoltre il diritto di proporre reclamo al Garante per la Protezione dei Dati Personali.
+          Per esercitare i tuoi diritti, scrivi a <b>info@switchai.it</b>.
+          Hai il diritto di proporre reclamo al Garante per la Protezione dei Dati Personali.
         </Section>
 
-        <Section title="9. Cookie">
-          SwitchAI utilizza esclusivamente cookie tecnici essenziali per il funzionamento del sito. Non utilizza cookie di profilazione né di tracciamento. Per maggiori informazioni, consulta la <a href="/cookie" style={{ color: '#60a5fa' }}>Cookie Policy</a>.
+        <Section title="8. Cookie">
+          SwitchAI utilizza esclusivamente cookie tecnici essenziali per il funzionamento del sito.
+          Non utilizza cookie di profilazione né di tracciamento.
+          Per maggiori informazioni, consulta la <a href="/cookie" style={{ color: '#60a5fa' }}>Cookie Policy</a>.
         </Section>
 
-        <Section title="10. Contatti">
-          Per qualsiasi richiesta relativa alla privacy: <b>privacy@switchai.it</b>
+        <Section title="9. Contatti">
+          Per qualsiasi richiesta relativa alla privacy: <b>info@switchai.it</b><br />
+          Per informazioni generali: <b>info@switchai.it</b>
         </Section>
       </div>
     </main>

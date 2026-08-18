@@ -223,8 +223,6 @@ input { font-family: inherit; color: inherit; }
   background: var(--bg-surface); color: var(--text-primary);
   box-shadow: var(--shadow-sm);
 }
-.toggle-btn.luce.active { color: var(--color-electric-400); }
-.toggle-btn.gas.active { color: var(--color-gas-400); }
 
 /* ── Range Slider ───────────────────────────────────────────────────────── */
 
@@ -320,6 +318,23 @@ input { font-family: inherit; color: inherit; }
 .shimmer {
   background: linear-gradient(90deg, var(--bg-card) 25%, var(--bg-card-hover) 50%, var(--bg-card) 75%);
   background-size: 200% 100%; animation: shimmer 1.5s infinite;
+}
+
+@keyframes spinner {
+  to { transform: rotate(360deg); }
+}
+.spinner {
+  animation: spinner 0.7s linear infinite;
+}
+
+/* Confetti per bolletta già conveniente */
+.confetti-particle {
+  opacity: 0;
+  animation: confetti-fall linear forwards;
+}
+@keyframes confetti-fall {
+  0%   { transform: translateY(0) translateX(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(105vh) translateX(var(--drift, 30px)) rotate(var(--rotate, 360deg)); opacity: 0; }
 }
 
 /* ── Responsive ─────────────────────────────────────────────────────────── */

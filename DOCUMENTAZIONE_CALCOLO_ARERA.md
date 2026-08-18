@@ -502,7 +502,9 @@ TOTALE = 1320.06 + 214.38 = 1534.44
 
 ---
 
-## Appendice B: Storia modifiche documento ARERA
+## Appendice B: Storia modifiche
+
+### B.1 Documento ARERA
 
 | Versione | Data | Modifica |
 |---|---|---|
@@ -514,3 +516,16 @@ TOTALE = 1320.06 + 214.38 = 1534.44
 | 3.03 | 02/10/2023 | Fine Maggior Tutela non domestici |
 | 3.04 | 23/01/2025 | Corrispettivo Dispacciamento TIDE |
 | **4.0** | **16/02/2026** | **Del. 386/2025/R/com — in vigore dal 01/04/2026** |
+
+### B.2 Progetto SwitchAI
+
+| Data | Modifica |
+|---|---|
+| **05/07/2026** | **OpenAPI JSON — Fix nesting `paths`/`components`**: mancava `}` per chiudere `"paths"` prima di `"components"`. 231 `{` vs 230 `}`. Swagger UI dava YAMLException. |
+| **05/07/2026** | **Navbar unificata**: ridotto da 3 a 2 sorgenti navbar (React Navbar.jsx + nav.html via SSI/PHP). Rimosso `_header.php` inline nav, ora usa `readfile('../nav.html')`. |
+| **05/07/2026** | **Navbar — Voci**: rimosse Luce, Gas, Per LLM (solo in footer). Navbar finale: Confronta, Come funziona, SwitchAI+, API, Risorse, FAQ + Accedi/Registrati. |
+| **05/07/2026** | **Security audit API**: CORS locked a `www.switchai.it`/`switchai.it`. Nessun segreto nel bundle JS. Rate limiting assente per anonimi (dati ARERA pubblici, costo contenuto). |
+| **05/07/2026** | **SEO pages**: create /tariffe-luce e /confronto-gas con pre-render PHP + JSON-LD. Aggiunte a sitemap, robots.txt, nav. |
+| **05/07/2026** | **Affiliate disclosure**: micro-testo "*Link di affiliazione*" sotto CTA in TariffCard e TariffTableRow. |
+| **05/07/2026** | **Privacy/Cookie policy**: menzione TradeDoubler, email unificata info@switchai.it. |
+| **23/06/2026** | **ARERA v4.0**: λ fixato (`PUN×1.102+SPREAD` non `(PUN+SPREAD)×1.102`). Accise luce corrette (compensazione a 3 scaglioni). Addizionale regionale gas (0.0093 €/Smc). |

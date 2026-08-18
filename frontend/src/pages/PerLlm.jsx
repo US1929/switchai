@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
 
 const ENDPOINTS = [
-  { method: 'POST', path: '/api/webmcp-endpoint', tool: 'calculate_energy_savings', desc: 'Confronta tariffe e calcola risparmio', schema: { commodity: 'LUCE|GAS', yearly_consumption_kwh: 2700, zone: 'NORD', current_annual_spend: 650 } },
+  { method: 'POST', path: '/api/analyze', tool: 'calculate_energy_savings', desc: 'Endpoint V2 — analisi completa + confronto in una chiamata (consigliato)', schema: { commodity: 'LUCE', consumo_annuo_kwh: 2700, spesa_annua_eur: 650, zona: 'NORD' } },
   { method: 'POST', path: '/api/parse-bill-text', tool: 'parse_energy_bill', desc: 'Estrae dati strutturati da testo bolletta', schema: { bill_text: 'ENEL ENERGIA\\nPOD: IT001E...\\nConsumo annuo: 2700 kWh...' } },
-  { method: 'GET', path: '/api/tariffe/luce', tool: 'get_available_offers', desc: 'Lista completa offerte LUCE', schema: null },
-  { method: 'GET', path: '/api/tariffe/gas', tool: 'get_available_offers', desc: 'Lista completa offerte GAS', schema: null },
-  { method: 'POST', path: '/api/subscription/submit', tool: 'submit_subscription', desc: 'Invia sottoscrizione al fornitore', schema: { tariff_id: '...', nome: 'Mario', cognome: 'Rossi', codice_fiscale: 'RSS...', email: '...', cellulare: '+39...', indirizzo: 'Via...', civico: '15', citta: 'Milano', provincia_sigla: 'MI', cap: '20121', codice_pod: 'IT001E...' } },
-  { method: 'GET', path: '/api/subscription/form-schema', tool: 'get_subscription_form_schema', desc: 'Schema del form di sottoscrizione', schema: null },
+  { method: 'GET', path: '/api/tariffe/luce', tool: 'get_available_offers', desc: 'Lista completa offerte LUCE (3.196+)', schema: null },
+  { method: 'GET', path: '/api/tariffe/gas', tool: 'get_available_offers', desc: 'Lista completa offerte GAS (2.411+)', schema: null },
+  { method: 'GET', path: '/api/market-indices', tool: 'get_market_indices', desc: 'PUN (luce) e PSV (gas) correnti', schema: null },
   { method: 'GET', path: '/api/health', tool: null, desc: 'Health check', schema: null },
 ];
 
@@ -72,7 +71,7 @@ export default function PerLlm() {
           <div style={{ fontSize: 13, color: '#94a3b8', lineHeight: 1.8 }}>
             <p style={{ marginBottom: 12 }}>
               <b style={{ color: '#f1f5f9' }}>WebMCP (Chrome 146+)</b>: Visita <code style={{ background: 'rgba(255,255,255,0.05)', padding: '2px 6px', borderRadius: 4, color: '#60a5fa' }}>https://switchai.it</code> in un browser con WebMCP abilitato.
-              I tool sono registrati via <code style={{ background: 'rgba(255,255,255,0.05)', padding: '2px 6px', borderRadius: 4 }}>navigator.modelContext.registerTool()</code>.
+              I tool sono registrati via <code style={{ background: 'rgba(255,255,255,0.05)', padding: '2px 6px', borderRadius: 4 }}>navigator.modelContext.registerTool() (Chrome 146+) o document.modelContext.registerTool() (Chrome 150+)</code>.
               L'agente li scopre automaticamente.
             </p>
             <p>

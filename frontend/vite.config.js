@@ -26,7 +26,6 @@ function copyBackendPlugin() {
         { src: 'mcp/index.php', dest: 'mcp/index.php' },
         { src: 'inc/tariff_loader.php', dest: 'inc/tariff_loader.php' },
         { src: 'inc/bill_parser.php', dest: 'inc/bill_parser.php' },
-        { src: 'inc/subscription_handler.php', dest: 'inc/subscription_handler.php' },
         { src: 'inc/llm_logger.php', dest: 'inc/llm_logger.php' },
         { src: 'inc/api_auth.php', dest: 'inc/api_auth.php' },
         { src: 'inc/db_mysql.php', dest: 'inc/db_mysql.php' },
@@ -34,11 +33,37 @@ function copyBackendPlugin() {
         { src: 'inc/arera_sync.php', dest: 'inc/arera_sync.php' },
         { src: 'risorse.php', dest: 'risorse.php' },
         { src: 'router.php', dest: 'router.php' },
+        { src: 'cron_arera.php', dest: 'cron_arera.php' },
       ]
 
-      // Crea directory data/offerte per ARERA sync
+      // Crea directory data/offerte per ARERA sync e copia i JSON delle offerte
+      // (db-offerte-luce.json, db-offerte-gas.json, config.json con PUN/PSV forward)
       const dataOfferteDir = resolve(distDir, 'data', 'offerte')
       try { mkdirSync(dataOfferteDir, { recursive: true }) } catch {}
+      const offerteSrcDir = resolve(backendDir, 'data', 'offerte')
+      if (existsSync(offerteSrcDir)) {
+        const offerteFiles = ['db-offerte-luce.json', 'db-offerte-gas.json', 'fornitori-enrichment.json']
+        for (const f of offerteFiles) {
+          const src = resolve(offerteSrcDir, f)
+          if (existsSync(src)) {
+            cpSync(src, resolve(dataOfferteDir, f))
+            console.log(`  ✅ Copiato data/offerte/${f} → dist/data/offerte/${f}`)
+          } else {
+            console.warn(`  ⚠️  File dati offerte non trovato: data/offerte/${f}`)
+          }
+        }
+      } else {
+        console.warn('  ⚠️  Directory backend/php/data/offerte non trovata — il backend non avrà offerte disponibili')
+      }
+
+      // Copia market_history.json da frontend/data/ (se presente) per storico trend mercato
+      const marketHistorySrc = resolve(__dirname, 'data', 'market_history.json')
+      if (existsSync(marketHistorySrc)) {
+        const dataDir = resolve(distDir, 'data')
+        try { mkdirSync(dataDir, { recursive: true }) } catch {}
+        cpSync(marketHistorySrc, resolve(dataDir, 'market_history.json'))
+        console.log('  ✅ Copiato data/market_history.json → dist/data/market_history.json')
+      }
 
       // Copia risorse SEO
       const resourcesDir = resolve(__dirname, '..', 'backend', 'php', 'resources')

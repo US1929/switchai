@@ -6,6 +6,11 @@
  * Uso: php -S localhost:8080 router.php
  */
 
+// ── WebMCP: header di sicurezza ────────────────────────────────────────
+header('Permissions-Policy: tools=(self)');
+header('Cross-Origin-Opener-Policy: same-origin');
+header('Cross-Origin-Embedder-Policy: credentialless');
+
 $uri = $_SERVER['REQUEST_URI'];
 $path = parse_url($uri, PHP_URL_PATH);
 
@@ -16,8 +21,9 @@ if (preg_match('#^/(inc|data|logs)/#', $path) || str_ends_with($path, '.env')) {
     return true;
 }
 
-// ── Offerte e sitemap: pagine dinamiche per crawler ──────────────────
-if (preg_match('#^/offerta/#', $path) || preg_match('#^/fornitori/#', $path) || $path === '/sitemap.xml') {
+// ── SEO pages, Offerte e sitemap: pagine dinamiche per crawler ──────
+$seoPaths = ['/tariffe-luce', '/confronto-gas'];
+if (in_array($path, $seoPaths, true) || preg_match('#^/offerta/#', $path) || preg_match('#^/offerte/#', $path) || preg_match('#^/fornitori/#', $path) || $path === '/sitemap.xml') {
     $_SERVER['SCRIPT_NAME'] = '/api/index.php';
     $_SERVER['SCRIPT_FILENAME'] = __DIR__ . '/api/index.php';
     require __DIR__ . '/api/index.php';
@@ -80,6 +86,8 @@ if ($path === '/' || $path === '/index.html') {
         return true;
     }
 }
+
+
 
 // ── SPA fallback: qualsiasi altra rotta → index.html ───────────────────
 $idx = __DIR__ . '/index.html';

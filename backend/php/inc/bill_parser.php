@@ -449,6 +449,8 @@ function generateLLMAdvice(float $supplierConf, float $podConf, float $consumoCo
 /**
  * Salva un template di bolletta per migliorare il parsing futuro.
  * Ogni fornitore ha formattazioni diverse; salviamo esempi per pattern matching.
+ * ATTENZIONE: NON salva il testo della bolletta (contiene dati personali).
+ * Salva solo fingerprint + metadati (fornitore, commodity).
  */
 function saveBillTemplate(string $supplier, string $commodity, string $text): void {
     $dir = __DIR__ . '/../../data/templates';
@@ -460,11 +462,11 @@ function saveBillTemplate(string $supplier, string $commodity, string $text): vo
     $templateFile = "$dir/{$fingerprint}.json";
     if (is_file($templateFile)) return; // già salvato
 
+    // Salva solo metadati, NON il testo (contiene PII)
     file_put_contents($templateFile, json_encode([
         'supplier'   => $supplier,
         'commodity'  => $commodity,
         'saved_at'   => date('c'),
-        'text_sample'=> substr($text, 0, 1000),
     ], JSON_UNESCAPED_UNICODE));
 }
 
@@ -522,8 +524,10 @@ if (!defined('LUCE_ACCISE'))                define('LUCE_ACCISE', 0.0227);
 if (!defined('LUCE_ACCISE_SOGLIA_COMPENSATA')) define('LUCE_ACCISE_SOGLIA_COMPENSATA', 2640);
 if (!defined('LUCE_COSTO_POTENZA_KW'))       define('LUCE_COSTO_POTENZA_KW', 23.76); // Q3 2026: 1.98 €/kW/mese × 12
 if (!defined('LUCE_IVA'))                   define('LUCE_IVA', 0.10);
-if (!defined('LUCE_ACCISE_SOGLIA_ESENTE'))   define('LUCE_ACCISE_SOGLIA_ESENTE', 1800);
+if (!defined('LUCE_ACCISE_SOGLIA_ESENTE'))     define('LUCE_ACCISE_SOGLIA_ESENTE', 1800);
+if (!defined('LUCE_ACCISE_SOGLIA_FASE_OUT'))  define('LUCE_ACCISE_SOGLIA_FASE_OUT', 4440);
 if (!defined('CANONE_RAI_ANNUO'))            define('CANONE_RAI_ANNUO', 90.00);
+if (!defined('LUCE_DISPACCIAMENTO'))         define('LUCE_DISPACCIAMENTO', 0.016988); // CDISPD Q3 2026
 
 if (!defined('QUOTA_FISSA_RETI_GAS'))        define('QUOTA_FISSA_RETI_GAS', 23.00);
 if (!defined('GAS_TRASPORTO_VAR'))           define('GAS_TRASPORTO_VAR', 0.15);
@@ -547,6 +551,7 @@ function getAreraConstants(): array {
             'accise'                => LUCE_ACCISE,
             'accise_soglia_esente'  => LUCE_ACCISE_SOGLIA_ESENTE,
             'accise_soglia_compensata' => LUCE_ACCISE_SOGLIA_COMPENSATA,
+            'accise_soglia_fase_out'   => LUCE_ACCISE_SOGLIA_FASE_OUT,
             'costo_potenza_kw'   => LUCE_COSTO_POTENZA_KW,
             'iva'                => LUCE_IVA,
             'prezzo_riferimento' => 0.16,
@@ -597,6 +602,66 @@ function getAreraForwardPun(): ?float {
     }
 
     return (float)$pun;
+}
+
+/**
+ * Legge il PSV forward ARERA da config.json.
+ * Il PSV forward viene salvato dal sync ARERA giornaliero (cron_arera.php),
+ * esattamente come il PUN. Stessa fonte ufficiale, stessa validità 60gg.
+ *
+ * @return ?float PSV forward in €/Smc, o null se non disponibile o troppo vecchio (>60gg)
+ */
+function getAreraForwardPsv(): ?float {
+    $configFile = __DIR__ . '/../data/offerte/config.json';
+    if (!is_file($configFile)) return null;
+
+    $config = json_decode(file_get_contents($configFile), true);
+    if (!is_array($config)) return null;
+
+    $psv = $config['PSV'] ?? null;
+    $updated = $config['updated_at'] ?? null;
+
+    if ($psv === null || (float)$psv <= 0) return null;
+
+    if ($updated) {
+        $age = time() - strtotime($updated);
+        if ($age > 60 * 86400) {
+            error_log("bill_parser: ARERA forward PSV too old (" . round($age/86400) . " days), falling back to live spot");
+            return null;
+        }
+    }
+
+    return (float)$psv;
+}
+
+/**
+ * Restituisce PUN forward stimato per fascia (F1/F2/F3).
+ * ARERA pubblica un solo PUN forward; i valori per fascia sono stimati
+ * applicando rapporti statistici GME storici (F1: +7%, F3: -10% vs F2).
+ * Fallback: restituisce lo stesso PUN per tutte le fasce.
+ *
+ * @return array{F1: ?float, F2: ?float, F3: ?float}|null
+ */
+function getAreraForwardPunByFascia(): ?array {
+    $configFile = __DIR__ . '/../data/offerte/config.json';
+    if (!is_file($configFile)) return null;
+    $config = json_decode(file_get_contents($configFile), true);
+    if (!is_array($config)) return null;
+
+    $pun = $config['PUN'] ?? null;
+    if ($pun === null || (float)$pun <= 0) return null;
+
+    $updated = $config['updated_at'] ?? null;
+    if ($updated) {
+        $age = time() - strtotime($updated);
+        if ($age > 60 * 86400) return null;
+    }
+
+    return [
+        'F1' => $config['PUN_F1'] ?? (float)$pun,
+        'F2' => $config['PUN_F2'] ?? (float)$pun,
+        'F3' => $config['PUN_F3'] ?? (float)$pun,
+    ];
 }
 
 /**
@@ -660,6 +725,13 @@ function _fetchLiveMarketIndices(): array {
         error_log("bill_parser: using ARERA forward PUN = " . round($pun*1000,1) . " €/MWh");
     }
 
+    // Priorità 1 bis: PSV forward ARERA (dal sync mensile, stesso batch del PUN)
+    $areraPsv = getAreraForwardPsv();
+    if ($areraPsv !== null) {
+        $psv = $areraPsv;
+        error_log("bill_parser: using ARERA forward PSV = " . round($psv*1000,1) . " €/MWh");
+    }
+
     // Priorità 2: PUN spot live da PortaleEnergia.it (fallback)
     if ($pun === null) {
         try {
@@ -691,7 +763,7 @@ function _fetchLiveMarketIndices(): array {
                     if ($punRaw && isset($punRaw['price']) && $pun === null) {
                         $pun = round((float)$punRaw['price'] / 1000, 6);
                     }
-                    if ($psvRaw && isset($psvRaw['price'])) {
+                    if ($psvRaw && isset($psvRaw['price']) && $psv === null) {
                         $psv = round((float)$psvRaw['price'] / 1000, 6);
                     }
                 }
@@ -767,9 +839,17 @@ function calculateSavingsBreakdown(array $data): array {
         if ($commodity === 'LUCE' && $yearlyKwh > 0) {
             $costo_potenza = LUCE_COSTO_POTENZA_KW * $potenza;
             $oneri = $yearlyKwh * ONERI_SISTEMA_LUCE;
-            // Accise DL 504/1995: esenti ≤1800 kWh, compensate >2640 kWh → tassati solo 1800-2640
-            $accise = max(0, min($yearlyKwh, LUCE_ACCISE_SOGLIA_COMPENSATA) - LUCE_ACCISE_SOGLIA_ESENTE) * LUCE_ACCISE;
-            $subtotal = ($yearlyKwh * $currentPriceKwh) + ($currentFixedMonthly * 12) + $costo_potenza + QUOTA_FISSA_RETI_LUCE + ($yearlyKwh * $currentTransportKwh) + $oneri + $accise;
+            // Accise DL 504/1995: esente ≤1800, phase-out 2640→4440, piena oltre
+            if ($yearlyKwh <= LUCE_ACCISE_SOGLIA_ESENTE) {
+                $accise = 0;
+            } elseif ($yearlyKwh <= LUCE_ACCISE_SOGLIA_COMPENSATA) {
+                $accise = ($yearlyKwh - LUCE_ACCISE_SOGLIA_ESENTE) * LUCE_ACCISE;
+            } elseif ($yearlyKwh <= LUCE_ACCISE_SOGLIA_FASE_OUT) {
+                $accise = (2 * $yearlyKwh - LUCE_ACCISE_SOGLIA_FASE_OUT) * LUCE_ACCISE;
+            } else {
+                $accise = $yearlyKwh * LUCE_ACCISE;
+            }
+            $subtotal = ($yearlyKwh * $currentPriceKwh) + ($currentFixedMonthly * 12) + $costo_potenza + QUOTA_FISSA_RETI_LUCE + ($yearlyKwh * $currentTransportKwh) + $oneri + $accise + ($yearlyKwh * LUCE_DISPACCIAMENTO);
             $currentAnnualSpend = $subtotal * 1.10;
         } elseif ($commodity === 'GAS' && $yearlySmc > 0) {
             $trasporto = $yearlySmc * GAS_TRASPORTO_VAR;
@@ -783,7 +863,10 @@ function calculateSavingsBreakdown(array $data): array {
         }
     }
 
-    $tariffs = getTariffsForCalculation($commodity, $zone, $tipoCliente);
+    $filters = $data['filters'] ?? [];
+    $tariffsAll = getTariffsForCalculation($commodity, $zone, $tipoCliente, []);
+    $tariffs = !empty($filters) ? getTariffsForCalculation($commodity, $zone, $tipoCliente, $filters) : $tariffsAll;
+    $offersBefore = count($tariffsAll);
     $results = [];
     $comparisonId = deterministicUuid('comparison-' . microtime(true));
 
@@ -811,11 +894,15 @@ function calculateSavingsBreakdown(array $data): array {
             }
             if ($f1 > 0 || $f2 > 0 || $f3 > 0) {
                 if ($isVar) {
-                    $punVal = isset($livePunEurKwh) ? $livePunEurKwh : (float)($tariff['pun'] ?? 0);
+                    // PUN forward per fascia (ARERA pubblica un solo valore → stime GME per F1/F3)
+                    $punByFascia = getAreraForwardPunByFascia();
                     $spreadVal = (float)($tariff['spread'] ?? 0);
-                    $pF1 = $punVal * LUCE_PERDITE_RETE_BT + $spreadVal;
-                    $pF2 = $punVal * LUCE_PERDITE_RETE_BT + $spreadVal;
-                    $pF3 = $punVal * LUCE_PERDITE_RETE_BT + $spreadVal;
+                    $punF1 = $livePunEurKwh ?? $punByFascia['F1'] ?? (float)($tariff['pun'] ?? 0);
+                    $punF2 = $livePunEurKwh ?? $punByFascia['F2'] ?? (float)($tariff['pun'] ?? 0);
+                    $punF3 = $livePunEurKwh ?? $punByFascia['F3'] ?? (float)($tariff['pun'] ?? 0);
+                    $pF1 = $punF1 * LUCE_PERDITE_RETE_BT + $spreadVal;
+                    $pF2 = $punF2 * LUCE_PERDITE_RETE_BT + $spreadVal;
+                    $pF3 = $punF3 * LUCE_PERDITE_RETE_BT + $spreadVal;
                 } else {
                     $pF1 = (float)($tariff['price_f1_kwh'] ?? $priceMono);
                     $pF2 = (float)($tariff['price_f2_kwh'] ?? $priceMono);
@@ -829,12 +916,22 @@ function calculateSavingsBreakdown(array $data): array {
             $costo_potenza = LUCE_COSTO_POTENZA_KW * $potenza;
             $oneri = $yearlyKwh * ONERI_SISTEMA_LUCE;
 
-            // Accise DL 504/1995: esenti ≤1800 kWh, compensate >2640 kWh → tassati solo 1800-2640
-            $accise = max(0, min($yearlyKwh, LUCE_ACCISE_SOGLIA_COMPENSATA) - LUCE_ACCISE_SOGLIA_ESENTE) * LUCE_ACCISE;
+            // Accise DL 504/1995: esente ≤1800, phase-out 2640→4440, piena oltre
+            if ($yearlyKwh <= LUCE_ACCISE_SOGLIA_ESENTE) {
+                $accise = 0;
+            } elseif ($yearlyKwh <= LUCE_ACCISE_SOGLIA_COMPENSATA) {
+                $accise = ($yearlyKwh - LUCE_ACCISE_SOGLIA_ESENTE) * LUCE_ACCISE;
+            } elseif ($yearlyKwh <= LUCE_ACCISE_SOGLIA_FASE_OUT) {
+                $accise = (2 * $yearlyKwh - LUCE_ACCISE_SOGLIA_FASE_OUT) * LUCE_ACCISE;
+            } else {
+                $accise = $yearlyKwh * LUCE_ACCISE;
+            }
+
+            $dispacciamento = $yearlyKwh * LUCE_DISPACCIAMENTO;
 
             $fixedCost = $fixedFee * 12 + $costo_potenza + QUOTA_FISSA_RETI_LUCE;
             $transportCost = $yearlyKwh * $transportFee;
-            $subtotal = $energyCost + $fixedCost + $transportCost + $oneri + $accise;
+            $subtotal = $energyCost + $fixedCost + $transportCost + $oneri + $accise + $dispacciamento;
             $ivaRate = ($tipoCliente === 'business') ? 0.22 : LUCE_IVA;
             $annualIVA = $subtotal * $ivaRate;
             $annualCost = $subtotal + $annualIVA;
@@ -843,7 +940,7 @@ function calculateSavingsBreakdown(array $data): array {
             $areraBreakdown = [
                 'materia_prima'       => round($energyCost, 2),
                 'commercializzazione' => round($fixedFee * 12, 2),
-                'dispacciamento'      => 0,
+                'dispacciamento'      => round($dispacciamento, 2),
                 'tariffa_rete'        => round($transportCost + QUOTA_FISSA_RETI_LUCE + $costo_potenza, 2),
                 'oneri_sistema'       => round($oneri, 2),
                 'accise'              => round($accise, 2),
@@ -968,6 +1065,15 @@ function calculateSavingsBreakdown(array $data): array {
         if ($unitPrice !== null && $unitPrice > 0 && $unitPrice < $threshold) {
             $priceWarning = "Prezzo molto inferiore alla media di mercato. Potrebbe essere un'offerta promozionale o contenere condizioni particolari. Verifica sempre il contratto prima di sottoscrivere.";
         }
+        // Sanity check: spread anomalo (> 2 €/kWh o dati import corrotti)
+        $spread = $tariff['spread'] ?? null;
+        if ($spread !== null && $spread > 2.0) {
+            continue; // scarta offerta con dati probabilmente corrotti
+        }
+        // Sanity check: prezzo esagerato (> 5 €/kWh) — dato import corrotto
+        if ($unitPrice !== null && $unitPrice > 5.0) {
+            continue; // scarta offerta con dati probabilmente corrotti
+        }
 
         $results[] = [
             'tariff_id'           => $tariff['id'],
@@ -997,7 +1103,7 @@ function calculateSavingsBreakdown(array $data): array {
             'promo_active'        => $tariff['promo_active'],
             'supplier_logo'       => $tariff['logo'] ?? null,
             'price_warning'       => $priceWarning,
-            'subscription_url'    => "https://www.switchai.it/sottoscrizione?tariff={$tariff['id']}&supplier=" . urlencode($tariff['supplier_name']) . "&name=" . urlencode($tariff['name']) . "&commodity=" . ($commodity === 'LUCE' ? 'luce' : 'gas') . "&annualCost=" . round($annualCost, 0),
+            'subscription_url'    => $extra['url_offerta'] ?? '',
             'breakdown'           => $breakdown,
             'arera_breakdown'     => $areraBreakdown ?? [],
         ];
@@ -1005,10 +1111,18 @@ function calculateSavingsBreakdown(array $data): array {
 
     usort($results, fn($a, $b) => $a['annual_cost_eur'] <=> $b['annual_cost_eur']);
 
+    foreach ($results as $i => &$r) {
+        $r['rank'] = $i + 1;
+    }
+    unset($r);
+
     return [
         'results'               => $results,
         'total_count'           => count($results),
         'comparison_id'         => $comparisonId,
         'current_spend_estimated' => round($currentAnnualSpend, 2),
+        'filters_applied'       => $filters,
+        'offers_before_filter'  => $offersBefore,
+        'offers_after_filter'   => count($tariffs),
     ];
 }

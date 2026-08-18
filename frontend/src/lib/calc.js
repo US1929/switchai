@@ -19,7 +19,7 @@ export function calcLuceCost(tariff, kwh, pun, formData = {}) {
   const tipo = tariff["tariffa"]?.toLowerCase();
 
   // Costanti regolatorie ARERA (da constants.js — fonte unica)
-  const { PERDITE_RETE_BT, QUOTA_FISSA_RETI, TRASPORTO_VAR, ONERI_SISTEMA, ACCISE, ACCISE_SOGLIA_ESENTE, ACCISE_SOGLIA_COMPENSATA, COSTO_POTENZA_KW, IVA } = LUCE;
+  const { PERDITE_RETE_BT, QUOTA_FISSA_RETI, TRASPORTO_VAR, ONERI_SISTEMA, ACCISE, ACCISE_SOGLIA_ESENTE, ACCISE_SOGLIA_COMPENSATA, ACCISE_SOGLIA_FASE_OUT, COSTO_POTENZA_KW, IVA, DISPACCIAMENTO } = LUCE;
 
   let energyCost = 0;
   let prezzo = null;
@@ -39,8 +39,18 @@ export function calcLuceCost(tariff, kwh, pun, formData = {}) {
     // ARERA symmetric method: usa PUN live (parametro 'pun'), fallback al PUN statico dell'offerta
     const spread = parseItalianNum(tariff["spread"]) || 0;
     const punBase = (pun && pun > 0) ? pun : (parseItalianNum(tariff["Pun"]) || 0);
-    // ARERA v4.0: perdite rete BT si applicano SOLO al PUN, non allo spread
-    energyCost = kwh * (punBase * PERDITE_RETE_BT + spread);
+    if (f1 > 0 || f2 > 0 || f3 > 0) {
+      // Multi-fascia variabile: stima PUN per fascia (rapporti GME: F1 +7%, F3 -10% vs F2)
+      // ARERA pubblica un solo PUN forward; queste sono stime statistiche
+      const PUN_F1_RATIO = 1.07;
+      const PUN_F3_RATIO = 0.90;
+      const pF1 = punBase * PUN_F1_RATIO * PERDITE_RETE_BT + spread;
+      const pF2 = punBase * PERDITE_RETE_BT + spread;
+      const pF3 = punBase * PUN_F3_RATIO * PERDITE_RETE_BT + spread;
+      energyCost = (f1 * pF1) + (f2 * pF2) + (f3 * pF3);
+    } else {
+      energyCost = kwh * (punBase * PERDITE_RETE_BT + spread);
+    }
   }
 
   // Sanity check: prezzo fisso < costo regolato minimo è fisicamente impossibile
@@ -49,11 +59,21 @@ export function calcLuceCost(tariff, kwh, pun, formData = {}) {
   const costo_potenza = COSTO_POTENZA_KW * potenza;
   const trasporto = kwh * TRASPORTO_VAR;
   const oneri = kwh * ONERI_SISTEMA;
-  // Accise DL 504/1995: esenti ≤1800 kWh, compensate >2640 kWh → tassati solo 1800-2640
-  const accise = Math.max(0, Math.min(kwh, ACCISE_SOGLIA_COMPENSATA) - ACCISE_SOGLIA_ESENTE) * ACCISE;
+  // Accise DL 504/1995: esente ≤1800, phase-out 2640→4440, piena oltre
+  let accise;
+  if (kwh <= ACCISE_SOGLIA_ESENTE) {
+    accise = 0;
+  } else if (kwh <= ACCISE_SOGLIA_COMPENSATA) {
+    accise = (kwh - ACCISE_SOGLIA_ESENTE) * ACCISE;
+  } else if (kwh <= ACCISE_SOGLIA_FASE_OUT) {
+    accise = (2 * kwh - ACCISE_SOGLIA_FASE_OUT) * ACCISE;
+  } else {
+    accise = kwh * ACCISE;
+  }
 
   const annualFixed = costo_fisso + costo_potenza + QUOTA_FISSA_RETI;
-  const subtotal = energyCost + annualFixed + trasporto + oneri + accise;
+  const dispacciamento = kwh * DISPACCIAMENTO;
+  const subtotal = energyCost + annualFixed + trasporto + oneri + accise + dispacciamento;
   const annualIVA = subtotal * IVA;
 
   return subtotal + annualIVA;
@@ -290,15 +310,24 @@ export function isPriceAnomalous(pricePerUnit, commodity) {
 export function estimateRegulatedCosts(commodity, consumption, potenza = 3.0, tipoCliente = 'residenziale') {
   // Costanti da constants.js (fonte unica)
   if (commodity === 'luce') {
-    const { TRASPORTO_VAR, ONERI_SISTEMA, ACCISE, ACCISE_SOGLIA_ESENTE, ACCISE_SOGLIA_COMPENSATA, COSTO_POTENZA_KW, QUOTA_FISSA_RETI, IVA, CANONE_RAI_ANNUO } = LUCE;
+    const { TRASPORTO_VAR, ONERI_SISTEMA, ACCISE, ACCISE_SOGLIA_ESENTE, ACCISE_SOGLIA_COMPENSATA, ACCISE_SOGLIA_FASE_OUT, COSTO_POTENZA_KW, QUOTA_FISSA_RETI, IVA, CANONE_RAI_ANNUO } = LUCE;
     const kwh = consumption || 2700;
     const trasporto = kwh * TRASPORTO_VAR;
     const oneri = kwh * ONERI_SISTEMA;
-    // Accise DL 504/1995: esenti ≤1800 kWh, compensate >2640 kWh → solo 1800-2640 tassati
+    // Accise DL 504/1995: esente ≤1800, phase-out 2640→4440, piena oltre
     // Business: accise piene su tutto il consumo (nessuna esenzione)
-    const accise = tipoCliente === 'residenziale'
-      ? Math.max(0, Math.min(kwh, ACCISE_SOGLIA_COMPENSATA) - ACCISE_SOGLIA_ESENTE) * ACCISE
-      : kwh * ACCISE;
+    let accise;
+    if (tipoCliente !== 'residenziale') {
+      accise = kwh * ACCISE;
+    } else if (kwh <= ACCISE_SOGLIA_ESENTE) {
+      accise = 0;
+    } else if (kwh <= ACCISE_SOGLIA_COMPENSATA) {
+      accise = (kwh - ACCISE_SOGLIA_ESENTE) * ACCISE;
+    } else if (kwh <= ACCISE_SOGLIA_FASE_OUT) {
+      accise = (2 * kwh - ACCISE_SOGLIA_FASE_OUT) * ACCISE;
+    } else {
+      accise = kwh * ACCISE;
+    }
     const costoPotenza = COSTO_POTENZA_KW * potenza;
     const quotaFissaReti = QUOTA_FISSA_RETI;
     // Canone RAI SOLO per utenze residenziali LUCE (non si paga per business/P.IVA)

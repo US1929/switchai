@@ -1,15 +1,17 @@
 /**
- * WebMCP — Registrazione strumenti per AI agents (Google Chrome Labs spec)
+ * WebMCP — Registrazione strumenti per AI agents
  *
- * Specifica: https://github.com/GoogleChromeLabs/webmcp-tools
+ * Specifica: https://webmachinelearning.github.io/webmcp (W3C Web Machine Learning CG, Draft)
  *
- * Due modalità:
- * 1. Imperativa: navigator.modelContext.registerTool() — per tool complessi
- * 2. Dichiarativa: attributi HTML toolname/tooldescription sul <form>
+ * Modalità supportata:
+ * 1. Imperativa: document.modelContext.registerTool() — per tool complessi
  *
  * Requisiti lato utente:
  * - Chrome 146+ con flag chrome://flags/#enable-webmcp-testing
  * - Model Context Tool Inspector Extension (per debug/test)
+ *
+ * Nota: document.modelContext è [SecureContext, SameObject] su Document; il fallback
+ * navigator.modelContext è solo difensivo (non richiesto dalla spec, zero rischio).
  *
  * Quando un AI agent visita la pagina, trova questi tool registrati
  * e può chiamarli con linguaggio naturale.
@@ -17,215 +19,123 @@
 
 const API_BASE = '/api';
 
-function buildPrefillUrl(baseUrl, params) {
-  const url = new URL(baseUrl);
-  for (const [k, v] of Object.entries(params)) {
-    if (v) url.searchParams.set(k, v);
-  }
-  return url.toString();
-}
-
 /**
  * Tool 1: Confronta tariffe e calcola risparmio
  */
 const savingsTool = {
   name: "calculate_energy_savings",
-  description: "Confronta le tariffe Luce o Gas in Italia e calcola il risparmio annuo. "
-    + "METODO ARERA: confronto SIMMETRICO — per tariffe variabili usa lo stesso PUN/PSV corrente per entrambi i lati. "
-    + "Restituisce le 3 migliori offerte con breakdown energetico e riepilogo in italiano. "
-    + "Usa questo tool quando l'utente chiede di confrontare tariffe, risparmiare sulla bolletta, "
-    + "o trovare un'offerta migliore per luce o gas.",
+  title: "Confronta tariffe e risparmio",
+  description: "Confronta tariffe Luce/Gas e calcola il risparmio annuo. Accetta il testo di una bolletta (bill_text) oppure dati già estratti. "
+    + "MODALITÀ 1 (bolletta): passa commodity + bill_text — il tool estrae automaticamente consumi, spesa e zona. "
+    + "MODALITÀ 2 (dati noti): passa commodity + yearly_consumption_kwh + current_annual_spend + zone. "
+    + "ESEMPIO: {commodity:'LUCE', yearly_consumption_kwh:2700, zone:'NORD', current_annual_spend:850}",
   inputSchema: {
     type: "object",
     properties: {
       commodity: {
         type: "string",
         enum: ["LUCE", "GAS"],
-        description: "Tipo di fornitura: LUCE per elettricità, GAS per gas metano"
+        description: "LUCE per elettricità o GAS per gas metano",
+        default: "LUCE"
+      },
+      bill_text: {
+        type: "string",
+        description: "(Solo se hai il testo della bolletta) Passa il testo completo per estrarre automaticamente i dati."
       },
       yearly_consumption_kwh: {
         type: "number",
-        description: "Consumo annuo in kWh (serve per LUCE). Esempio: 2700 per una famiglia tipo."
+        description: "Consumo annuo in kWh (LUCE). Es: 2700.",
+        default: 2700
       },
       yearly_consumption_smc: {
         type: "number",
-        description: "Consumo annuo in Smc (serve per GAS). Esempio: 1000 per una famiglia tipo."
+        description: "Consumo annuo in Smc (GAS). Es: 1000.",
+        default: 1000
       },
       zone: {
         type: "string",
         enum: ["NORD", "CENTRO", "SUD"],
-        description: "Zona tariffaria italiana. Default: NORD"
+        description: "Zona tariffaria italiana.",
+        default: "NORD"
       },
       current_supplier: {
         type: "string",
-        description: "Nome del fornitore attuale (es: 'Enel Energia', 'A2A')"
+        description: "Nome fornitore attuale es: 'Enel Energia'"
       },
       current_annual_spend: {
         type: "number",
-        description: "Spesa annua attuale in euro. Esempio: 650"
+        description: "Spesa annua in € es: 850",
+        default: 650
       },
-      canone_rai: {
-        type: "number",
-        description: "Canone RAI annuale in € (solo LUCE). Cerca 'Canone RAI' o 'Canone TV' nel dettaglio costi. ~90€/anno. 0 se assente o GAS."
-      },
-      spesa_materia_energia: {
-        type: "number",
-        description: "Spesa annua materia energia in € (solo componente energia/gas, esclusi trasporto, oneri, IVA, canone RAI). Dal dettaglio costi."
-      },
-      quota_fissa_mensile: {
-        type: "number",
-        description: "Quota fissa mensile in €/mese. Dal Box Offerta o dettaglio costi."
-      },
-      tipo_cliente: {
-        type: "string",
-        enum: ["residenziale", "business"],
-        description: "Tipo cliente: residenziale (uso domestico) o business (Partita IVA, azienda)."
-      },
-      tariff_type: {
-        type: "string",
-        enum: ["fisso", "variabile"],
-        description: "(Opzionale) Tipo tariffa attuale. Per variabili il confronto è simmetrico (stesso PUN)."
-      },
-      spread_eur_kwh: {
-        type: "number",
-        description: "(Opzionale) Spread attuale in €/kWh per tariffe LUCE variabili."
-      },
-      nome: { type: "string", description: "(Opzionale) Nome intestatario per precompilare il form" },
-      cognome: { type: "string", description: "(Opzionale) Cognome per precompilare il form" },
-      cf: { type: "string", description: "(Opzionale) Codice Fiscale per precompilare il form" },
-      email: { type: "string", description: "(Opzionale) Email per precompilare il form" },
-      tel: { type: "string", description: "(Opzionale) Telefono per precompilare il form" },
-      indirizzo: { type: "string", description: "(Opzionale) Via/Piazza per precompilare il form" },
-      civico: { type: "string", description: "(Opzionale) Numero civico" },
-      citta: { type: "string", description: "(Opzionale) Città" },
-      provincia_sigla: { type: "string", description: "(Opzionale) Sigla provincia (es: MI)" },
-      cap: { type: "string", description: "(Opzionale) CAP (5 cifre)" },
-      pod: { type: "string", description: "(Opzionale) Codice POD per Luce" },
-      pdr: { type: "string", description: "(Opzionale) Codice PDR per Gas" },
-      consumi: { type: "number", description: "(Opzionale) Consumo annuo per prefill" },
-      spesa: { type: "number", description: "(Opzionale) Spesa annua per prefill" },
     },
     required: ["commodity"]
   },
   annotations: {
     readOnlyHint: true,
-    untrustedContentHint: false
+    untrustedContentHint: true
   },
   execute: async (params) => {
     const commodity = params.commodity?.toUpperCase();
     if (!['LUCE', 'GAS'].includes(commodity)) {
-      return JSON.stringify({ error: "commodity deve essere 'LUCE' o 'GAS'" });
+      return { content: [{ type: "text", text: JSON.stringify({ error: "commodity deve essere 'LUCE' o 'GAS'" }) }] };
     }
 
-    const res = await fetch(`${API_BASE}/webmcp-endpoint`, {
+    // V2 /api/analyze: unico endpoint con honesty system (switch/evaluate/stay),
+    // cost_breakdown, bill_attualization e parsing bill_text nativo.
+    // Lo schema input del tool è in inglese; il backend /api/analyze accetta
+    // direttamente gli alias inglesi (yearly_consumption_kwh, zone, current_annual_spend, current_supplier).
+    const body = { commodity };
+    if (params.bill_text && params.bill_text.length > 20) {
+      body.bill_text = params.bill_text;
+    } else {
+      const consumo = params.yearly_consumption_kwh ?? params.yearly_consumption_smc;
+      if (!consumo || consumo <= 0) {
+        return { content: [{ type: "text", text: JSON.stringify({ error: "Fornire bill_text oppure yearly_consumption_kwh/yearly_consumption_smc > 0" }) }] };
+      }
+      if (commodity === 'LUCE') body.yearly_consumption_kwh = consumo;
+      else body.yearly_consumption_smc = consumo;
+      if (params.current_annual_spend) body.current_annual_spend = params.current_annual_spend;
+      if (params.zone) body.zone = params.zone;
+      if (params.current_supplier) body.current_supplier = params.current_supplier;
+    }
+
+    const res = await fetch(`${API_BASE}/analyze`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        commodity,
-        yearly_consumption_kwh: params.yearly_consumption_kwh ?? 0,
-        yearly_consumption_smc: params.yearly_consumption_smc ?? 0,
-        zone: params.zone ?? 'NORD',
-        current_supplier: params.current_supplier ?? '',
-        current_annual_spend: params.current_annual_spend ?? 0,
-      }),
+      body: JSON.stringify(body),
     });
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      return JSON.stringify({ error: err.error || `Errore API: ${res.status}` });
+      return { content: [{ type: "text", text: JSON.stringify({ error: err.error || `Errore API: ${res.status}` }) }] };
     }
 
     const data = await res.json();
     const icon = commodity === 'LUCE' ? '⚡' : '🔥';
     const label = commodity === 'LUCE' ? 'Luce' : 'Gas';
-    const unit = commodity === 'LUCE' ? 'kWh' : 'Smc';
-    const consumo = commodity === 'LUCE' ? (params.yearly_consumption_kwh || 0) : (params.yearly_consumption_smc || 0);
-    const results = data.results || [];
-    const spesa = data.current_spend_estimated;
+    const results = data.top3 || [];
 
-    // Build prefill params from optional user data
-    const prefillKeys = ['nome','cognome','cf','email','tel','indirizzo','civico','citta','provincia_sigla','cap','pod','pdr','consumi','spesa'];
-    const prefillParams = {};
-    for (const k of prefillKeys) {
-      if (params[k]) prefillParams[k] = params[k];
-    }
+    let md = `## ${icon} ${label} — Confronto tariffe\n\n`;
+    if (data.agent_summary) md += `${data.agent_summary}\n\n`;
 
     const best = results[0];
-    if (!best) return `*Nessuna offerta trovata per ${label} nella zona ${params.zone || 'NORD'}.*`;
-
-    const savingsMonth = Math.round(best.savings_eur / 12 * 100) / 100;
-    const bestUrl = best.subscription_url || `https://www.switchai.it/sottoscrizione?tariff=${best.tariff_id}&supplier=${encodeURIComponent(best.supplier)}&name=${encodeURIComponent(best.tariff_name)}&commodity=${commodity.toLowerCase()}&annualCost=${best.annual_cost_eur}`;
-    const bestPrefillUrl = buildPrefillUrl(bestUrl, prefillParams);
-    const hasFullData = prefillParams.nome && prefillParams.cognome && prefillParams.cf;
-    const lossNote = commodity === 'LUCE' ? '\n📐 Prezzo bolletta = (PUN + spread) × 1,102 (perdite rete ~10,2% ARERA)\n' : '';
-
-    let md = `## ${icon} Bolletta analizzata\n\n`;
-    md += `✅ **${consumo} ${unit}/anno** · Zona **${params.zone || 'NORD'}** · ${params.current_supplier || 'Fornitore attuale'}\n`;
-    md += lossNote;
-    md += `\n---\n\n`;
-    md += `### 💰 La tua spesa attuale\n\n`;
-    md += `# ${spesa} €/anno\n\n`;
-    md += `---\n\n`;
-    md += `## ⭐ Offerta consigliata\n\n`;
-    md += `### ${best.supplier} — ${best.tariff_name}\n`;
-    md += `**${best.type === 'FISSO' ? '🔒 Prezzo Fisso' : '📊 Prezzo Variabile'}**`;
-    if (best.price_per_unit) md += ` | ${best.price_per_unit} ${commodity === 'LUCE' ? '€/kWh' : '€/Smc'}`;
-    if (best.fixed_fee_monthly) md += ` | Quota fissa ${best.fixed_fee_monthly} €/mese`;
-    md += `\n\n`;
-    md += `| | |\n|---|---|\n`;
-    md += `| Costo stimato | **${best.annual_cost_eur} €/anno** |\n`;
-    md += `| 🔥 Risparmio | **${best.savings_eur} €/anno (${best.savings_pct}%)** |\n`;
-    md += `| Al mese risparmi | **~${savingsMonth} €/mese** |\n`;
-    if (best.price_warning) md += `\n⚠️ ${best.price_warning}\n`;
-    md += `\n`;
-
-    if (hasFullData) {
-      md += `✅ Ho già recuperato tutti i dati dalla bolletta.\n\n`;
-      md += `Per attivare servono solo:\n`;
-      md += `- 📧 Email: ${prefillParams.email || '_____'}\n`;
-      md += `- 📱 Telefono: ${prefillParams.tel || '_____'}\n\n`;
-    } else {
-      md += `Per attivare servono solo **email e telefono**. Gli altri dati li recupero dalla bolletta.\n\n`;
-      md += `Chiedi all'utente: 📧 Email e 📱 Telefono?\n\n`;
-    }
-    md += `### [🟢 ATTIVA ${best.supplier?.toUpperCase() || 'OFFERTA'}](${bestPrefillUrl})\n\n`;
-    if (best.type === 'FISSO') {
-      md += `🔒 Prezzo bloccato: la rata non cambia anche se il ${commodity === 'LUCE' ? 'PUN' : 'PSV'} sale.\n\n`;
-    }
-    md += `---\n\n`;
-
-    const others = results.slice(1);
-    if (others.length > 0) {
-      md += `---\n\n`;
-      md += `### 📋 Altre offerte\n\n`;
-      const badges = ['🥈', '🥉'];
-      for (let i = 0; i < others.length; i++) {
-        const r = others[i];
-        const otherUrl = r.subscription_url || `https://www.switchai.it/sottoscrizione?tariff=${r.tariff_id}&supplier=${encodeURIComponent(r.supplier)}&name=${encodeURIComponent(r.tariff_name)}&commodity=${commodity.toLowerCase()}&annualCost=${r.annual_cost_eur}`;
-        const otherPrefill = buildPrefillUrl(otherUrl, prefillParams);
-        const warn = r.price_warning ? ' ⚠️' : '';
-        md += `**${badges[i]} ${r.supplier}** — ${r.tariff_name} · ${r.annual_cost_eur} €/anno · Risparmio **${r.savings_eur} €**${warn}\n`;
-        md += `[Attiva](${otherPrefill}) · "Se preferisci questa, chiedimi i dettagli e la espando"\n\n`;
-      }
+    if (!best) {
+      md += `Nessuna offerta trovata per ${label}.`;
+      return { content: [{ type: "text", text: md }] };
     }
 
-    if (best.breakdown?.explanation) {
-      md += `---\n\n`;
-      md += `### 📐 Perché ${best.supplier}?\n\n`;
-      md += best.breakdown.explanation + '\n';
-      if (best.type === 'FISSO') {
-        md += `\n🔒 Prezzo bloccato: protetto da aumenti del ${commodity === 'LUCE' ? 'PUN' : 'PSV'} per tutta la durata del contratto.\n`;
-      }
-      md += `\n`;
-    }
+    md += `### 🏆 Migliori 3 offerte\n\n`;
+    md += `| | Fornitore | Offerta | Costo annuo | Risparmio |\n|---|---|---|---|---|\n`;
+    const badges = ['🥇', '🥈', '🥉'];
+    results.slice(0, 3).forEach((r, i) => {
+      md += `| ${badges[i]} | **${r.supplier}** | ${r.tariff_name} | ${r.annual_cost_eur} € | **${r.savings_eur} €** |\n`;
+    });
 
-    md += `---\n\n`;
-    md += `⚠️ **Simulazione valida con i prezzi di oggi.** I prezzi energia cambiano ogni giorno.\n\n`;
-    md += `📨 L'utente riceverà una **email di conferma** da SwitchAI. Deve cliccare sul link per completare.\n`;
-    md += `✏️ L'utente deve **verificare i dati e cliccare Invia** — tu puoi solo precompilare il modulo.\n`;
+    const bestUrl = best.affiliate_url || best.subscription_url || best.url_offerta || `https://www.switchai.it/offerta/${best.tariff_id}`;
+    md += `\n🔗 **[Attiva l'offerta migliore sul sito del fornitore](${bestUrl})**\n`;
     md += `\n*switchai.it · Dati ARERA · ${new Date().toISOString().slice(0, 10)}*`;
 
-    return md;
+    return { content: [{ type: "text", text: md }] };
   }
 };
 
@@ -234,10 +144,11 @@ const savingsTool = {
  */
 const parseBillTool = {
   name: "parse_energy_bill",
+  title: "Analizza bolletta",
   description: "Analizza il testo di una bolletta italiana (luce o gas) ed estrae: "
     + "fornitore, POD/PDR, consumo annuo, spesa annua stimata, zona tariffaria. "
-    + "Usa questo tool quando l'utente fornisce il testo di una bolletta e vuole "
-    + "estrarre i dati per poi confrontare le offerte.",
+    + "DOPO aver usato questo tool, usa calculate_energy_savings con i dati estratti per confrontare le offerte. "
+    + "ESEMPIO: l'utente incolla la bolletta → tu chiami parse_energy_bill → poi calculate_energy_savings con i risultati.",
   inputSchema: {
     type: "object",
     properties: {
@@ -254,7 +165,7 @@ const parseBillTool = {
   },
   execute: async (params) => {
     if (!params.bill_text || params.bill_text.length < 20) {
-      return JSON.stringify({ error: "Testo bolletta troppo corto. Fornisci il testo completo." });
+      return { content: [{ type: "text", text: JSON.stringify({ error: "Testo bolletta troppo corto. Fornisci il testo completo." }) }] };
     }
 
     const res = await fetch(`${API_BASE}/parse-bill-text`, {
@@ -265,7 +176,7 @@ const parseBillTool = {
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      return JSON.stringify({ error: err.error || `Errore parsing: ${res.status}` });
+        return { content: [{ type: "text", text: JSON.stringify({ error: err.error || `Errore parsing: ${res.status}` }) }] };
     }
 
     const data = await res.json();
@@ -284,7 +195,7 @@ const parseBillTool = {
       + `\n✅ Dati pronti per il confronto. Usa **calculate_energy_savings** con:\n`
       + `\`commodity: "${data.commodity}", yearly_consumption_${unit}: ${consumo}, zone: "${data.zone || 'NORD'}", current_annual_spend: ${data.current_annual_spend}\``;
 
-    return md;
+    return { content: [{ type: "text", text: md }] };
   }
 };
 
@@ -293,6 +204,7 @@ const parseBillTool = {
  */
 const listOffersTool = {
   name: "get_available_offers",
+  title: "Elenco offerte",
   description: "Recupera tutte le offerte disponibili per Luce o Gas in Italia. "
     + "Restituisce nome fornitore, nome offerta, tipo (fisso/variabile), prezzo per unità e costo fisso mensile. "
     + "Usa questo tool quando l'utente vuole vedere tutte le offerte disponibili senza fare un calcolo specifico.",
@@ -314,18 +226,18 @@ const listOffersTool = {
   execute: async (params) => {
     const commodity = params.commodity?.toUpperCase();
     if (!['LUCE', 'GAS'].includes(commodity)) {
-      return JSON.stringify({ error: "commodity deve essere 'LUCE' o 'GAS'" });
+      return { content: [{ type: "text", text: JSON.stringify({ error: "commodity deve essere 'LUCE' o 'GAS'" }) }] };
     }
 
     const res = await fetch(`${API_BASE}/tariffe/${commodity.toLowerCase()}`);
 
     if (!res.ok) {
-      return JSON.stringify({ error: `Errore API: ${res.status}` });
+      return { content: [{ type: "text", text: JSON.stringify({ error: `Errore API: ${res.status}` }) }] };
     }
 
     const data = await res.json();
 
-    return JSON.stringify({
+    return { content: [{ type: "text", text: JSON.stringify({
       commodity: data.commodity,
       total_offers: data.count,
       offers: (data.offers || []).map(o => ({
@@ -338,135 +250,78 @@ const listOffersTool = {
           : `${o.price_smc} €/Smc`,
         fixed_fee_monthly: `${o.fixed_fee_monthly} €/mese`,
       })),
-    }, null, 2);
+    }, null, 2) }] };
   }
 };
 
 /**
- * Tool 4: Sottoscrizione offerta (versione semplificata per AI agent)
+ * Tool 5: Indici di mercato PUN/PSV
  */
-const subscribeTool = {
-  name: "submit_subscription",
-  description: "Invia la richiesta di attivazione di una nuova tariffa energia. "
-    + "I dati vengono inoltrati al fornitore. Ricevi un ID di sottoscrizione per tracciamento. "
-    + "Usa questo tool quando l'utente ha scelto un'offerta e vuole attivarla.",
+const marketIndicesTool = {
+  name: "get_market_indices",
+  title: "Indici di mercato PUN/PSV",
+  description: "Recupera PUN (prezzo energia elettrica all'ingrosso) e PSV (prezzo gas) correnti, aggiornati giornalmente dal sync ARERA notturno. Usa questo tool quando l'utente chiede il prezzo del kWh oggi, il prezzo del gas, o gli indici di mercato.",
   inputSchema: {
     type: "object",
-    properties: {
-      tariff_id: { type: "string", description: "ID dell'offerta scelta (dal risultato di calculate_energy_savings)" },
-      nome: { type: "string", description: "Nome dell'intestatario" },
-      cognome: { type: "string", description: "Cognome dell'intestatario" },
-      codice_fiscale: { type: "string", description: "Codice fiscale italiano (16 caratteri)" },
-      email: { type: "string", description: "Indirizzo email" },
-      cellulare: { type: "string", description: "Numero di cellulare (es: +393401234567)" },
-      indirizzo: { type: "string", description: "Via/Piazza della fornitura" },
-      civico: { type: "string", description: "Numero civico" },
-      citta: { type: "string", description: "Città della fornitura" },
-      provincia_sigla: { type: "string", description: "Sigla provincia (2 lettere, es: MI)" },
-      cap: { type: "string", description: "CAP (5 cifre)" },
-      codice_pod: { type: "string", description: "Codice POD per Luce (formato: IT001E...)" },
-      codice_pdr: { type: "string", description: "Codice PDR per Gas (14 cifre)" },
-      titolo_immobile: {
-        type: "string",
-        enum: ["Proprietario", "Affittuario", "Comodatario", "Usufruttuario"],
-        description: "Titolo sull'immobile"
-      },
-      modalita_pagamento: {
-        type: "string",
-        enum: ["SDD", "Bollettino"],
-        description: "Modalità di pagamento preferita"
-      },
-      iban: { type: "string", description: "IBAN (necessario se modalita_pagamento è SDD)" },
-      gdpr_privacy_accepted: {
-        type: "boolean",
-        description: "DEVI chiedere esplicitamente all'utente: 'Accetti la Privacy Policy di SwitchAI (switchai.it/privacy) e autorizzi il trattamento dei tuoi dati per essere ricontattato?' "
-          + "Il tool può essere eseguito SOLO se l'utente risponde SÌ esplicitamente. NON assumere mai il consenso implicitamente."
-      },
-      consent_source: { type: "string", description: "Fonte del consenso: 'webmcp_chrome' o 'mcp_claude_desktop'" },
-      consent_timestamp: { type: "string", description: "Timestamp ISO 8601 del momento in cui l'utente ha dato il consenso" },
-      conversation_snippet: { type: "string", description: "Breve estratto della conversazione in cui l'utente accetta (es: 'Utente: Sì, accetto la privacy e voglio essere ricontattato')" },
-    },
-    required: ["tariff_id", "nome", "cognome", "codice_fiscale", "email", "cellulare", "gdpr_privacy_accepted"]
+    properties: {},
   },
   annotations: {
-    readOnlyHint: false,
-    untrustedContentHint: false
+    readOnlyHint: true,
+    untrustedContentHint: true
   },
-  execute: async (params) => {
-    // Validazione GDPR
-    if (!params.gdpr_privacy_accepted) {
-      return JSON.stringify({
-        error: "CONSENSO OBBLIGATORIO. Devi chiedere esplicitamente all'utente: 'Accetti la Privacy Policy di SwitchAI (switchai.it/privacy)?' "
-             + "Ripeti la domanda e attendi una risposta affermativa prima di invocare questo tool.",
-      });
-    }
-
-    const required = ['tariff_id', 'nome', 'cognome', 'codice_fiscale', 'email', 'cellulare'];
-    const missing = required.filter(f => !params[f]);
-    if (missing.length > 0) {
-      return JSON.stringify({ error: `Campi obbligatori mancanti: ${missing.join(', ')}`, missing_fields: missing });
-    }
-
-    const res = await fetch(`${API_BASE}/subscription/submit`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(params),
-    });
-
-    const data = await res.json();
-
+  execute: async () => {
+    const res = await fetch(`${API_BASE}/market-indices`);
     if (!res.ok) {
-      return JSON.stringify({ error: data.error || 'Errore durante la sottoscrizione' });
+      return { content: [{ type: "text", text: JSON.stringify({ error: `Errore API: ${res.status}` }) }] };
     }
-
-    const statusIcon = data.status === 'pending' ? '📨' : '✅';
-    let md = `## ${statusIcon} Sottoscrizione\n\n`
-      + `| | |\n|---|---|\n`
-      + `| Stato | **${data.status}** |\n`
-      + `| ID | \`${data.subscription_id}\` |\n`
-      + `| Messaggio | ${data.message} |\n`;
-
-    if (data.status === 'pending') {
-      md += `\n📧 Abbiamo inviato una email di conferma. Comunica all'utente: "Ti ho inviato una email di conferma. **Clicca sul link per completare l'attivazione.**"\n`;
-    }
-
-    return md;
+    const data = await res.json();
+    return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
   }
 };
 
 // ── Registrazione ─────────────────────────────────────────────────────
 
-function registerWebMCPTools() {
-  if (typeof navigator === 'undefined' || !navigator.modelContext?.registerTool) {
-    console.log('[WebMCP] navigator.modelContext.registerTool non disponibile.');
-    console.log('[WebMCP] Serve Chrome 146+ con flag chrome://flags/#enable-webmcp-testing');
+async function registerWebMCPTools() {
+  // Chrome 150+: document.modelContext, Chrome 146-149: navigator.modelContext
+  const ctx = document.modelContext || navigator.modelContext || {};
+  if (!ctx.registerTool) {
+    console.log('[WebMCP] API modelContext non disponibile. Serve Chrome 146+ con flag enable-webmcp-testing.');
     return;
   }
 
+  const tools = [savingsTool, parseBillTool, listOffersTool, marketIndicesTool];
+  // Il campo `title` è opzionale nella spec ma alcune build Chrome early-flag
+  // lo rigettavano. Feature-check: se il primo registerTool() rejecta con title,
+  // ri-registra tutto senza title.
+  const stripTitle = (t) => {
+    const { title, ...rest } = t;
+    return rest;
+  };
+
   try {
-    navigator.modelContext.registerTool(savingsTool);
-    navigator.modelContext.registerTool(parseBillTool);
-    navigator.modelContext.registerTool(listOffersTool);
-    navigator.modelContext.registerTool(subscribeTool);
-
-    console.log('[WebMCP] ✅ 4 tool registrati:');
-    console.log('  - calculate_energy_savings');
-    console.log('  - parse_energy_bill');
-    console.log('  - get_available_offers');
-    console.log('  - submit_subscription');
-
-    // Ascolta eventi toolactivated (feedback quando l'AI usa i tool)
-    window.addEventListener('toolactivated', ({ toolName }) => {
-      console.log(`[WebMCP] 🔧 Tool attivato dall'AI: ${toolName}`);
-    });
-
-    window.addEventListener('toolcancel', ({ toolName }) => {
-      console.log(`[WebMCP] ❌ Tool cancellato: ${toolName}`);
-    });
-
+    await ctx.registerTool(tools[0]);
+    // Primo OK → registra i restanti con title
+    for (let i = 1; i < tools.length; i++) {
+      await ctx.registerTool(tools[i]);
+    }
   } catch (err) {
-    console.error('[WebMCP] Errore registrazione tool:', err);
+    // Fallback senza title (bug Chrome early-flag)
+    console.warn('[WebMCP] registerTool con title fallito, riprovo senza title:', err);
+    try {
+      for (const t of tools) {
+        await ctx.registerTool(stripTitle(t));
+      }
+    } catch (err2) {
+      console.error('[WebMCP] Errore registrazione tool:', err2);
+      return;
+    }
   }
+
+  console.log('[WebMCP] ✅ 4 tool registrati:');
+  console.log('  - calculate_energy_savings');
+  console.log('  - parse_energy_bill');
+  console.log('  - get_available_offers');
+  console.log('  - get_market_indices');
 }
 
 // Registra quando il DOM è pronto

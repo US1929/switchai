@@ -1,0 +1,5 @@
+Contact: mailto:info@switchai.it
+Expires: 2027-08-18T00:00:00.000Z
+Preferred-Languages: it, en
+Canonical: https://www.switchai.it/.well-known/security.txt
+Policy: https://www.switchai.it/privacy

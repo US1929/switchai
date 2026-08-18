@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
+import { Helmet } from 'react-helmet-async';
 import { useNavigate } from 'react-router-dom';
 
 const TOOLS = [
   {
     icon: '🔍', name: 'calculate_energy_savings',
     desc: 'Confronta le tariffe Luce o Gas. Passa consumi, zona e spesa attuale. Ottieni le 3 migliori offerte con risparmio in € e %.',
-    method: 'POST', endpoint: '/api/webmcp-endpoint',
+    method: 'POST', endpoint: '/api/analyze',
     example: `{
   "commodity": "LUCE",
-  "yearly_consumption_kwh": 2700,
-  "zone": "NORD",
-  "current_annual_spend": 650
+  "consumo_annuo_kwh": 2700,
+  "spesa_annua_eur": 650,
+  "zona": "NORD"
 }`,
   },
   {
@@ -19,19 +20,6 @@ const TOOLS = [
     method: 'POST', endpoint: '/api/parse-bill-text',
     example: `{
   "bill_text": "ENEL ENERGIA\\nPOD: IT001E123456789\\nConsumo annuo: 3.200 kWh\\nTotale bolletta: 145,50 €"
-}`,
-  },
-  {
-    icon: '✅', name: 'activate_tariff / submit_subscription',
-    desc: 'Invia la richiesta di attivazione. Passa i dati del form. La sottoscrizione viene inoltrata al fornitore.',
-    method: 'POST', endpoint: '/api/subscription/submit',
-    example: `{
-  "tariff_id": "xxx-offerta",
-  "nome": "Mario", "cognome": "Rossi",
-  "codice_fiscale": "RSS...",
-  "email": "mario@email.com",
-  "cellulare": "+393401234567",
-  "codice_pod": "IT001E123456789"
 }`,
   },
 ];
@@ -73,7 +61,12 @@ export default function Analisi() {
   };
 
   return (
-    <main style={{ padding: '50px 24px 80px' }}>
+    <>
+      <Helmet>
+        <title>Analisi Bolletta Luce e Gas con AI | SwitchAI</title>
+        <meta name="description" content="Carica la tua bolletta e lascia che l'AI di SwitchAI analizzi consumi e spesa. Confronta 5.600+ offerte del mercato libero italiano e trova la tariffa migliore in pochi secondi." />
+      </Helmet>
+      <main style={{ padding: '50px 24px 80px' }}>
       <div style={{ maxWidth: 800, margin: '0 auto' }}>
 
         {/* ── Header ──────────────────────────────────────────────────── */}
@@ -101,7 +94,7 @@ export default function Analisi() {
               { step: '1', icon: '📄', title: 'Dai la bolletta all\'AI', desc: 'Carica un PDF o incolla il testo della bolletta in Claude o ChatGPT. L\'LLM estrae automaticamente fornitore, consumi, costi, POD/PDR.' },
               { step: '2', icon: '🔍', title: 'L\'AI confronta le offerte', desc: 'L\'LLM chiama il tool calculate_energy_savings via WebMCP. In pochi secondi ottiene le 3 migliori offerte con il risparmio in €.' },
               { step: '3', icon: '💬', title: 'L\'AI ti spiega il risparmio', desc: 'Ricevi un riepilogo in linguaggio naturale: "Risparmi 410€/anno con Fastweb. Vuoi attivare?"' },
-              { step: '4', icon: '✅', title: 'Attivi con un click', desc: 'Confermi e l\'LLM invia la sottoscrizione via submit_subscription. I tuoi dati (che già conosce dalla bolletta) compilano il form automaticamente.' },
+              { step: '4', icon: '🔗', title: 'Attivi sul sito del fornitore', desc: 'Clicchi il link diretto restituito dall\'AI al sito del fornitore o al portale ARERA per completare l\'attivazione in autonomia. Nessun dato personale passa da SwitchAI.' },
             ].map((s, i) => (
               <div key={s.step} className="glass-card animate-fade-in-up" style={{ padding: '16px 20px', display: 'flex', gap: 16, alignItems: 'flex-start' }}>
                 <div style={{
@@ -273,5 +266,6 @@ export default function Analisi() {
 
       </div>
     </main>
+    </>
   );
 }

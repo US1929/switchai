@@ -89,6 +89,15 @@ export default function TariffCard({
     return () => window.removeEventListener('resize', check);
   }, []);
 
+  // Fire impression pixel per affiliazione
+  useEffect(() => {
+    const imprUrl = tariff?.impression_url || tariff?.extra?.impression_url;
+    if (imprUrl) {
+      const img = new Image();
+      img.src = imprUrl;
+    }
+  }, [tariff?.impression_url, tariff?.extra?.impression_url]);
+
   const isLuce = commodity === 'luce';
   const accentColor = isLuce ? '#f59e0b' : '#3b82f6';
   const unit = isLuce ? 'kWh' : 'Smc';
@@ -229,6 +238,22 @@ export default function TariffCard({
         }}>
           ⚠️ {priceWarning || 'Prezzo molto inferiore alla media di mercato. Potrebbe essere un\'offerta promozionale o contenere condizioni particolari.'}
           {validitaOfferta ? <b> Valida fino al {validitaOfferta}.</b> : ' Verifica sempre il contratto prima di sottoscrivere.'}
+        </div>
+      )}
+
+      {/* ── Badge sconti condizionali ────────────────────────────── */}
+      {tariff.has_sconti_condizionali && (
+        <div style={{
+          padding: '8px 12px', borderRadius: 8, marginBottom: 14,
+          background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)',
+          fontSize: 11, color: '#93c5fd', lineHeight: 1.5,
+          display: 'flex', alignItems: 'flex-start', gap: 6,
+        }}>
+          <span style={{ flexShrink: 0, marginTop: 1 }}>💡</span>
+          <span>
+            Prezzo base — sconti condizionali (es. domiciliazione SDD, dual fuel, sottoscrizione online)
+            potrebbero ridurre ulteriormente il costo. Verifica sul sito del fornitore.
+          </span>
         </div>
       )}
 
@@ -452,14 +477,19 @@ export default function TariffCard({
           )}
         </div>
         <a
-          href={tariff.affiliate_url || tariff.subscription_url || `/sottoscrizione?tariff=${encodeURIComponent(tariff.id)}&supplier=${encodeURIComponent(tariff.brand)}&name=${encodeURIComponent(tariff.offerta)}&commodity=${commodity}&annualCost=${annualCost}`}
-          target={tariff.affiliate_url ? "_blank" : undefined}
-          rel={tariff.affiliate_url ? "nofollow noopener" : undefined}
+          href={tariff.affiliate_url || tariff.subscription_url || tariff.url_offerta || (tariff.brand ? `/fornitori/${tariff.brand.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}` : '#')}
+          target={tariff.affiliate_url ? "_blank" : tariff.subscription_url || tariff.url_offerta ? "_blank" : undefined}
+          rel={tariff.affiliate_url || tariff.subscription_url || tariff.url_offerta ? "nofollow noopener" : undefined}
           className="btn btn-electric"
           style={{ fontSize: 12, padding: '9px 22px', flexShrink: 0 }}
         >
           {tariff.affiliate_url ? '🔗 Attiva Online' : 'Attiva Online'}
         </a>
+        {tariff.affiliate_url && (
+          <div style={{ fontSize: 9, color: '#64748b', marginTop: 4, textAlign: 'center' }}>
+            *Link di affiliazione — se attivi, a noi potrebbe spettare una commissione. Il prezzo per te non cambia.
+          </div>
+        )}
       </div>
 
       {/* ── Tag vincoli offerta ───────────────────────────────────── */}

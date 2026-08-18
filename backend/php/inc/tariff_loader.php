@@ -11,37 +11,53 @@ define('GAS_JSON_URL',  getenv('GAS_JSON_URL') ?: '');
 // Brand → nome fornitore canonico
 function getBrandMap(): array {
     return [
-        'ENEL'     => 'Enel Energia',
-        'ENI'      => 'Eni Plenitude',
-        'EDISON'   => 'Edison',
-        'A2A'      => 'A2A Energia',
-        'IREN'     => 'Iren Luce Gas e Servizi',
-        'HERA'     => 'Hera Comm',
-        'SORGENIA' => 'Sorgenia',
-        'ENGIE'    => 'Engie',
-        'FASTWEB'  => 'Fastweb Energia',
-        'ILLUMIA'  => 'Illumia',
-        'ACEA'     => 'ACEA Energia',
-        'OCTOPUS'  => 'Octopus Energy',
-        'VOLTY'    => 'Volty',
+        'A2A ENERGIA'     => 'A2A Energia',
+        'ENEL ENERGIA'    => 'Enel Energia',
+        'ENI PLENITUDE'   => 'Eni Plenitude',
+        'IREN MERCATO'    => 'Iren Mercato',
+        'EDISON ENERGIA'  => 'Edison Energia',
+        'HERA COMM'       => 'Hera Comm',
+        'OCTOPUS ENERGY'  => 'Octopus Energy',
+        'POSTE ENERGIA'   => 'Poste Energia',
+        'PULSEE'          => 'Pulsee',
+        'FASTWEB ENERGIA' => 'Fastweb Energia',
+        'NEN'             => 'NeN',
+        'CALABRIA ENERGIA'=> 'Calabria Energia',
+        'ASM VENDITA E SERVIZI' => 'ASM Vendita e Servizi',
+        'AMG ENERGIA'     => 'AMG Energia',
+        'BARI ENERGIA'    => 'Bari Energia',
+        'E.ON ENERGIA'    => 'E.ON Energia',
+        'ENGIE'           => 'Engie',
+        'ESTRA'           => 'Estra',
+        'ILLUMIA'         => 'Illumia',
+        'ITALY GREEN POWER' => 'Italy Green Power',
+        'VOLTY'           => 'Volty',
     ];
 }
 
 function getBrandSlug(): array {
     return [
-        'ENEL'     => 'enel-energia',
-        'ENI'      => 'eni-plenitude',
-        'EDISON'   => 'edison',
-        'A2A'      => 'a2a-energia',
-        'IREN'     => 'iren-luce-gas',
-        'HERA'     => 'hera-comm',
-        'SORGENIA' => 'sorgenia',
-        'ENGIE'    => 'engie',
-        'FASTWEB'  => 'fastweb-energia',
-        'ILLUMIA'  => 'illumia',
-        'ACEA'     => 'acea-energia',
-        'OCTOPUS'  => 'octopus-energy',
-        'VOLTY'    => 'volty',
+        'A2A ENERGIA'     => 'a2a-energia',
+        'ENEL ENERGIA'    => 'enel-energia',
+        'ENI PLENITUDE'   => 'eni-plenitude',
+        'IREN MERCATO'    => 'iren-mercato',
+        'EDISON ENERGIA'  => 'edison-energia',
+        'HERA COMM'       => 'hera-comm',
+        'OCTOPUS ENERGY'  => 'octopus-energy',
+        'POSTE ENERGIA'   => 'poste-energia',
+        'PULSEE'          => 'pulsee',
+        'FASTWEB ENERGIA' => 'fastweb-energia',
+        'NEN'             => 'nen',
+        'CALABRIA ENERGIA'=> 'calabria-energia',
+        'ASM VENDITA E SERVIZI' => 'asm-vendita-servizi',
+        'AMG ENERGIA'     => 'amg-energia',
+        'BARI ENERGIA'    => 'bari-energia',
+        'E.ON ENERGIA'    => 'eon-energia',
+        'ENGIE'           => 'engie',
+        'ESTRA'           => 'estra',
+        'ILLUMIA'         => 'illumia',
+        'ITALY GREEN POWER' => 'italy-green-power',
+        'VOLTY'           => 'volty',
     ];
 }
 
@@ -60,6 +76,14 @@ function parseItalianNumber(?string $s): ?float {
     }
     
     return is_numeric($s) ? (float)$s : null;
+}
+
+function hasPenaleFromTempistica(array $offer): bool {
+    $text = ($offer['tempistica_info'] ?? '') . ' ' . ($offer['note_costi'] ?? '');
+    $text = mb_strtolower($text);
+    if (preg_match('/nessuna\s*penale|no\s*penal[il]|senza\s*penal[il]/iu', $text)) return false;
+    if (preg_match('/penale|penali|penalità|recesso\s*anticipato/iu', $text)) return true;
+    return false;
 }
 
 function deterministicUuid(string $seed): string {
@@ -124,11 +148,6 @@ function normalizeLuceOffer(array $offer): ?array {
 
     if ($prezzo === null || $prezzo <= 0) return null;
 
-    // Se tariffa VARIABILE ma spread non disponibile, stima da prezzo - PUN
-    if ($tipo === 'VARIABILE' && $spread === null && $pun !== null) {
-        $spread = max(0, round($prezzo - $pun, 6));
-    }
-
     $costoFissoAnnuale = parseItalianNumber($offer['costo_fisso'] ?? null) ?? 0.0;
 
     // Campi aggiuntivi (solo se valorizzati)
@@ -140,6 +159,17 @@ function normalizeLuceOffer(array $offer): ?array {
     if (!empty($offer['validità offerta'])) $extra['validita_offerta'] = $offer['validità offerta'];
     if (!empty($offer['penale_recesso'])) $extra['penale_recesso'] = $offer['penale_recesso'];
     if (!empty($offer['penale'])) $extra['penale_recesso'] = $offer['penale'];
+    if (!empty($offer['url_offerta']) && filter_var($offer['url_offerta'], FILTER_VALIDATE_URL)) {
+        $extra['url_offerta'] = $offer['url_offerta'];
+    }
+    if (!empty($offer['url_sito_venditore']) && filter_var($offer['url_sito_venditore'], FILTER_VALIDATE_URL)) {
+        $extra['url_sito_venditore'] = $offer['url_sito_venditore'];
+    }
+    if (!empty($offer['codice_offerta'])) $extra['codice_offerta'] = $offer['codice_offerta'];
+    if (!empty($offer['componenti'])) $extra['componenti'] = $offer['componenti'];
+    if (!empty($offer['sconti_applicati'])) $extra['sconti_applicati'] = $offer['sconti_applicati'];
+    if (!empty($offer['sconti_non_applicati'])) $extra['sconti_non_applicati'] = $offer['sconti_non_applicati'];
+    if (!empty($offer['sconto_note'])) $extra['sconto_note'] = $offer['sconto_note'];
 
     // Profili di costo (se valorizzati)
     $profili = [];
@@ -149,9 +179,34 @@ function normalizeLuceOffer(array $offer): ?array {
     }
     if (!empty($profili)) $extra['costo_profili'] = $profili;
 
-    $prezzoF1 = parseItalianNumber($offer['prezzo f1'] ?? null);
-    $prezzoF2 = parseItalianNumber($offer['prezzo f2'] ?? null);
-    $prezzoF3 = parseItalianNumber($offer['prezzo f3'] ?? null);
+    // Sconti: semplificati per il frontend
+    $hasScontiCondizionali = !empty($offer['has_sconti_condizionali']);
+    $scontoNote = $offer['sconto_note'] ?? '';
+
+    // Estrai prezzi per fascia dai componenti ARERA
+    $prezzoF1 = null; $prezzoF2 = null; $prezzoF3 = null;
+    $componenti = $offer['componenti'] ?? [];
+
+    if ($tipo === 'FISSO' && !empty($componenti) && is_array($componenti)) {
+        // Per offerte fisse: somma tutti i componenti energia per fascia
+        $sums = ['F1' => 0.0, 'F2' => 0.0, 'F3' => 0.0];
+        foreach ($componenti as $c) {
+            $unita = $c['unita'] ?? '';
+            if (!str_contains($unita, '€/kWh')) continue;
+            $cNome = $c['nome'] ?? '';
+            if (stripos($cNome, 'SPREAD') !== false) continue;
+            $fascia = $c['fascia'] ?? 'F1';
+            if (!isset($sums[$fascia])) $fascia = 'F1';
+            $sums[$fascia] += (float)($c['prezzo'] ?? 0);
+        }
+        if ($sums['F1'] > 0) $prezzoF1 = $sums['F1'];
+        if ($sums['F2'] > 0) $prezzoF2 = $sums['F2'];
+        if ($sums['F3'] > 0) $prezzoF3 = $sums['F3'];
+    }
+    // Per variabili o se non trovato: usa il prezzo mono (PUN+spread per variabili, prezzo fisso per fisse)
+    if ($prezzoF1 === null) $prezzoF1 = $prezzo;
+    if ($prezzoF2 === null) $prezzoF2 = $prezzo;
+    if ($prezzoF3 === null) $prezzoF3 = $prezzo;
 
     return [
         'id'                => deterministicUuid("tariff-{$brand}-{$offer['offerta']}-LUCE"),
@@ -167,7 +222,6 @@ function normalizeLuceOffer(array $offer): ?array {
         'price_smc'         => null,
         'fixed_fee_monthly' => round($costoFissoAnnuale / 12, 2),
         'fixed_fee_annual'  => $costoFissoAnnuale,
-        'transport_fee_kwh' => 0.0089,
         'spread'            => $spread,
         'pun'               => $pun,
         'promo_active'      => false,
@@ -175,6 +229,16 @@ function normalizeLuceOffer(array $offer): ?array {
         'brand'             => $brand,
         'logo'              => $offer['logo'] ?? null,
         'extra'             => $extra,
+        'tipo_cliente'      => $offer['tipo_cliente'] ?? 'residenziale',
+        'tipo_fasce'        => $offer['tipo_fasce'] ?? null,
+        'regioni'           => $offer['regioni'] ?? [],
+        'province'          => $offer['province'] ?? [],
+        'nazionale'         => (bool)($offer['nazionale'] ?? true),
+        'has_sconti_condizionali' => $hasScontiCondizionali,
+        'sconto_note'       => $scontoNote,
+        'is_main_supplier'  => isset($bm[$brand]),
+        'has_penale_recesso'=> hasPenaleFromTempistica($offer),
+        'attivabile_online' => !empty($offer['url_offerta']) && filter_var($offer['url_offerta'], FILTER_VALIDATE_URL),
     ];
 }
 
@@ -197,11 +261,6 @@ function normalizeGasOffer(array $offer): ?array {
 
     if ($prezzo === null || $prezzo <= 0) return null;
 
-    // Se tariffa VARIABILE ma spread non disponibile, stima da prezzo - PSV
-    if ($tipo === 'VARIABILE' && $spread === null && $psv !== null) {
-        $spread = max(0, round($prezzo - $psv, 6));
-    }
-
     $costoFissoAnnuale = parseItalianNumber($offer['costo_fisso'] ?? null) ?? 0.0;
 
     // Campi aggiuntivi (solo se valorizzati)
@@ -213,6 +272,17 @@ function normalizeGasOffer(array $offer): ?array {
     if (!empty($offer['validità offerta'])) $extra['validita_offerta'] = $offer['validità offerta'];
     if (!empty($offer['penale_recesso'])) $extra['penale_recesso'] = $offer['penale_recesso'];
     if (!empty($offer['penale'])) $extra['penale_recesso'] = $offer['penale'];
+    if (!empty($offer['url_offerta']) && filter_var($offer['url_offerta'], FILTER_VALIDATE_URL)) {
+        $extra['url_offerta'] = $offer['url_offerta'];
+    }
+    if (!empty($offer['url_sito_venditore']) && filter_var($offer['url_sito_venditore'], FILTER_VALIDATE_URL)) {
+        $extra['url_sito_venditore'] = $offer['url_sito_venditore'];
+    }
+    if (!empty($offer['codice_offerta'])) $extra['codice_offerta'] = $offer['codice_offerta'];
+    if (!empty($offer['componenti'])) $extra['componenti'] = $offer['componenti'];
+    if (!empty($offer['sconti_applicati'])) $extra['sconti_applicati'] = $offer['sconti_applicati'];
+    if (!empty($offer['sconti_non_applicati'])) $extra['sconti_non_applicati'] = $offer['sconti_non_applicati'];
+    if (!empty($offer['sconto_note'])) $extra['sconto_note'] = $offer['sconto_note'];
 
     // Profili di costo (se valorizzati)
     $profili = [];
@@ -233,7 +303,6 @@ function normalizeGasOffer(array $offer): ?array {
         'price_smc'         => $prezzo,
         'fixed_fee_monthly' => round($costoFissoAnnuale / 12, 2),
         'fixed_fee_annual'  => $costoFissoAnnuale,
-        'transport_fee_kwh' => 0.0,
         'spread'            => $spread,
         'psv'               => $psv,
         'promo_active'      => false,
@@ -241,6 +310,31 @@ function normalizeGasOffer(array $offer): ?array {
         'brand'             => $brand,
         'logo'              => $offer['logo'] ?? null,
         'extra'             => $extra,
+        'tipo_cliente'      => $offer['tipo_cliente'] ?? 'residenziale',
+        'tipo_fasce'        => $offer['tipo_fasce'] ?? null,
+        'regioni'           => $offer['regioni'] ?? [],
+        'province'          => $offer['province'] ?? [],
+        'nazionale'         => (bool)($offer['nazionale'] ?? true),
+        'has_sconti_condizionali' => !empty($offer['has_sconti_condizionali']),
+        'sconto_note'       => $offer['sconto_note'] ?? '',
+        'is_main_supplier'  => isset($bm[$brand]),
+        'has_penale_recesso'=> hasPenaleFromTempistica($offer),
+        'attivabile_online' => !empty($offer['url_offerta']) && filter_var($offer['url_offerta'], FILTER_VALIDATE_URL),
+    ];
+}
+
+function loadAreraData(): array {
+    $dataDir = __DIR__ . '/../data/offerte';
+    $luceFile = $dataDir . '/db-offerte-luce.json';
+    $gasFile  = $dataDir . '/db-offerte-gas.json';
+
+    $luce = is_file($luceFile) ? json_decode(file_get_contents($luceFile), true) : [];
+    $gas  = is_file($gasFile)  ? json_decode(file_get_contents($gasFile), true) : [];
+
+    return [
+        'luce' => is_array($luce) ? $luce : [],
+        'gas'  => is_array($gas)  ? $gas  : [],
+        'updated' => is_file($luceFile) ? filemtime($luceFile) : 0,
     ];
 }
 
@@ -248,57 +342,37 @@ function loadTariffs(): array {
     static $cache = null;
     if ($cache !== null) return $cache;
 
-    $luceRaw = [];
-    $gasRaw = [];
-
-    // 1. PROVA PRIMA i JSON ARERA locali (generati da arera_sync.php)
-    $localLuce = __DIR__ . '/../data/offerte/db-offerte-luce.json';
-    $localGas  = __DIR__ . '/../data/offerte/db-offerte-gas.json';
-
-    if (is_file($localLuce) && filesize($localLuce) > 1000) {
-        $decoded = json_decode(file_get_contents($localLuce), true);
-        if (is_array($decoded) && !empty($decoded)) {
-            $luceRaw = $decoded;
-            error_log("tariff_loader: caricato ARERA locale LUCE — " . count($luceRaw) . " offerte");
-        }
-    }
-    if (is_file($localGas) && filesize($localGas) > 1000) {
-        $decoded = json_decode(file_get_contents($localGas), true);
-        if (is_array($decoded) && !empty($decoded)) {
-            $gasRaw = $decoded;
-            error_log("tariff_loader: caricato ARERA locale GAS — " . count($gasRaw) . " offerte");
+    // Primary: load from local ARERA JSON files
+    $arera = loadAreraData();
+    if (!empty($arera['luce']) || !empty($arera['gas'])) {
+        $tariffs = [];
+        foreach ($arera['luce'] as $o) { $t = normalizeLuceOffer($o); if ($t) $tariffs[] = $t; }
+        foreach ($arera['gas'] as $o)  { $t = normalizeGasOffer($o);  if ($t) $tariffs[] = $t; }
+        if (!empty($tariffs)) {
+            $cache = $tariffs;
+            return $tariffs;
         }
     }
 
-    // 2. FALLBACK: carica da URL remoti (se locali vuoti e URL configurati)
-    if (empty($luceRaw) && defined('LUCE_JSON_URL') && LUCE_JSON_URL) {
-        try {
-            $luceRaw = fetchJson(LUCE_JSON_URL);
-            error_log("tariff_loader: fallback URL LUCE — " . count($luceRaw) . " offerte");
-        } catch (RuntimeException $e) {
-            error_log("tariff_loader URL LUCE: " . $e->getMessage());
-        }
-    }
-    if (empty($gasRaw) && defined('GAS_JSON_URL') && GAS_JSON_URL) {
-        try {
-            $gasRaw = fetchJson(GAS_JSON_URL);
-            error_log("tariff_loader: fallback URL GAS — " . count($gasRaw) . " offerte");
-        } catch (RuntimeException $e) {
-            error_log("tariff_loader URL GAS: " . $e->getMessage());
-        }
-    }
-
-    if (empty($luceRaw) && empty($gasRaw)) {
-        error_log("tariff_loader: nessuna offerta disponibile (né locale né remota)");
+    // Fallback: remote JSON URLs (legacy)
+    if (!LUCE_JSON_URL && !GAS_JSON_URL) {
+        error_log("tariff_loader: ARERA data not found and no remote URLs configured");
         return [];
     }
 
+    try {
+        $luceRaw = LUCE_JSON_URL ? fetchJson(LUCE_JSON_URL) : [];
+        $gasRaw  = GAS_JSON_URL ? fetchJson(GAS_JSON_URL) : [];
+    } catch (RuntimeException $e) {
+        error_log("tariff_loader: " . $e->getMessage());
+        return [];
+    }
+    
     $tariffs = [];
     foreach ($luceRaw as $o) { $t = normalizeLuceOffer($o); if ($t) $tariffs[] = $t; }
     foreach ($gasRaw as $o)  { $t = normalizeGasOffer($o);  if ($t) $tariffs[] = $t; }
-
+    
     $cache = $tariffs;
-    error_log("tariff_loader: totale " . count($tariffs) . " offerte caricate");
     return $tariffs;
 }
 
@@ -328,19 +402,80 @@ function loadSuppliers(): array {
     return array_values($seen);
 }
 
-function getTariffsByCommodity(string $commodity): array {
-    return array_values(array_filter(loadTariffs(), fn($t) => $t['commodity'] === $commodity && $t['active']));
+function tariffIsExpired(array $tariff): bool {
+    $validUntil = $tariff['extra']['validita_offerta'] ?? null;
+    if (!$validUntil) return false;
+    $dt = DateTime::createFromFormat('d/m/Y', $validUntil);
+    if (!$dt) return false;
+    return $dt < new DateTime('today');
 }
 
-function getTariffsForCalculation(string $commodity, string $zone = 'NORD', ?string $tipoCliente = null): array {
-    $tariffs = getTariffsByCommodity($commodity);
-    // Filtra per tipo cliente (residenziale/business) se specificato
-    if ($tipoCliente !== null && $tipoCliente !== '') {
-        $tariffs = array_filter($tariffs, function($t) use ($tipoCliente) {
-            $tc = $t['extra']['tipo_cliente'] ?? null;
-            if ($tc === null) return true; // se non specificato, includi (backward compat)
-            return strtolower($tc) === strtolower($tipoCliente);
-        });
+function getTariffsByCommodity(string $commodity): array {
+    $raw = array_values(array_filter(loadTariffs(), fn($t) => $t['commodity'] === $commodity && $t['active'] && !tariffIsExpired($t)));
+    $seen = [];
+    $clean = [];
+    foreach ($raw as $t) {
+        if (isset($seen[$t['id']])) continue;
+        $seen[$t['id']] = true;
+        // Sanity check: scarta spread > 2 o prezzo > 5 (dati import corrotti)
+        $spread = $t['spread'] ?? null;
+        if ($spread !== null && $spread > 2.0) continue;
+        $price = $commodity === 'LUCE' ? ($t['price_mono_kwh'] ?? null) : ($t['price_smc'] ?? null);
+        if ($price !== null && $price > 5.0) continue;
+        $clean[] = $t;
     }
-    return array_values($tariffs);
+    return $clean;
+}
+
+function getZoneRegions(string $zone): array {
+    $map = [
+        'NORD'   => ['01','02','03','04','05','06','07','08'],
+        'CENTRO' => ['09','10','11','12','13'],
+        'SUD'    => ['14','15','16','17','18','19','20'],
+    ];
+    return $map[$zone] ?? $map['NORD'];
+}
+
+function tariffIsAvailableInZone(array $tariff, string $zone, ?string $tipoCliente = null): bool {
+    // Client type filter
+    if ($tipoCliente && $tariff['tipo_cliente'] !== $tipoCliente) {
+        return false;
+    }
+
+    // National offers are always available
+    if ($tariff['nazionale']) {
+        return true;
+    }
+
+    // Geographic check: if offer specifies regions, at least one must match the zone
+    $offerRegions = $tariff['regioni'] ?? [];
+    if (empty($offerRegions)) {
+        return $tariff['nazionale']; // if no regions list, rely on nazionale flag
+    }
+
+    $zoneRegions = getZoneRegions($zone);
+    foreach ($offerRegions as $r) {
+        if (in_array($r, $zoneRegions, true)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function getTariffsForCalculation(string $commodity, string $zone = 'NORD', ?string $tipoCliente = null, array $filters = []): array {
+    $all = getTariffsByCommodity($commodity);
+    $all = array_values(array_filter($all, fn($t) => tariffIsAvailableInZone($t, $zone, $tipoCliente)));
+
+    if (!empty($filters['main_suppliers'])) {
+        $all = array_values(array_filter($all, fn($t) => $t['is_main_supplier'] ?? false));
+    }
+    if (!empty($filters['no_penali'])) {
+        $all = array_values(array_filter($all, fn($t) => !($t['has_penale_recesso'] ?? false)));
+    }
+    if (!empty($filters['online_only'])) {
+        $all = array_values(array_filter($all, fn($t) => $t['attivabile_online'] ?? false));
+    }
+
+    return $all;
 }

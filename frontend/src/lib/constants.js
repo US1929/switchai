@@ -37,6 +37,9 @@ export const LUCE = {
   /** Soglia compensazione accise (kWh/anno) — l'esenzione si riduce linearmente fino a questo valore */
   ACCISE_SOGLIA_COMPENSATA: 2640,
 
+  /** Soglia fine phase-out accise (kWh/anno) — oltre 4440 kWh l'esenzione è azzerata */
+  ACCISE_SOGLIA_FASE_OUT: 4440,
+
   /** Quota potenza impegnata (€/kW/anno) — ARERA Del. 575/2025 */
   COSTO_POTENZA_KW: 23.76, // Q3 2026: 1.98 €/kW/mese × 12
 
@@ -45,6 +48,9 @@ export const LUCE = {
 
   /** Canone RAI annuale (€/anno) — addebitato in bolletta LUCE, NON cambia con fornitore */
   CANONE_RAI_ANNUO: 90.00,
+
+  /** Dispacciamento (€/kWh) — CDISPD Q3 2026, componente regolata */
+  DISPACCIAMENTO: 0.016988,
 
   /** Prezzo di riferimento tutela (€/kWh) — fallback quando non si hanno dati utente */
   PREZZO_RIFERIMENTO: 0.16,

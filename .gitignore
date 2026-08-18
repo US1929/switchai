@@ -78,3 +78,12 @@ coverage
 .tern-port
 github/
 Sezione Plus 
+
+# CodeGraph knowledge graph
+.codegraph
+
+# Personal tooling
+headroom-run.sh
+
+# Dati ARERA rigenerati dal sync notturno (grossi, non source)
+backend/php/data/

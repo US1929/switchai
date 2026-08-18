@@ -4,21 +4,13 @@
 
 [![Glama MCP Server](https://glama.ai/mcp/servers/US1929/switchai/badges/score.svg)](https://glama.ai/mcp/servers/US1929/switchai)
 
-SwitchAI è un agente AI nativo per il confronto e il cambio automatico del fornitore energia nel mercato libero italiano. Non è un comparatore tradizionale: l'utente fornisce la sua bolletta, e l'AI analizza i dati, confronta **44+ offerte attive** di Luce e Gas, e attiva la tariffa migliore — tutto in linguaggio naturale.
+SwitchAI è un agente AI nativo per il confronto delle tariffe energia nel mercato libero italiano. L'utente fornisce la sua bolletta, e l'AI analizza i dati, confronta **5.600+ offerte ARERA** di Luce e Gas, e fornisce link diretti ai siti dei fornitori per l'attivazione.
 
 ---
 
 ## Come funziona
 
-```
-Utente (linguaggio naturale)
-  ↓
-AI Agent (Claude, Gemini, ChatGPT, o qualsiasi LLM)
-  ↓
-SwitchAI Tools (WebMCP o MCP Server)
-  ↓
-API PHP → 44+ offerte live → sottoscrizione attivata
-```
+Utente → AI Agent (Claude, Gemini, ChatGPT) → SwitchAI Tools (WebMCP o MCP Server) → API PHP → 5.600+ offerte live → link diretto al fornitore
 
 ---
 
@@ -35,7 +27,7 @@ API PHP → 44+ offerte live → sottoscrizione attivata
 ## Tool disponibili
 
 ### `calculate_energy_savings`
-Confronta tariffe e calcola risparmio. Restituisce top 3 offerte + `agent_summary` in italiano pronto per l'utente.
+Confronta tariffe e calcola risparmio. Restituisce top 3 offerte + `agent_summary` in italiano.
 
 ```json
 POST /api/webmcp-endpoint
@@ -48,7 +40,7 @@ POST /api/webmcp-endpoint
 ```
 
 ### `parse_energy_bill`
-Estrae dati strutturati da testo bolletta italiana (fornitore, POD/PDR, consumi, spesa, zona).
+Estrae dati strutturati da testo bolletta italiana.
 
 ```json
 POST /api/parse-bill-text
@@ -58,27 +50,25 @@ POST /api/parse-bill-text
 ```
 
 ### `get_available_offers`
-Lista completa offerte: 25 luce + 19 gas con prezzi, tipo contratto, quota fissa.
+Lista completa offerte: 3.196 luce + 2.411 gas.
 
 ```
 GET /api/tariffe/luce
 GET /api/tariffe/gas
 ```
 
-### `submit_subscription`
-Attiva la sottoscrizione. Supporta `dry_run: true` per anteprima senza invio.
+### `get_market_indices`
+PUN (elettricità) e PSV (gas) correnti.
 
-```json
-POST /api/subscription/submit
-{
-  "tariff_id": "...",
-  "nome": "Mario",
-  "cognome": "Rossi",
-  "codice_fiscale": "RSSMRA80A01H501Z",
-  "email": "mario@example.com",
-  "dry_run": true
-}
 ```
+GET /api/market-indices
+```
+
+---
+
+## Attivazione
+
+L'attivazione avviene tramite link diretto (`affiliate_url` o `url_offerta`) al sito del fornitore. SwitchAI non raccoglie dati personali per l'attivazione.
 
 ---
 
@@ -103,14 +93,9 @@ POST /api/subscription/submit
 ## Flusso ottimale per AI agent
 
 ```
-1. parse_energy_bill(bill_text)
-   → consumi, spesa, zona, POD/PDR
-
-2. calculate_energy_savings(commodity, consumi, zona, spesa)
-   → top 3 offerte + risparmio annuo + agent_summary
-
-3. [con conferma utente] submit_subscription(tariff_id, dati)
-   → attivazione completata
+1. parse_energy_bill(bill_text) → consumi, spesa, zona
+2. calculate_energy_savings(commodity, consumi, zona, spesa) → offerte + affiliate_url
+3. Utente clicca il link → attivazione sul sito del fornitore
 ```
 
 ---
@@ -120,14 +105,13 @@ POST /api/subscription/submit
 | Method | Endpoint | Descrizione |
 |--------|----------|-------------|
 | GET | `/api/health` | Health check |
-| GET | `/api/tariffe/luce` | 25 offerte luce |
-| GET | `/api/tariffe/gas` | 19 offerte gas |
+| GET | `/api/tariffe/luce` | 3.196 offerte luce |
+| GET | `/api/tariffe/gas` | 2.411 offerte gas |
 | POST | `/api/webmcp-endpoint` | Calcolo risparmio + agent_summary |
 | POST | `/api/parse-bill-text` | Parser bolletta |
-| POST | `/api/analyze-bill` | PDF + calcolo risparmio |
-| POST | `/api/subscription/submit` | Attivazione tariffa |
-| GET | `/api/subscription/status/{id}` | Stato sottoscrizione |
+| POST | `/api/analyze` | Analisi V2 completa |
 | GET | `/api/market-indices` | PUN e PSV live |
+| GET | `/api/fornitori` | Elenco fornitori |
 
 ---
 
@@ -137,7 +121,7 @@ POST /api/subscription/submit
 - **Backend**: PHP 8.5 su OVH Pro Hosting (Apache + mod_rewrite)
 - **MCP Server**: Node.js + `@modelcontextprotocol/sdk`
 - **WebMCP**: Google Chrome Labs WebMCP spec
-- **Dati tariffe**: 44+ offerte da fornitori italiani (ARERA-compliant)
+- **Dati tariffe**: 5.600+ offerte ARERA (sync giornaliero notturno)
 - **Mercato**: Italia — Mercato Libero Energia
 
 ---
@@ -147,6 +131,7 @@ POST /api/subscription/submit
 - [`/llms.txt`](https://www.switchai.it/llms.txt) — descrizione sito per LLM
 - [`/webmcp.json`](https://www.switchai.it/webmcp.json) — tool discovery WebMCP
 - [`/per-llm`](https://www.switchai.it/per-llm) — documentazione machine-readable
+- [`/openapi.json`](https://www.switchai.it/openapi.json) — specifica OpenAPI
 
 ---
 
@@ -158,8 +143,7 @@ POST /api/subscription/submit
 
 ## Licenza e contatti
 
-Operatore: SwitchAI  
-Email: attivazioni@switchai.it  
+Email: info@switchai.it  
 Sito: https://www.switchai.it  
 Mercato: Italia · GDPR compliant
 

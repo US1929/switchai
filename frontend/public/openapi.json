@@ -2,16 +2,15 @@
   "openapi": "3.0.3",
   "info": {
     "title": "SwitchAI — Energy Tariff Comparison API",
-    "description": "AI agent per confronto e attivazione tariffe Luce e Gas nel mercato libero italiano. 44+ offerte da 13 fornitori. WebMCP e MCP compatibile.",
-    "version": "2.0.0",
-    "contact": { "email": "attivazioni@switchai.it", "url": "https://www.switchai.it" },
+    "description": "AI agent per confronto tariffe Luce e Gas nel mercato libero italiano. 5.600+ offerte ARERA da tutti i fornitori. WebMCP e MCP compatibile. Reindirizza al fornitore per l'attivazione.",
+    "version": "2.2.0",
+    "contact": { "email": "info@switchai.it", "url": "https://www.switchai.it" },
     "license": { "name": "Proprietary", "url": "https://www.switchai.it/privacy" }
   },
   "servers": [{ "url": "https://www.switchai.it/api", "description": "SwitchAI Production API" }],
   "tags": [
     { "name": "Tariffs", "description": "Offerte e confronto tariffe" },
     { "name": "Bills", "description": "Analisi bollette" },
-    { "name": "Subscription", "description": "Sottoscrizione e attivazione" },
     { "name": "Market", "description": "Dati di mercato (PUN/PSV)" },
     { "name": "System", "description": "Health, stats, auth" }
   ],
@@ -45,8 +44,8 @@
     "/tariffe/luce": {
       "get": {
         "tags": ["Tariffs"],
-        "summary": "Lista completa offerte LUCE (25+)",
-        "description": "Restituisce tutte le offerte di energia elettrica disponibili con prezzi, tipo contratto, quota fissa, spread, PUN e campi extra.",
+        "summary": "Lista completa offerte LUCE (3.196+)",
+        "description": "Restituisce tutte le offerte di energia elettrica disponibili con prezzi, tipo contratto, quota fissa, spread, PUN e campi extra. Dati ARERA aggiornati ogni notte.",
         "operationId": "getLuceOffers",
         "responses": {
           "200": {
@@ -59,8 +58,8 @@
     "/tariffe/gas": {
       "get": {
         "tags": ["Tariffs"],
-        "summary": "Lista completa offerte GAS (19+)",
-        "description": "Restituisce tutte le offerte di gas naturale disponibili con prezzi, tipo contratto, quota fissa, spread, PSV e campi extra.",
+        "summary": "Lista completa offerte GAS (2.411+)",
+        "description": "Restituisce tutte le offerte di gas naturale disponibili con prezzi, tipo contratto, quota fissa, spread, PSV e campi extra. Dati ARERA aggiornati ogni notte.",
         "operationId": "getGasOffers",
         "responses": {
           "200": {
@@ -105,8 +104,9 @@
     "/webmcp-endpoint": {
       "post": {
         "tags": ["Tariffs"],
-        "summary": "Confronta tariffe e calcola risparmio (per AI agent)",
-        "description": "Tool principale per LLM. Riceve consumi e spesa attuale, restituisce top 3 offerte con breakdown energetico e agent_summary in italiano pronto da mostrare all'utente.",
+        "deprecated": true,
+        "summary": "DEPRECATO — usa /analyze. Confronta tariffe e calcola risparmio (legacy)",
+        "description": "Endpoint legacy senza honesty system. Usare /analyze per il confronto completo con sistema di onestà, cost_breakdown e bill_attualization.",
         "operationId": "calculateEnergySavings",
         "requestBody": {
           "required": true,
@@ -177,61 +177,6 @@
           }
         }
       }
-    },
-    "/subscription/submit": {
-      "post": {
-        "tags": ["Subscription"],
-        "summary": "Invia richiesta di attivazione (double opt-in)",
-        "description": "Step 1 del double opt-in GDPR. Salva in pending e invia email di conferma all'utente. La sottoscrizione viene inoltrata solo dopo la conferma. Supporta dry_run:true per anteprima payload.",
-        "operationId": "submitSubscription",
-        "requestBody": {
-          "required": true,
-          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SubscriptionRequest" } } }
-        },
-        "responses": {
-          "201": { "description": "Pending — email conferma inviata" },
-          "400": { "description": "Campi mancanti o consenso GDPR non dato" }
-        }
-      }
-    },
-    "/subscription/conferma": {
-      "get": {
-        "tags": ["Subscription"],
-        "summary": "Conferma sottoscrizione via token (step 2)",
-        "description": "Step 2 del double opt-in. Verifica il token e conferma la sottoscrizione. Solo dopo questo step i dati vengono inoltrati.",
-        "operationId": "confirmSubscription",
-        "parameters": [
-          { "name": "token", "in": "query", "required": true, "schema": { "type": "string" }, "description": "Token di conferma ricevuto via email" }
-        ],
-        "responses": {
-          "200": { "description": "Confermata" },
-          "404": { "description": "Token non valido o scaduto" }
-        }
-      }
-    },
-    "/subscription/status/{id}": {
-      "get": {
-        "tags": ["Subscription"],
-        "summary": "Stato sottoscrizione",
-        "operationId": "getSubscriptionStatus",
-        "parameters": [
-          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
-        ],
-        "responses": {
-          "200": { "description": "OK" }
-        }
-      }
-    },
-    "/subscription/form-schema": {
-      "get": {
-        "tags": ["Subscription"],
-        "summary": "Schema JSON del form di sottoscrizione",
-        "description": "Restituisce la struttura completa del form: step, campi, enum validi. Utile per LLM che devono sapere quali dati raccogliere.",
-        "operationId": "getSubscriptionFormSchema",
-        "responses": {
-          "200": { "description": "Schema form" }
-        }
-      }
     }
   },
   "components": {
@@ -248,16 +193,16 @@
       "Status": {
         "type": "object",
         "properties": {
-          "luce_tariffs": { "type": "integer", "example": 25 },
-          "gas_tariffs": { "type": "integer", "example": 19 },
-          "suppliers": { "type": "integer", "example": 13 }
+          "luce_tariffs": { "type": "integer", "example": 3196 },
+          "gas_tariffs": { "type": "integer", "example": 2411 },
+          "suppliers": { "type": "integer", "example": 38 }
         }
       },
       "OfferList": {
         "type": "object",
         "properties": {
           "commodity": { "type": "string", "example": "LUCE" },
-          "count": { "type": "integer", "example": 25 },
+          "count": { "type": "integer", "example": 3196 },
           "offers": { "type": "array", "items": { "$ref": "#/components/schemas/Offer" } }
         }
       },
@@ -315,13 +260,15 @@
       },
       "AnalyzeRequest": {
         "type": "object",
+        "description": "Accetta sia nomi italiani (consumo_annuo_kwh, spesa_annua_eur, zona) sia alias inglesi (yearly_consumption_kwh, current_annual_spend, zone). current_supplier è l'alias inglese di fornitore.",
         "properties": {
           "bill_text": { "type": "string", "description": "Testo della bolletta italiana" },
           "commodity": { "type": "string", "enum": ["LUCE", "GAS"] },
-          "consumo_annuo_kwh": { "type": "number" },
-          "consumo_annuo_smc": { "type": "number" },
-          "spesa_annua_eur": { "type": "number" },
-          "zona": { "type": "string", "enum": ["NORD", "CENTRO", "SUD"] },
+          "consumo_annuo_kwh": { "type": "number", "description": "Consumo annuo kWh (LUCE). Alias inglese: yearly_consumption_kwh" },
+          "consumo_annuo_smc": { "type": "number", "description": "Consumo annuo Smc (GAS). Alias inglese: yearly_consumption_smc" },
+          "spesa_annua_eur": { "type": "number", "description": "Spesa annua attuale in €. Alias inglese: current_annual_spend" },
+          "zona": { "type": "string", "enum": ["NORD", "CENTRO", "SUD"], "description": "Zona tariffaria. Alias inglese: zone" },
+          "fornitore": { "type": "string", "description": "Fornitore attuale. Alias inglese: current_supplier" },
           "tariff_type": { "type": "string", "enum": ["fisso", "variabile"] },
           "options": { "type": "object", "properties": { "response_format": { "type": "string", "enum": ["compact", "full"] } } }
         }
@@ -402,35 +349,8 @@
           "source": { "type": "string", "example": "GME" },
           "updated": { "type": "string", "format": "date-time" }
         }
-      },
-      "SubscriptionRequest": {
-        "type": "object",
-        "required": ["tariff_id", "nome", "cognome", "codice_fiscale", "email", "cellulare", "gdpr_privacy_accepted"],
-        "properties": {
-          "tariff_id": { "type": "string", "description": "ID offerta da attivare" },
-          "tariff_name": { "type": "string" },
-          "supplier": { "type": "string" },
-          "commodity": { "type": "string", "enum": ["luce", "gas"] },
-          "nome": { "type": "string" },
-          "cognome": { "type": "string" },
-          "codice_fiscale": { "type": "string" },
-          "email": { "type": "string", "format": "email" },
-          "cellulare": { "type": "string" },
-          "titolo_immobile": { "type": "string", "enum": ["Proprietario", "Affittuario", "Comodatario", "Usufruttuario"] },
-          "indirizzo": { "type": "string" },
-          "civico": { "type": "string" },
-          "citta": { "type": "string" },
-          "provincia_sigla": { "type": "string" },
-          "cap": { "type": "string" },
-          "codice_pod": { "type": "string" },
-          "codice_pdr": { "type": "string" },
-          "modalita_pagamento": { "type": "string", "enum": ["SDD", "Bollettino"] },
-          "iban": { "type": "string" },
-          "gdpr_privacy_accepted": { "type": "boolean", "description": "DEVE essere true. Consenso esplicito obbligatorio." },
-          "consent_source": { "type": "string", "description": "webmcp_chrome | mcp_claude_desktop | api_direct" },
-          "dry_run": { "type": "boolean", "description": "Se true, restituisce il payload senza inviare" }
-        }
       }
+
     }
   }
 }

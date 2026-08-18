@@ -21,6 +21,8 @@ export default function Footer() {
 
         <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '4px 20px', marginBottom: 16 }}>
           <Link to="/come-funziona" style={{ color: '#94a3b8', textDecoration: 'none' }}>Come funziona</Link>
+          <Link to="/tariffe-luce" style={{ color: '#64748b', textDecoration: 'none' }}>Tariffe Luce</Link>
+          <Link to="/confronto-gas" style={{ color: '#64748b', textDecoration: 'none' }}>Confronto Gas</Link>
           <Link to="/per-llm" style={{ color: '#64748b', textDecoration: 'none' }}>Documentazione LLM</Link>
           <Link to="/analisi" style={{ color: '#64748b', textDecoration: 'none' }}>Demo parser</Link>
         </div>

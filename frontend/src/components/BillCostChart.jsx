@@ -5,6 +5,7 @@ const COLORS = {
   trasporto: '#A78BFA',
   oneri: '#E879F9',
   imposte: '#FB7185',
+  canoneRai: '#F59E0B',
 }
 
 function formatEur(n) {
@@ -36,7 +37,10 @@ export default function BillCostChart({ data, totale }) {
     { name: 'Materia energia', value: Number(data.materia ?? 0), fill: COLORS.materia },
     { name: 'Trasporto e gestione', value: Number(data.trasporto ?? 0), fill: COLORS.trasporto },
     { name: 'Oneri di sistema', value: Number(data.oneri ?? 0), fill: COLORS.oneri },
-    { name: 'Imposte, IVA e altro', value: Number(data.imposte ?? 0), fill: COLORS.imposte },
+    { name: 'Imposte e IVA', value: Number(data.imposte ?? 0), fill: COLORS.imposte },
+    ...(Number(data.canoneRai ?? 0) > 0
+      ? [{ name: 'Canone RAI', value: Number(data.canoneRai), fill: COLORS.canoneRai }]
+      : []),
   ].filter(d => d.value > 0)
 
   if (chartData.length === 0) return null
@@ -105,6 +109,16 @@ export default function BillCostChart({ data, totale }) {
             <span style={{ fontSize: 12, fontWeight: 700, color: '#94a3b8', flex: 1 }}>Totale</span>
             <span style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>{formatEur(tot)}</span>
           </div>
+          {Number(data.canoneRai ?? 0) > 0 && (
+            <div style={{
+              marginTop: 6, fontSize: 10, color: '#64748b', lineHeight: 1.4,
+            }}>
+              {data.canoneRaiAutoCorrected
+                ? <span>* Il Canone RAI è di 90€/anno, addebitato in 10 rate da 9€ in bolletta. Valore corretto automaticamente per normalizzazione mensile (90€ / 12 mesi = 7,5€/mese).</span>
+                : <span>Il Canone RAI (90€/anno) è un'imposta fissa, uguale per ogni fornitore. Non incide sul confronto.</span>
+              }
+            </div>
+          )}
         </div>
       </div>
     </div>

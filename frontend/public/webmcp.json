@@ -1,7 +1,7 @@
 {
   "name": "SwitchAI",
-  "description": "AI agent for comparing and switching Italian energy tariffs (Luce and Gas). Analyzes bollette, compares 44+ live offers from major Italian providers, and activates the best tariff automatically. Covers all Italian zones (NORD, CENTRO, SUD) and all 106 provinces.",
-  "version": "2.0.0",
+  "description": "Carica la tua bolletta Luce o Gas — SwitchAI analizza consumi e spesa, confronta 5.600+ offerte ARERA in tempo reale e ti mostra quanto puoi risparmiare. Nessuna registrazione richiesta. I dati personali restano nel tuo browser: SwitchAI riceve solo consumi, spesa e zona tariffaria. Attivazione direttamente sul sito del fornitore.",
+  "version": "2.3.0",
   "url": "https://www.switchai.it",
   "contact": "attivazioni@switchai.it",
   "language": "it",
@@ -10,9 +10,19 @@
   "keywords": ["tariffa energia", "bolletta luce", "bolletta gas", "cambio fornitore", "risparmio energia", "ARERA", "PUN", "PSV", "mercato libero", "comparatore tariffe Italia"],
   "tools": [
     {
+      "name": "get_market_indices",
+      "description": "Recupera PUN (Prezzo Unico Nazionale dell'energia elettrica) e PSV (Punto di Scambio Virtuale del gas) correnti. Dati aggiornati giornalmente dal sync ARERA notturno da config.json. Senza parametri.",
+      "endpoint": "https://www.switchai.it/api/market-indices",
+      "method": "GET",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
       "name": "calculate_energy_savings",
-      "description": "Confronta le tariffe energia elettrica e gas nel mercato libero italiano e calcola il risparmio potenziale rispetto alla spesa attuale dell'utente. Restituisce le top 3 offerte ordinate per risparmio, con breakdown completo dei costi (materia prima, quota fissa, imposte) e un agent_summary in italiano pronto da mostrare all'utente. Usa questo tool quando l'utente vuole sapere quanto può risparmiare cambiando fornitore, o quale tariffa è più conveniente per i suoi consumi.",
-      "endpoint": "https://www.switchai.it/api/webmcp-endpoint",
+      "description": "Confronta le tariffe energia elettrica e gas nel mercato libero italiano e calcola il risparmio potenziale rispetto alla spesa attuale dell'utente. Restituisce le top 3 offerte ordinate per risparmio, con honesty system (switch/evaluate/stay), breakdown completo dei costi, bill_attualization e un agent_summary in italiano pronto da mostrare all'utente. Usa questo tool quando l'utente vuole sapere quanto può risparmiare cambiando fornitore, o quale tariffa è più conveniente per i suoi consumi.",
+      "endpoint": "https://www.switchai.it/api/analyze",
       "method": "POST",
       "parameters": {
         "type": "object",
@@ -22,6 +32,10 @@
             "type": "string",
             "enum": ["LUCE", "GAS"],
             "description": "Tipo di fornitura: LUCE per energia elettrica, GAS per gas naturale"
+          },
+          "bill_text": {
+            "type": "string",
+            "description": "(Modalità bolletta) Testo completo della bolletta per estrarre automaticamente consumi, spesa e zona."
           },
           "yearly_consumption_kwh": {
             "type": "number",
@@ -40,37 +54,10 @@
             "type": "number",
             "description": "Spesa annua attuale dell'utente in euro (dalla bolletta)"
           },
-          "canone_rai": {
-            "type": "number",
-            "description": "Canone RAI annuale in € (solo LUCE). Cerca 'Canone RAI' o 'Canone TV' nel dettaglio costi. ~90€/anno. 0 se assente o GAS."
-          },
-          "spesa_materia_energia": {
-            "type": "number",
-            "description": "Spesa annua materia energia in € (solo componente energia/gas, esclusi trasporto, oneri, IVA, canone RAI)."
-          },
-          "quota_fissa_mensile": {
-            "type": "number",
-            "description": "Quota fissa mensile in €/mese. Dal Box Offerta o dettaglio costi."
-          },
-          "tipo_cliente": {
+          "current_supplier": {
             "type": "string",
-            "enum": ["residenziale", "business"],
-            "description": "Tipo cliente: residenziale (uso domestico) o business (Partita IVA, azienda)."
-          },
-          "nome": { "type": "string", "description": "(Opzionale) Nome intestatario per precompilare il form di attivazione" },
-          "cognome": { "type": "string", "description": "(Opzionale) Cognome per precompilare il form" },
-          "cf": { "type": "string", "description": "(Opzionale) Codice Fiscale" },
-          "email": { "type": "string", "description": "(Opzionale) Email" },
-          "tel": { "type": "string", "description": "(Opzionale) Telefono" },
-          "indirizzo": { "type": "string", "description": "(Opzionale) Via/Piazza" },
-          "civico": { "type": "string", "description": "(Opzionale) Numero civico" },
-          "citta": { "type": "string", "description": "(Opzionale) Città" },
-          "provincia_sigla": { "type": "string", "description": "(Opzionale) Sigla provincia (es: MI)" },
-          "cap": { "type": "string", "description": "(Opzionale) CAP (5 cifre)" },
-          "pod": { "type": "string", "description": "(Opzionale) Codice POD per Luce" },
-          "pdr": { "type": "string", "description": "(Opzionale) Codice PDR per Gas" },
-          "consumi": { "type": "number", "description": "(Opzionale) Consumo annuo per prefill" },
-          "spesa": { "type": "number", "description": "(Opzionale) Spesa annua per prefill" }
+            "description": "Nome del fornitore attuale (es. 'Enel Energia')."
+          }
         }
       },
       "response_summary_field": "agent_summary"
@@ -103,37 +90,8 @@
           "commodity": {
             "type": "string",
             "enum": ["luce", "gas"],
-            "description": "Tipo fornitura: luce (25 offerte disponibili) o gas (19 offerte disponibili)"
+            "description": "Tipo fornitura: luce (3.196 offerte disponibili) o gas (2.411 offerte disponibili)"
           }
-        }
-      }
-    },
-    {
-      "name": "submit_subscription",
-      "description": "Invia la richiesta di attivazione di una nuova tariffa energia per l'utente. Completa il cambio fornitore raccogliendo i dati anagrafici, l'indirizzo di fornitura, il codice POD (luce) o PDR (gas), e i dati di pagamento. Supporta modalità dry_run:true per preview senza invio reale. Usa questo tool solo dopo che l'utente ha confermato esplicitamente di voler procedere con l'attivazione.",
-      "endpoint": "https://www.switchai.it/api/subscription/submit",
-      "method": "POST",
-      "parameters": {
-        "type": "object",
-        "required": ["tariff_id", "nome", "cognome", "codice_fiscale", "email", "cellulare", "titolo_immobile", "indirizzo", "civico", "citta", "provincia_sigla", "cap", "modalita_pagamento"],
-        "properties": {
-          "tariff_id": { "type": "string", "description": "ID offerta da attivare (ottenuto da calculate_energy_savings o get_available_offers)" },
-          "nome": { "type": "string", "description": "Nome dell'intestatario" },
-          "cognome": { "type": "string", "description": "Cognome dell'intestatario" },
-          "codice_fiscale": { "type": "string", "description": "Codice fiscale italiano (16 caratteri)" },
-          "email": { "type": "string", "description": "Email di contatto" },
-          "cellulare": { "type": "string", "description": "Numero di cellulare italiano" },
-          "titolo_immobile": { "type": "string", "enum": ["proprietario", "affittuario", "altro"], "description": "Titolo sull'immobile" },
-          "indirizzo": { "type": "string", "description": "Via/Piazza della fornitura" },
-          "civico": { "type": "string", "description": "Numero civico" },
-          "citta": { "type": "string", "description": "Città della fornitura" },
-          "provincia_sigla": { "type": "string", "description": "Sigla provincia italiana (es. MI, RM, NA)" },
-          "cap": { "type": "string", "description": "CAP (5 cifre)" },
-          "codice_pod": { "type": "string", "description": "Codice POD per luce (formato IT001E...)" },
-          "codice_pdr": { "type": "string", "description": "Codice PDR per gas (14 cifre)" },
-          "modalita_pagamento": { "type": "string", "enum": ["SDD", "Bollettino"], "description": "Modalità di pagamento preferita" },
-          "iban": { "type": "string", "description": "IBAN italiano (obbligatorio se modalita_pagamento = SDD)" },
-          "dry_run": { "type": "boolean", "description": "Se true, simula l'invio senza attivare realmente. Usa per preview o test." }
         }
       }
     }
@@ -148,11 +106,6 @@
       "name": "Confronto rapido senza bolletta",
       "steps": ["calculate_energy_savings"],
       "description": "L'utente inserisce consumi e spesa manualmente, senza bolletta."
-    },
-    {
-      "name": "Attivazione completa",
-      "steps": ["parse_energy_bill", "calculate_energy_savings", "submit_subscription"],
-      "description": "Flusso end-to-end: analisi bolletta → confronto offerte → attivazione tariffa migliore."
     }
   ]
 }

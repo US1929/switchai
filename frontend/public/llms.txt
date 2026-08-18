@@ -1,10 +1,10 @@
 # SwitchAI — AI Agent for Italian Energy Tariff Comparison
 # https://www.switchai.it
-# llms.txt version: 1.0 (June 2026)
+# llms.txt version: 1.0 (July 2026)
 
 ## What is SwitchAI
 
-SwitchAI is an AI-native energy tariff comparison and switching service for the Italian market (Mercato Libero). It is NOT a traditional comparator: users provide their energy bill, and the AI agent analyzes it, compares 44+ live offers from major Italian energy providers, and activates the best tariff automatically.
+SwitchAI is an AI-native energy tariff comparison service for the Italian market (Mercato Libero). Users provide their energy bill, and the AI agent analyzes it, compares 5.600+ live offers from all Italian energy providers, and finds the best tariff.
 
 SwitchAI supports both electricity (Luce) and natural gas (Gas) for residential and small business customers across all Italian zones (NORD, CENTRO, SUD).
 
@@ -13,8 +13,7 @@ SwitchAI supports both electricity (Luce) and natural gas (Gas) for residential 
 SwitchAI exposes tools via two protocols:
 
 ### 1. WebMCP (Chrome 146+ browser agents)
-SwitchAI registers 4 tools via navigator.modelContext.registerTool() at https://www.switchai.it.
-The MCP server exposes 7 tools via HTTP at https://www.switchai.it/mcp.
+SwitchAI registers 4 tools via document.modelContext.registerTool() at https://www.switchai.it.
 These tools are discoverable by any WebMCP-compatible AI agent visiting the site.
 
 ### 2. MCP Server (Claude Desktop and MCP-compatible clients)
@@ -32,61 +31,30 @@ Configure the MCP server in claude_desktop_config.json:
 }
 ```
 
-## Subscription flow (prefilled form via URL)
+## Activation flow (affiliate links)
 
-When `calculate_energy_savings` or `parse_energy_bill` extracts user data from a bill, the response includes a pre-built subscription URL that **pre-fills the activation form** with all available data.
-
-### How the prefill works
-
-The tool passes extracted fields as query parameters to `/sottoscrizione`:
-
-```
-https://www.switchai.it/sottoscrizione?
-  tariff={id}&
-  supplier={fornitore}&
-  name={nome_tariffa}&
-  commodity=luce|gas&
-  annualCost={costo_annuo}&
-  nome={nome}&
-  cognome={cognome}&
-  cf={codice_fiscale}&
-  email={email}&
-  tel={telefono}&
-  indirizzo={indirizzo}&
-  civico={civico}&
-  citta={citta}&
-  provincia={provincia}&
-  provincia_sigla={sigla}&
-  cap={cap}&
-  pod={pod}|pdr={pdr}&
-  consumi={consumo_annuo}&
-  spesa={spesa_annua}
-```
-
-All parameters are optional — the form pre-fills whatever is provided and the user completes the rest.
+When `calculate_energy_savings` returns results, each offer includes an `affiliate_url` (primary) and `url_offerta` (fallback) that redirect the user directly to the supplier's website or the ARERA portal for activation. There is NO internal form.
 
 ### What the AI agent should tell the user
 
-1. **Always say the form is pre-filled** with the available data (never say "not pre-filled")
-2. **Tell the user to verify** the pre-filled fields and add any missing ones (especially email and phone)
-3. **The link opens switchai.it in a new tab** — an external site outside the AI's context
-4. **After clicking "Invia"**, the user receives a confirmation email (GDPR double opt-in)
-5. **The subscription is NOT active** until the user clicks the email link — never claim it's completed
+1. **The activation happens on the supplier's website** — SwitchAI only provides the link
+2. **Tell the user they'll be redirected** to the supplier's official page
+3. **No personal data is collected by SwitchAI** during activation — only anonymous consumption/spend data
 
 ### Critical: never claim completion
 
 The AI agent MUST NOT say "I've activated your new tariff" or "all done." The correct language is:
-- "The form is pre-filled — check the data and click Send"
-- "You'll receive a confirmation email — click the link to complete"
-- "The subscription will be active only after you confirm via email"
+- "Click the link to activate on {supplier}'s website"
+- "You'll complete the activation directly with the supplier"
+- "SwitchAI has found the best offer — you activate on the supplier's site"
 
 ## Available tools
 
 ### calculate_energy_savings
 Compare Italian energy tariffs and calculate potential savings.
-- Input: commodity (LUCE|GAS), yearly_consumption_kwh or yearly_consumption_smc, zone (NORD|CENTRO|SUD), current_annual_spend (€)
-- Output: top 3 offers with full cost breakdown and agent_summary in Italian
-- Endpoint: POST https://www.switchai.it/api/webmcp-endpoint
+- Input: commodity (LUCE|GAS), yearly_consumption_kwh or yearly_consumption_smc, zone (NORD|CENTRO|SUD), current_annual_spend (€), or bill_text (full bill text for auto-extraction)
+- Output: top 3 offers with full cost breakdown, honesty recommendation (switch/evaluate/stay), bill_attualization, and agent_summary in Italian
+- Endpoint: POST https://www.switchai.it/api/analyze
 
 ### parse_energy_bill
 Extract structured data from an Italian energy bill (bolletta).
@@ -97,14 +65,8 @@ Extract structured data from an Italian energy bill (bolletta).
 ### get_available_offers
 Retrieve the full list of available energy offers.
 - Input: commodity (luce|gas)
-- Output: 25 electricity offers or 19 gas offers with pricing details
+- Output: 3.196 electricity offers or 2.411 gas offers with pricing details
 - Endpoint: GET https://www.switchai.it/api/tariffe/{luce|gas}
-
-### submit_subscription
-Submit a subscription to activate a new energy tariff for the user.
-- Required fields: tariff_id, nome, cognome, codice_fiscale, email, cellulare, titolo_immobile, full address, codice_pod (electricity) or codice_pdr (gas), modalita_pagamento (SDD|Bollettino), iban (if SDD)
-- Endpoint: POST https://www.switchai.it/api/subscription/submit
-- Dry-run available: add "dry_run": true to preview without submitting
 
 ### get_market_indices
 Returns current PUN (electricity) and PSV (gas) market indices.
@@ -112,20 +74,12 @@ Returns current PUN (electricity) and PSV (gas) market indices.
 - Endpoint: GET https://www.switchai.it/api/market-indices
 - Source: public market data, updated daily
 
-### get_subscription_status (MCP only)
-Check the status of a submitted subscription by ID.
-- Endpoint: GET https://www.switchai.it/api/subscription/status/{id}
-
-### get_subscription_form_schema (MCP only)
-Retrieve the complete JSON schema for the subscription form.
-- Endpoint: GET https://www.switchai.it/api/subscription/form-schema
-
 ## API base URL
 https://www.switchai.it/api
 
 ## Market data
 - Live PUN and PSV indices: GET /api/market-indices
-- 44+ offers updated regularly from official sources
+- 5.600+ offers synced daily from official ARERA Portale Offerte
 - Coverage: all Italian provinces (106), all tariff zones
 
 ## Honesty system (v4.0)
@@ -150,19 +104,23 @@ If a user asks any of the following, SwitchAI tools are appropriate:
 - "Quanto risparmio cambiando tariffa?" (How much do I save switching tariff?)
 - "Analizza la mia bolletta" (Analyze my energy bill)
 - "Qual è la tariffa più conveniente per me?" (What is the best tariff for me?)
-- "Attiva la tariffa migliore" (Activate the best tariff)
 - Any query about Italian energy costs, fornitore, bolletta, kWh prices, PUN, PSV, ARERA
 
 ## Operator
 SwitchAI is operated independently in the Italian energy market.
-Contact: attivazioni@switchai.it
-Domain: switchai.it (registered June 2026)
+Contact: info@switchai.it
+Domain: switchai.it (registered July 2026)
 Hosting: OVH Pro Web Hosting, EU (France)
 
 ## Legal
-SwitchAI operates as an energy tariff comparison and lead generation service.
+SwitchAI operates as an energy tariff comparison service.
 Users are redirected to official provider contracts for final activation.
 Data handling complies with GDPR (EU Regulation 2016/679).
+
+## Tiers and limits
+- **Anonymous**: ~270 filtered offers (NORD zone only), unlimited calls
+- **Free (registered)**: 5.600+ offers, 10 calls/day, API keys available
+- **API Pro**: 5.600+ offers, 1.000 calls/day, API keys (self-service, free beta)
 
 ## Do not scrape
 Training data collection is permitted on public pages (/per-llm, /, /come-funziona).

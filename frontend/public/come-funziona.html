@@ -23,8 +23,8 @@
   "step": [
     {"@type": "HowToStep", "position": 1, "name": "Carica la bolletta", "text": "L'utente carica il PDF o il testo della bolletta."},
     {"@type": "HowToStep", "position": 2, "name": "L'AI analizza", "text": "L'AI estrae consumi, spesa e zona tariffaria."},
-    {"@type": "HowToStep", "position": 3, "name": "SwitchAI confronta", "text": "Confronto in tempo reale di 44+ offerte Luce e Gas."},
-    {"@type": "HowToStep", "position": 4, "name": "Attivazione", "text": "L'utente conferma e la tariffa viene attivata."}
+    {"@type": "HowToStep", "position": 3, "name": "SwitchAI confronta", "text": "Confronto in tempo reale di 5.600+ offerte Luce e Gas ARERA."},
+    {"@type": "HowToStep", "position": 4, "name": "Attivazione", "text": "L'utente clicca il link dell'offerta e completa l'attivazione direttamente sul sito del fornitore."}
   ]
 }
 </script>
@@ -43,6 +43,7 @@
   h2 { font-size: 1.2rem; font-weight: 700; margin-top: 2.5rem; padding-bottom: 0.3rem; border-bottom: 1px solid var(--border); }
   .step { display: flex; gap: 1rem; margin: 1.2rem 0; }
   .step-num { width: 42px; height: 42px; border-radius: 10px; background: rgba(245,158,11,0.12); color: var(--amber); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.1rem; flex-shrink: 0; }
+  .step-content { overflow-wrap: break-word; word-break: break-word; min-width: 0; }
   .step-content strong { display: block; font-size: 0.95rem; margin-bottom: 2px; }
   .step-content p { color: var(--text2); font-size: 0.9rem; }
   table { width: 100%; border-collapse: collapse; font-size: 0.9rem; margin: 1rem 0; }
@@ -74,21 +75,21 @@
   <div class="step-num">2</div>
   <div class="step-content">
     <strong>ANALYSIS — L'AI chiama SwitchAI via WebMCP</strong>
-    <p>L'agente invoca calculate_energy_savings. SwitchAI carica 44+ offerte in tempo reale e restituisce le 3 migliori con breakdown energetico.</p>
+    <p>L'agente invoca calculate_energy_savings. SwitchAI carica 5.600+ offerte ARERA in tempo reale e restituisce le migliori con breakdown energetico.</p>
   </div>
 </div>
 <div class="step">
   <div class="step-num">3</div>
   <div class="step-content">
-    <strong>DECISION — L'AI spiega il risparmio</strong>
-    <p>"Risparmi 410€ perché il prezzo fisso di Fastweb è molto più basso del tuo attuale". L'utente decide.</p>
+    <strong>DECISION — Confronto e scelta</strong>
+    <p>L'AI mostra le migliori offerte con risparmio, costo annuo e dettagli. L'utente sceglie l'offerta che preferisce e clicca sul link per attivare.</p>
   </div>
 </div>
 <div class="step">
   <div class="step-num">4</div>
   <div class="step-content">
-    <strong>ACTION — L'utente conferma, l'AI attiva</strong>
-    <p>L'agente chiama submit_subscription. Richiesta inviata. Contratto attivo in 24 ore.</p>
+    <strong>ACTION — Attivazione diretta</strong>
+    <p>Ogni offerta include un link diretto al sito del fornitore. L'utente clicca e completa l'attivazione autonomamente. Nessun dato personale viene raccolto da SwitchAI in questa fase.</p>
   </div>
 </div>
 
@@ -98,7 +99,7 @@
   <tbody>
     <tr><td>Inserimento dati</td><td>Manuale: decine di campi</td><td>Automatico: l'AI legge la bolletta</td></tr>
     <tr><td>Confronto</td><td>Lista di prezzi</td><td>Spiegazione in italiano</td></tr>
-    <tr><td>Attivazione</td><td>Form da compilare</td><td>L'AI compila, l'utente conferma</td></tr>
+    <tr><td>Attivazione</td><td>Form da compilare</td><td>Link diretto al sito del fornitore</td></tr>
     <tr><td>Errori</td><td>Campi sbagliati</td><td>Validazione AI prima dell'invio</td></tr>
     <tr><td>Tempo</td><td>20-30 minuti</td><td>30 secondi</td></tr>
   </tbody>

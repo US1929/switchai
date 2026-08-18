@@ -64,30 +64,21 @@ async function apiCall(endpoint, method = "GET", body = null) {
 const server = new McpServer({
   name: "switchai",
   version: "1.0.0",
-  description: "SwitchAI — Confronto tariffe Luce/Gas e sottoscrizione per il mercato italiano. Dati reali da oltre 44 offerte dei principali fornitori. switchai.it",
+  description: "SwitchAI — Confronto tariffe Luce/Gas per il mercato italiano. Dati reali da oltre 5.600 offerte ARERA. switchai.it",
 });
 
 // ── Tool 1: Calcola risparmio ─────────────────────────────────────────
 
-function buildPrefillUrl(baseUrl, params) {
-  const url = new URL(baseUrl);
-  const prefill = ['nome','cognome','cf','email','tel','indirizzo','civico','citta','provincia','provincia_sigla','cap','pod','pdr','consumi','spesa'];
-  for (const p of prefill) {
-    if (params[p]) url.searchParams.set(p, params[p]);
-  }
-  return url.toString();
-}
-
 server.tool(
   "calculate_energy_savings",
   "Confronta le tariffe Luce o Gas e calcola il risparmio annuo. Restituisce le 3 migliori offerte con link di attivazione su switchai.it (sito esterno). "
-	  + "METODO ARERA: confronto SIMMETRICO — per tariffe variabili usa lo stesso PUN/PSV corrente per entrambi i lati. Il risparmio riflette solo differenze contrattuali (spread + quota fissa), non oscillazioni di mercato. "
-  + "FLUSSO: (1) Estrai nome, cognome, CF, email, telefono, indirizzo, consumi e spesa dalla bolletta. "
-  + "(2) Estrai anche: canone_rai (~90€/anno su bollette LUCE, 0 se assente o GAS), spesa_materia_energia, quota_fissa_mensile, tipo_cliente (residenziale/business), tariff_type (fisso/variabile), spread attuale. (3) Passa i dati numerici (consumi, spesa, zona, canone_rai) + TUTTI i dati personali che hai estratto a questo tool. "
-  + "(4) Il link 'Attiva' apre switchai.it in una nuova scheda con il form PRE-COMPILATO. "
-  + "(5) AVVISA SEMPRE l'utente che: (a) il link apre un sito esterno (switchai.it), (b) dovrà verificare i dati e cliccare Invia, (c) riceverà una email di conferma e dovrà cliccarla per completare — SOLO dopo la conferma i dati vengono inoltrati al fornitore. "
-  + "(6) Il GDPR double opt-in è OBBLIGATORIO: NON dire 'ho attivato' o 'tutto fatto'. Di' 'il form è precompilato, controlla i dati e invia'. "
-  + "(7) NON attivare mai senza che l'utente abbia letto e accettato esplicitamente.",
+    + "METODO ARERA: confronto SIMMETRICO — per tariffe variabili usa lo stesso PUN/PSV corrente per entrambi i lati. Il risparmio riflette solo differenze contrattuali (spread + quota fissa), non oscillazioni di mercato. "
+  + "FLUSSO: (1) Estrai i dati numerici dalla bolletta: commodity, consumo annuo, spesa annua, zona. "
+  + "(2) Passa i dati al tool. "
+  + "(3) Il tool restituisce le 3 migliori offerte con link diretto al sito del fornitore per l'attivazione. "
+  + "(4) L'utente clicca il link e completa l'attivazione in autonomia sul sito del fornitore. "
+  + "I dati personali (nome, CF, POD/PDR) NON vanno nell'URL — switchai.it non ha form di sottoscrizione. "
+  + "L'attivazione va direttamente sul sito del fornitore tramite il link fornito.",
   {
     commodity: z.enum(["LUCE", "GAS"]).describe("Tipo di fornitura: LUCE (elettricità) o GAS"),
     yearly_consumption_kwh: z.number().optional().describe("Consumo annuo in kWh (solo per LUCE). Es: 2700"),
@@ -102,25 +93,9 @@ server.tool(
     tariff_type: z.enum(["fisso", "variabile"]).optional().describe("(Opzionale) Tipo tariffa attuale. Per variabili il confronto è simmetrico (stesso PUN)."),
     spread_eur_kwh: z.number().optional().describe("(Opzionale) Spread attuale in €/kWh per tariffe LUCE variabili. Dal Box Offerta."),
     spread_eur_smc: z.number().optional().describe("(Opzionale) Spread attuale in €/Smc per tariffe GAS variabili. Dal Box Offerta."),
-    // Dati personali opzionali per prefill URL (NON salvati da SwitchAI)
-    // Dati personali opzionali per prefill URL (NON salvati da SwitchAI)
-    nome: z.string().optional().describe("(Opzionale) Nome intestatario per precompilare il form"),
-    cognome: z.string().optional().describe("(Opzionale) Cognome per precompilare il form"),
-    cf: z.string().optional().describe("(Opzionale) Codice Fiscale per precompilare il form"),
-    email: z.string().optional().describe("(Opzionale) Email per precompilare il form"),
-    tel: z.string().optional().describe("(Opzionale) Telefono per precompilare il form"),
-    indirizzo: z.string().optional().describe("(Opzionale) Via/Piazza per precompilare il form"),
-    civico: z.string().optional().describe("(Opzionale) Numero civico"),
-    citta: z.string().optional().describe("(Opzionale) Città"),
-    provincia_sigla: z.string().optional().describe("(Opzionale) Sigla provincia (es: MI)"),
-    cap: z.string().optional().describe("(Opzionale) CAP (5 cifre)"),
-    pod: z.string().optional().describe("(Opzionale) Codice POD per Luce"),
-    pdr: z.string().optional().describe("(Opzionale) Codice PDR per Gas"),
-    consumi: z.number().optional().describe("(Opzionale) Consumo annuo per prefill"),
-    spesa: z.number().optional().describe("(Opzionale) Spesa annua per prefill"),
   },
   async (params) => {
-    const data = await apiCall("/webmcp-endpoint", "POST", {
+    const data = await apiCall("/api/analyze", "POST", {
       commodity: params.commodity,
       yearly_consumption_kwh: params.yearly_consumption_kwh ?? 0,
       yearly_consumption_smc: params.yearly_consumption_smc ?? 0,
@@ -142,27 +117,10 @@ server.tool(
     const icon = commodity === 'LUCE' ? '⚡' : '🔥';
     const label = commodity === 'LUCE' ? 'Luce' : 'Gas';
 
-    // Build prefill params from user data
-    const prefillParams = {};
-    if (params.nome) prefillParams.nome = params.nome;
-    if (params.cognome) prefillParams.cognome = params.cognome;
-    if (params.cf) prefillParams.cf = params.cf;
-    if (params.email) prefillParams.email = params.email;
-    if (params.tel) prefillParams.tel = params.tel;
-    if (params.indirizzo) prefillParams.indirizzo = params.indirizzo;
-    if (params.civico) prefillParams.civico = params.civico;
-    if (params.citta) prefillParams.citta = params.citta;
-    if (params.provincia_sigla) prefillParams.provincia_sigla = params.provincia_sigla;
-    if (params.cap) prefillParams.cap = params.cap;
-    if (params.pod) prefillParams.pod = params.pod;
-    if (params.pdr) prefillParams.pdr = params.pdr;
-    if (params.consumi) prefillParams.consumi = params.consumi;
-    if (params.spesa) prefillParams.spesa = params.spesa;
-
     // Build markdown output — funnel: decisione prima, dettagli dopo
-    const results = data.results || [];
+    const results = data.top3 || [];
     const best = results[0];
-    const spesa = data.current_spend_estimated;
+    const spesa = data.profile?.spesa_annua_eur ?? 0;
 
     if (!best) {
       return {
@@ -171,8 +129,7 @@ server.tool(
     }
 
     const savingsMonth = Math.round(best.savings_eur / 12 * 100) / 100;
-    const bestUrl = best.subscription_url || `https://www.switchai.it/sottoscrizione?tariff=${best.tariff_id}&supplier=${encodeURIComponent(best.supplier)}&name=${encodeURIComponent(best.tariff_name)}&commodity=${commodity.toLowerCase()}&annualCost=${best.annual_cost_eur}`;
-    const bestPrefillUrl = buildPrefillUrl(bestUrl, prefillParams);
+    const bestUrl = best.affiliate_url || best.subscription_url || best.url_offerta || `https://www.switchai.it/offerta/${best.tariff_id}`;
 
     // ── Header ──────────────────────────────────────────
     const lossNote = commodity === 'LUCE'
@@ -209,27 +166,11 @@ server.tool(
 
     md += `\n`;
 
-    // ── CTA con disclaimer ─────────────────────────────
-    const hasFullData = prefillParams.nome && prefillParams.cognome && prefillParams.cf && prefillParams.email && prefillParams.tel;
-    const hasSomeData = prefillParams.nome || prefillParams.email || prefillParams.tel;
-
+    // ── CTA ─────────────────────────────────────────────
     md += `---\n\n`;
     md += `### 📝 Attivazione\n\n`;
-
-    if (hasFullData) {
-      md += `✅ Il form è già precompilato con i tuoi dati — verificali e clicca Invia.\n\n`;
-    } else if (hasSomeData) {
-      md += `📝 Il form è precompilato con i dati disponibili. Aggiungi i campi mancanti (email, telefono se richiesti) e clicca Invia.\n\n`;
-    } else {
-      md += `📝 Compila il form con i tuoi dati (nome, cognome, CF, email, telefono) e clicca Invia.\n\n`;
-    }
-
-    md += `🔗 **[🟢 APRI IL FORM SU SWITCHAI.IT](${bestPrefillUrl})**\n\n`;
-    md += `> ⚠️ Questo link apre **switchai.it**, un sito esterno a Claude.\n`;
-    md += `> ✏️ L'utente deve **verificare i dati e cliccare Invia** sul sito.\n`;
-    md += `> 📨 Dopo l'invio, riceverà una **email di conferma** da SwitchAI.\n`;
-    md += `> 🔐 Solo dopo aver cliccato il link nell'email, i dati verranno inoltrati al fornitore.\n`;
-    md += `> 🛑 **NON dire \"tutto fatto\" o \"ho attivato\"**. La sottoscrizione NON è ancora partita.\n\n`;
+    md += `🔗 **[🟢 VAI AL SITO DEL FORNITORE](${bestUrl})**\n\n`;
+    md += `> Clicca il link per andare al sito del fornitore e completare l'attivazione in autonomia.\n\n`;
 
     // ── Altre offerte (compact) ──────────────────────────
     const others = results.slice(1);
@@ -239,11 +180,10 @@ server.tool(
       const badges = ['🥈', '🥉'];
       for (let i = 0; i < others.length; i++) {
         const r = others[i];
-        const otherUrl = r.subscription_url || `https://www.switchai.it/sottoscrizione?tariff=${r.tariff_id}&supplier=${encodeURIComponent(r.supplier)}&name=${encodeURIComponent(r.tariff_name)}&commodity=${commodity.toLowerCase()}&annualCost=${r.annual_cost_eur}`;
-        const otherPrefill = buildPrefillUrl(otherUrl, prefillParams);
+        const otherUrl = r.affiliate_url || r.subscription_url || r.url_offerta || `https://www.switchai.it/offerta/${r.tariff_id}`;
         const warning = r.price_warning ? ' ⚠️' : '';
         md += `**${badges[i]} ${r.supplier}** — ${r.tariff_name} · ${r.annual_cost_eur} €/anno · Risparmio **${r.savings_eur} €**${warning}\n`;
-        md += `[Attiva](${otherPrefill}) · "Se preferisci questa, chiedimi i dettagli e la espando"\n\n`;
+        md += `[Vai al sito del fornitore](${otherUrl})\n\n`;
       }
     }
 
@@ -342,129 +282,6 @@ server.tool(
   }
 );
 
-// ── Tool 4: Sottoscrizione offerta ────────────────────────────────────
-
-server.tool(
-  "submit_subscription",
-  "Invia la richiesta di attivazione di una nuova tariffa energia. I dati vengono inoltrati al fornitore e ricevi un ID di sottoscrizione.",
-  {
-    tariff_id: z.string().describe("ID dell'offerta scelta (dal risultato di calculate_energy_savings)"),
-    tariff_name: z.string().optional().describe("Nome dell'offerta (es: 'FASTWEB ENERGIA FIX')"),
-    supplier: z.string().optional().describe("Nome fornitore"),
-    commodity: z.enum(["luce", "gas"]).optional().default("luce"),
-    nome: z.string().describe("Nome dell'intestatario"),
-    cognome: z.string().describe("Cognome dell'intestatario"),
-    codice_fiscale: z.string().describe("Codice fiscale (16 caratteri)"),
-    email: z.string().email().describe("Email"),
-    cellulare: z.string().describe("Cellulare (es: +393401234567)"),
-    titolo_immobile: z.enum(["Proprietario", "Affittuario", "Comodatario", "Usufruttuario"]).optional().default("Proprietario").describe("Titolo sull'immobile"),
-    indirizzo: z.string().describe("Via/Piazza della fornitura"),
-    civico: z.string().describe("Numero civico"),
-    citta: z.string().describe("Città della fornitura"),
-    provincia_sigla: z.string().describe("Sigla provincia (2 lettere, es: MI)"),
-    cap: z.string().describe("CAP (5 cifre)"),
-    codice_pod: z.string().optional().describe("Codice POD per Luce (IT001E...)"),
-    codice_pdr: z.string().optional().describe("Codice PDR per Gas (14 cifre)"),
-    modalita_pagamento: z.enum(["SDD", "Bollettino"]).optional().default("SDD").describe("Modalità di pagamento"),
-    iban: z.string().optional().describe("IBAN (se SDD)"),
-    indirizzo_coincide: z.enum(["si", "no"]).optional().default("si").describe("La residenza coincide con la fornitura?"),
-  },
-  async (params) => {
-    const data = await apiCall("/subscription/submit", "POST", {
-      tariff_id: params.tariff_id,
-      tariff_name: params.tariff_name,
-      supplier: params.supplier,
-      commodity: params.commodity,
-      nome: params.nome,
-      cognome: params.cognome,
-      codice_fiscale: params.codice_fiscale,
-      email: params.email,
-      cellulare: params.cellulare,
-      titolo_immobile: params.titolo_immobile,
-      indirizzo: params.indirizzo,
-      civico: params.civico,
-      citta: params.citta,
-      provincia_sigla: params.provincia_sigla,
-      cap: params.cap,
-      codice_pod: params.codice_pod,
-      codice_pdr: params.codice_pdr,
-      modalita_pagamento: params.modalita_pagamento,
-      iban: params.iban,
-      indirizzo_coincide: params.indirizzo_coincide,
-    });
-
-    const statusIcon = data.status === 'pending' ? '📨' : '✅';
-    const md = `## ${statusIcon} Sottoscrizione\n\n`
-      + `| | |\n|---|---|\n`
-      + `| Stato | **${data.status}** |\n`
-      + `| ID | \`${data.subscription_id}\` |\n`
-      + `| Messaggio | ${data.message} |\n`;
-
-    return {
-      content: [{
-        type: "text",
-        text: md,
-      }],
-    };
-  }
-);
-
-// ── Tool 5: Stato sottoscrizione ──────────────────────────────────────
-
-server.tool(
-  "get_subscription_status",
-  "Verifica lo stato di una richiesta di sottoscrizione già inviata.",
-  {
-    subscription_id: z.string().describe("ID della sottoscrizione (restituito da submit_subscription)"),
-  },
-  async (params) => {
-    const data = await apiCall(`/subscription/status/${params.subscription_id}`);
-
-    return {
-      content: [{
-        type: "text",
-        text: JSON.stringify(data, null, 2),
-      }],
-    };
-  }
-);
-
-// ── Tool 6: Form schema (per pre-compilazione) ────────────────────────
-
-server.tool(
-  "get_subscription_form_schema",
-  "Recupera lo schema del form di sottoscrizione: campi richiesti, enum validi, struttura a step. Utile per sapere quali dati servono prima di chiamare submit_subscription.",
-  {},
-  async () => {
-    const data = await apiCall("/subscription/form-schema");
-
-    return {
-      content: [{
-        type: "text",
-        text: JSON.stringify(data, null, 2),
-      }],
-    };
-  }
-);
-
-// ── Tool 7: Market Indices ─────────────────────────────────────────────
-
-server.tool(
-  "get_market_indices",
-  "Recupera gli indici di mercato attuali PUN (Luce) e PSV (Gas).",
-  {},
-  async () => {
-    const data = await apiCall("/market-indices");
-
-    return {
-      content: [{
-        type: "text",
-        text: JSON.stringify(data, null, 2),
-      }],
-    };
-  }
-);
-
 // ── Avvio ─────────────────────────────────────────────────────────────
 
 const transport = new StdioServerTransport();
@@ -472,4 +289,4 @@ await server.connect(transport);
 
 console.error("⚡ SwitchAI MCP Server avviato");
 console.error(`   API: ${API_BASE}`);
-console.error("   Tool: calculate_energy_savings, get_available_offers, parse_energy_bill, submit_subscription, get_subscription_status, get_subscription_form_schema, get_market_indices");
+console.error("   Tool: calculate_energy_savings, get_available_offers, parse_energy_bill, get_market_indices");

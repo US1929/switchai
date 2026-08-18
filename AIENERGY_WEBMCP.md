@@ -3,8 +3,8 @@
 > **Dominio**: [switchai.it](https://www.switchai.it) — attivo su OVH Pro Web Hosting  
 > **Stack**: React 19 + Vite 8 | PHP 8.5 API | WebMCP (Google Chrome Labs) | MCP Server (PHP + Node.js) | Tailwind CSS 4  
 > **Design**: ispirato a Switcho.it + Billoo.it, card allineate a ComparaSemplice  
-> **Ultimo aggiornamento**: 29 Giugno 2026
-> **Versione**: 5.4.0
+> **Ultimo aggiornamento**: 5 Luglio 2026
+> **Versione**: 5.5.2
 
 ---
 
@@ -46,7 +46,7 @@ LLM → chiama SwitchAI API:
    POST /mcp          (MCP Server — solo dati numerici)
    WebMCP             (browser agent)
    ↓
-SwitchAI → confronta 5.000+ offerte (da sync ARERA quotidiano) → restituisce top 3 + risk + agent_summary + subscription_url
+    SwitchAI → confronta 5.600+ offerte (da sync ARERA quotidiano) → restituisce top 3 + risk + agent_summary + subscription_url
    ↓
 LLM → presenta il risultato all'utente in italiano
    ↓
@@ -140,7 +140,7 @@ Sottoscrizione: `/api/subscription/submit`, `/api/subscription/conferma`, `/api/
 
 Sistema: `/api/auth/login`, `/api/auth/verify`, `/api/stats/traffic`, `/api/test-email`, `/api/trigger-scraper`, `/api/arera-constants`
 
-Admin B2B: `/api/admin/api-keys`, `/api/admin/api-keys/create`, `/api/admin/api-keys/{hash}`
+Admin B2B: `/api/admin/api-keys`, `/api/admin/api-keys/create`, `/api/admin/api-keys/{hash}`, `/api/admin/wattene-test`
 
 ---
 
@@ -194,16 +194,17 @@ Template salvati in `data/templates/{fingerprint}.json` per migliorare parsing f
 
 ---
 
-## 5. PUN/PSV — Metodo Forward ARERA + MarketSignal
+## 5. PUN/PSV — Metodo Forward ARERA (zero chiamate esterne)
 
-### Priorità PUN (v5.4.0)
+### Priorità PUN/PSV (v5.5.0)
 
-Il calcolo confronto usa il PUN in questo ordine:
+Il calcolo confronto usa PUN e PSV in questo ordine:
 
-1. **PUN forward ARERA** — da `data/offerte/config.json`, salvato automaticamente a ogni sync mensile. È il valore ufficiale del Portale Offerte (media forward 4 trimestri solari). Valido per 60 giorni.
-2. **PUN spot live** — da `portaleenergia.it/api/dashboard?period=today` (fallback se il forward non è disponibile o è scaduto).
+1. **PUN forward ARERA** — da `data/offerte/config.json`, salvato a ogni sync ARERA. Valore ufficiale Portale Offerte. Valido 60 giorni.
+2. **PSV forward ARERA** — stessa fonte e validità del PUN (`getAreraForwardPsv()`). Prima di v5.5 il PSV veniva sempre fetchato live da portaleenergia.it — ora usa config.json come il PUN.
+3. **Live spot** (fallback) — `portaleenergia.it` solo se i valori forward non sono disponibili o scaduti (>60gg). In condizioni normali (cron attivo) → **zero chiamate esterne**.
 
-**Metodo simmetrico**: stesso PUN per entrambi i lati del confronto (spesa attuale e nuove offerte). Il risparmio riflette solo differenze contrattuali (spread + quota fissa), non oscillazioni di mercato.
+**Metodo simmetrico**: stesso PUN/PSV per entrambi i lati del confronto (spesa attuale e nuove offerte). Il risparmio riflette solo differenze contrattuali (spread + quota fissa), non oscillazioni di mercato.
 
 ### Fonte Dati
 
@@ -308,7 +309,7 @@ Il form di sottoscrizione **non chiede mai** all'LLM di raccogliere:
 SwitchAI usa un'architettura ibrida:
 
 ### Flat-File (dati operativi)
-- `data/offerte/` — JSON ARERA (db-offerte-luce.json ~8.6 MB, db-offerte-gas.json ~5.2 MB) — generati da `arera_sync.php`
+- `data/offerte/` — JSON ARERA (db-offerte-luce.json ~4.2 MB, db-offerte-gas.json ~3.1 MB — ottimizzati, -53% rimuovendo `componenti` ridondanti) — generati da `arera_sync.php`
 - `data/subscriptions/` — JSON con `flock()` atomico
 - `data/api_clients/` — B2B API keys (SHA-256)
 - `data/ratelimit/` — rate limiting per IP
@@ -340,6 +341,7 @@ Script `arera_sync.php` scarica gli XML ufficiali da `ilportaleofferte.it`:
 
 - Tabella MySQL `affiliate_links`: tariff_id → affiliate_url, network, is_active
 - Admin panel (`/admin` → tab 💰 Affiliazioni): cerca offerte, associa link, rimuovi
+- Admin panel (`/admin` → tab 🧪 Test Wattene): confronto ARERA vs Wattene (5 offerte) + test random (10 offerte)
 - Le offerte con link affiliazione mostrano CTA esterno (nuova tab) invece del form interno
 - Backend arricchisce i risultati API con `affiliate_url` automaticamente
 
@@ -626,6 +628,7 @@ Barra sticky con i 3 numeri chiave della bolletta attuale. Per tariffe variabili
 | `/risorse/prezzo-fisso-vs-indicizzato` | PHP | Fisso vs Variabile |
 | `/risorse/calcolo-spesa-annua` | PHP | Come si calcola la SAS |
 | `/risorse/come-leggere-bolletta` | PHP | Guida lettura bolletta |
+| `/calcolo-rapido` | React SPA | Wizard 3-step: confronto rapido senza bolletta e senza AI |
 | `/sottoscrizione` | React SPA | Form wizard 4 step (supporta prefill via URL params) |
 | `/conferma` | React SPA | Double opt-in conferma |
 | `/admin` | React SPA (auth) | Dashboard: Traffico, API Keys, Affiliazioni, Sync ARERA |
@@ -667,7 +670,76 @@ Topics: `mcp`, `webmcp`, `energy`, `tariffs`, `italy`, `ai-agent`, `llm`, `elect
 
 ---
 
-## 19. Changelog v5.4.0 — 29 Giugno 2026
+## 19. Changelog v5.5.0 — 30 Giugno 2026
+
+### 🎨 UI `/calcolo-rapido` — Riscrittura completa
+
+| Cambio | Dettaglio |
+|--------|-----------|
+| **Design system** | Bottoni `.btn-electric/.btn-outline`, toggle `.toggle-group/.toggle-btn`, input `.input-field`, card con token CSS |
+| **Hero ristrutturato** | Narrativa "spreco → divider → risparmio" con contatori animati (AnimatedCounter) |
+| **Barre confronto** | Etichette riposizionate (valore sopra label), altezza proporzionale alla spesa reale |
+| **Confetti** | 70 particelle animate quando la bolletta è già competitiva (nessun risparmio) |
+| **Trust badge** | Dati reali: `system_total_offers` da API, data formattata `it-IT`, attivazione 5 minuti |
+| **Card offerta** | Logo tile 56×56 reale o iniziali, badge "offerta consigliata", dettagli tecnici collassabili |
+| **CTA verde** | `btn-success` invece di arancione per azione finale |
+| **Errori differenziati** | Rete / timeout / ARERA non disponibile — messaggi specifici |
+| **Rimosso** | Grafico mensile finto, icone superflue, IconHome dal titolo step 0 |
+
+### 🏠 Home
+
+- **Loader overlay** durante calcolo offerte da JSON LLM (spinner identico a `/calcolo-rapido`)
+- **Link "Prova senza connettere l'AI"** → `/calcolo-rapido` (prima `#come-usare`)
+- **Toggle colori uniformati**: rimosse classi `.luce.active` e `.gas.active`, tutti i toggle attivi sono bianchi
+
+### ⚡ Performance
+
+- **Code splitting `React.lazy()`**: 4 chunk separati — CalcoloRapido (24KB), Sottoscrizione (25KB), Analisi (9KB), Admin (24KB). Main bundle: 826KB → 750KB
+- **JSON offerte ottimizzati**: rimosso campo `componenti` (ridondante, ricalcolato a runtime). Luce 9.7→4.2MB (-57%), Gas 5.9→3.1MB (-47%). Totale 15.6→7.3MB (-53%)
+
+### 🔧 Backend
+
+- **`getAreraForwardPsv()`**: PSV da `config.json` invece di `portaleenergia.it` — **zero chiamate esterne** in condizioni normali (sync ARERA <60gg)
+- **`system_total_offers`** nella risposta `/api/calculate-savings` (da `loadTariffs()` con cache statica)
+- **Sitemap con `<lastmod>`** reale da `config.json.updated_at` (non più `date('Y-m-d')`)
+- **`handleWatteneTest`**: endpoint admin `GET /api/admin/wattene-test` — doppio test: 5 offerte vs Wattene + 10 casuali per coerenza interna
+- **MCP server**: PUN/PSV da `config.json` (nessuna chiamata esterna), versione allineata a 2.2.0
+
+### 🖼️ Loghi
+
+- **21 placeholder PNG professionali** generati (SVG→PNG con sharp, 240×80px, colori brand ufficiali, ~1-2KB ciascuno) in `frontend/public/loghi/`
+
+### 🔍 SEO e Discovery
+
+- **Versioni allineate a `2.2.0`** in 6 file: `webmcp.json`, `.well-known/webmcp.json`, `.well-known/mcp/server-card.json`, `smithery.yaml`, `server.json`, `mcp/index.php`
+- **`llms.txt` aggiornato**: 5.600+ offerte, affiliate-first, rimossi riferimenti a form prefill e double opt-in
+- **`hreflang="it"`** in `<head>` + `<noscript>` per crawler no-JS
+- **`robots.txt`** 97 righe con regole separate per ClaudeBot, GPTBot, Google-Extended, PerplexityBot, anthropic-ai
+
+### 🤖 WebMCP
+
+- **`submit_subscription`** semplificato: da 20+ campi GDPR a semplice istruzione "attivazione sul sito fornitore"
+- **`buildPrefillUrl`** rimossa da `webmcp.js` (dead code post affiliate-first)
+
+### ⚙️ Admin
+
+- **Tab `🧪 Test Wattene`**: doppia sezione — 5 offerte fisse vs Wattene (tolleranza ±2 millesimi) + 10 offerte random per coerenza interna (prezzi, costi regolati, IVA, arrotondamenti)
+- **Endpoint** `GET /api/admin/wattene-test` protetto da auth admin
+
+### 🛠️ Tooling
+
+- **CodeGraph** installato e indicizzato: 84 file, 508 nodi, 1.071 archi, auto-sync attivo
+- **`.codegraph/`** aggiunto a `.gitignore`
+
+### ✅ Costanti ARERA verificate
+
+- PHP (`bill_parser.php:518-527`) e JS (`constants.js:18-57`) usano le **stesse identiche costanti** Q3 2026
+- `componenti` rimossi dai JSON (ricalcolati a runtime con la stessa metodologia ARERA, 100% coerenti)
+- Costanti verificate: Dispacciamento, Trasporto, Oneri, Accise, Potenza, Quota fissa reti, Perdite BT, IVA
+
+---
+
+## 20. Changelog v5.4.0 — 29 Giugno 2026
 
 ### 🔧 Bug Fix (15 issue da code review)
 
@@ -733,7 +805,108 @@ Allineate al Portale Offerte (verificate contro Wattene):
 
 ---
 
-## 20. Riferimenti
+## 22. Changelog v5.5.1 — 30 Giugno 2026
+
+### 🎯 Filtri offerte (Free vs Premium)
+
+Nuovo sistema di filtri con logica tier-based per differenziare l'esperienza utente finale dalle API a pagamento.
+
+| Filtro | Logica | Default Free | Premium |
+|--------|--------|:---:|:---:|
+| **Fornitori principali** | Brand in `getBrandMap()` (21 operatori nazionali) | ON | OFF |
+| **Senza penali recesso** | Text analysis su `tempistica_info` (esclude penali) | ON | OFF |
+| **Attivabili online** | Ha `url_offerta` valido | ON | OFF |
+
+**Backend**:
+- `hasPenaleFromTempistica()` in `tariff_loader.php` — keyword matching con negazioni (`nessuna penale`, `no penali`, `senza penali` → false; `penale`, `penalità`, `recesso anticipato` → true)
+- 3 flag in ogni offerta normalizzata: `is_main_supplier`, `has_penale_recesso`, `attivabile_online`
+- `getTariffsForCalculation()` accetta array `$filters` opzionale
+- `calculateSavingsBreakdown()` restituisce `filters_applied`, `offers_before_filter`, `offers_after_filter`
+- `handleCalculateSavings()`: source `WEB` → filtri ON default; source `API_KEY`/`AI_AGENT` → filtri OFF
+- `handleWebMCPEndpoint()`: AI agent → tier premium (nessun filtro, 5.600+ offerte)
+
+**Frontend** (`/calcolo-rapido`):
+- 3 checkbox nello step 0 con label chiare
+- Badge trust aggiornato: `"142 offerte analizzate su 1626 totali"`
+- Disabilitando tutti i filtri → CVA 7 (651€/anno) visibile
+
+**Risultati test** (locale, 2757 kWh, NORD):
+- Filtri ON: 1.626 → 142 offerte, top Octopus a 722€
+- Filtri OFF: 1.626 → 1.626 offerte, top CVA a 652€
+
+## 23. Changelog v5.5.2 — 5 Luglio 2026
+
+### 🐛 OpenAPI JSON nesting fix
+
+Mancava `}` per chiudere `"paths"` prima di `"components"` (231 `{` vs 230 `}`) in `openapi.json`. Swagger UI dava YAMLException. Aggiunto `}` dopo la chiusura di `/market-indices` (tra riga 179 e 180).
+
+### 🧭 Navbar consolidata (3→2 sorgenti)
+
+Ridotto da **3 a 2** sorgenti navbar. Rimosso inline nav duplicato in `_header.php`, ora usa `readfile(__DIR__ . '/../nav.html')`. Una modifica a `nav.html` aggiorna automaticamente `/faq`, `/per-llm`, `/risorse/*`.
+
+### 🧹 Navbar voci ripulite
+
+Rimosse **Luce**, **Gas**, **Per LLM** dalla top nav (mobile-friendly). Per LLM resta in footer. Navbar finale: **Confronta | Come funziona | SwitchAI+ | API | Risorse | FAQ** + bottoni **Accedi** e **Registrati**.
+
+### 📄 Nuove pagine SEO
+
+- **TariffeLuce.jsx** (`/tariffe-luce`): guida SEO con CTA → `/calcolo-rapido?commodity=luce`
+- **ConfrontoGas.jsx** (`/confronto-gas`): guida SEO con CTA → `/calcolo-rapido?commodity=gas`
+- Pre-render PHP in `api/index.php` + `router.php` per crawler non-JS
+- Sitemap, robots.txt, `.htaccess` RewriteRule aggiornati
+- Link in Footer.jsx
+
+### 🔒 Disclosure affiliazione
+
+Micro-testo "*Link di affiliazione — se attivi, a noi potrebbe spettare una commissione. Il prezzo per te non cambia.*" sotto CTA in `TariffCard.jsx` e `TariffTableRow.jsx` quando `affiliate_url` è presente.
+
+### 📧 Email unificata
+
+`privacy@switchai.it` → `info@switchai.it` in 6 occorrenze su 5 file (Cookie.jsx, Privacy.jsx, ComeFunziona.jsx, privacy.html, cookie.html).
+
+### 🔢 Numeri allineati
+
+Tutte le occorrenze di "44+" in `index.html` (7) cambiate in "5.600+" (coerente con FAQ, risorse, llms.txt, README).
+
+### 📊 JSON-LD aggiornato
+
+`@graph` con Organization + `sameAs` (GitHub, npm, Smithery), WebApplication con `disambiguatingDescription` + `offers.price: "0"`, FAQPage con 3 domande.
+
+### 🛡️ Security audit API
+
+CORS locked a 5 origini (www.switchai.it, switchai.it, localhost:5173, localhost:8080, chrome-extension://). Nessun segreto nel bundle JS. Nessun `submit_subscription` endpoint (allucinato dall'LLM).
+
+### 🔐 PII leak fix — dead code + istruzioni LLM
+
+Rimosso **dead code** in `mcp-server/index.js`: `buildPrefillUrl()` (definita ma mai chiamata) e `prefillParams` (costruito ma mai usato). Parametri personali rimossi dallo schema di tool 1.
+
+Rimosse **istruzioni all'LLM** in `_prefill_instructions` (`api/index.php:706-716`) che dicevano di costruire URL con nome, CF, POD in querystring. Sostituite con "SwitchAI non raccoglie dati personali. L'attivazione va direttamente sul sito del fornitore."
+
+Rimosso **link `/sottoscrizione`** in `handleOffertaPage()` (`api/index.php:1061`) che puntava a pagina inesistente. Sostituito con CTA verso `url_offerta` del fornitore o `/calcolo-rapido`.
+
+SwitchAI **non ha** un form di sottoscrizione. L'attivazione va direttamente al fornitore via `affiliate_url`. Nessun dato personale è mai passato dal sistema né finito nei log di Apache.
+
+### 📚 Documentazione
+
+- `DOCUMENTAZIONE_CALCOLO_ARERA.md`: sezione B.2 Progetto SwitchAI con 8 modifiche datate
+- `AIENERGY_WEBMCP.md`: diario di bordo aggiornato con navbar, security, fix, PII leak
+
+### 🔐 Promemoria: flusso sottoscrizione futuro (token via POST, mai PII in URL)
+
+Il reviewer del security pass ha dato un consiglio architetturale da non dimenticare:
+
+> Se mai attiverai il flusso di sottoscrizione, usa **token via POST**, mai PII in querystring.
+> Le querystring finiscono in: access log di Apache, browser history, referrer headers.
+> Sopravvivono al consenso che le ha create.
+
+**Quando il flusso sarà attivo** (requisiti: GDPR-responsible person, DPA, non più OVH condiviso):
+- `POST /api/subscription/prefill` riceve i dati in body, restituisce token UUID (30min TTL)
+- L'URL contiene solo `?token=abc123` — zero PII nei log
+- Il form di sottoscrizione (`/sottoscrizione`) legge il token lato server e precompila
+- I dati vengono eliminati dopo il primo utilizzo o dopo TTL
+- **Mai** passare nome, CF, POD, email via GET — né ora né in futuro
+
+## 24. Riferimenti
 
 - **WebMCP Spec**: [GoogleChromeLabs/webmcp-tools](https://github.com/GoogleChromeLabs/webmcp-tools)
 - **MCP Spec**: [modelcontextprotocol.io](https://modelcontextprotocol.io)
@@ -745,11 +918,12 @@ Allineate al Portale Offerte (verificate contro Wattene):
 
 ---
 
-> **Versione**: 5.4.0 — 29 Giugno 2026  
+> **Versione**: 5.5.2 — 5 Luglio 2026  
 > **Dominio**: switchai.it · **Hosting**: OVH Pro · **PHP**: 8.5.0 · **MySQL**: 2 GB  
-> **Offerte**: 5.500+ da Portale Offerte ARERA (sync mensile) · **Fornitori**: 373  
-> **Tools**: 4 WebMCP + 7 MCP pubblici · **Endpoint API**: 28+
-> **Offerte**: 5.000+ da sync ARERA giornaliero (21 fornitori)  
-> **Parser**: ARERA 3.0 — 10/10 PDF testati  
-> **Modello**: API-first, LLM-native. Niente parsing PDF lato server.  
-> **Novità v5.3**: ARERA v4.0 (Del. 575/2025): oneri 0.0303, trasporto 0.01204, potenza 23.52, perdite solo su PUN · Metodo simmetrico PUN (stesso PUN per entrambe le tariffe variabili) · Accise con soglie DL 504/1995 · Addizionale regionale gas · Canone RAI solo residenziale · MySQL per utenti/API keys/affiliazioni · ARERA sync da Portale Offerte (ilportaleofferte.it) · Interfaccia risultati: TariffTable + BillCostChart (ciambella) + CostBreakdownCard + MarketPositionBar · Offerte dinamiche (fetch count live) · SEO: 7 pagine /risorse/ con sitemap · Admin: sync ARERA, gestione affiliazioni · Filtro offerte scadute e prezzi impossibili
+> **Offerte**: 5.600+ da Portale Offerte ARERA (sync giornaliero via cron) · **Fornitori**: 373  
+> **Tools**: 4 WebMCP + 7 MCP pubblici · **Endpoint API**: 28+ · **Bundle JS**: 750KB main + 4 chunk lazy  
+> **Loghi**: 21 placeholder PNG professionali · **CodeGraph**: 84 file, 508 nodi, 1.071 archi  
+> **PUN/PSV**: ARERA forward da config.json, zero chiamate esterne · **Metodo**: simmetrico ARERA  
+> **Novità v5.5.2**: Navbar consolidata (3→2), nuove pagine SEO, affiliate disclosure, PII leak fix (dead code + istruzioni LLM rimosse), email unificata, numeri 5.600+, JSON-LD, OpenAPI fix, security audit  
+> **Novità v5.5.1**: Filtri offerte (fornitori principali, penali, online) con logica tier Free vs Premium  
+> **Novità v5.5**: /calcolo-rapido riscritto, code splitting, JSON ridotti 53%, PSV da config.json, test Wattene in admin, SEO hreflang+noscript, versioni allineate 2.2.0, affiliate-first in tutti i discovery file

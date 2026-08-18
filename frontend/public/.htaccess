@@ -61,9 +61,14 @@
   RewriteRule ^faq/$ /faq [R=301,L]
   RewriteRule ^connettori$ /faq.html [L]
 
-  # Pagine offerta e fornitori generate dinamicamente (per crawler/SEO)
+  # Pagine offerta, offerte per regione, e fornitori (per crawler/SEO)
   RewriteRule ^offerta/([a-zA-Z0-9\-]+)$ api/index.php [QSA,L]
+  RewriteRule ^offerte/(luce|gas)/([a-z-]+)$ api/index.php [QSA,L]
   RewriteRule ^fornitori/([a-z0-9\-]+)$ api/index.php [QSA,L]
+
+  # SEO pages — pre-render per crawler
+  RewriteRule ^tariffe-luce$ api/index.php [QSA,L]
+  RewriteRule ^confronto-gas$ api/index.php [QSA,L]
 
   # Risorse SEO — pagine PHP indicizzabili (router dedicato)
   RewriteRule ^risorse(/.*)?$ risorse.php [QSA,L]
@@ -108,12 +113,31 @@
 # Server-Side Includes per file .html (nav centralizzata)
 # -MultiViews è CRITICO: senza, Apache serve /pagina → pagina.html senza redirect,
 # creando un conflitto di canonical (URL servito ≠ canonical nell'HTML).
+<IfModule mod_php.c>
+  php_flag display_errors off
+  php_flag display_startup_errors off
+  php_flag expose_php off
+</IfModule>
 Options +Includes -MultiViews
 AddOutputFilter INCLUDES .html
+
+# WebMCP: Permissions Policy per document.modelContext.registerTool()
+# Chrome richiede tools=* OPPURE tools=(self) perché l'AI agent invochi i tool
+<IfModule mod_headers.c>
+  Header always set Permissions-Policy "tools=(self)"
+  Header always set Cross-Origin-Opener-Policy "same-origin"
+  Header always set Cross-Origin-Embedder-Policy "credentialless"
+  Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "DENY"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set X-Permitted-Cross-Domain-Policies "none"
+</IfModule>
 
 # Forza UTF-8 su tutti i file
 # MIME type per JavaScript modules (.mjs)
 <IfModule mod_mime.c>
+  AddType application/javascript .js
   AddType application/javascript .mjs
 </IfModule>
 

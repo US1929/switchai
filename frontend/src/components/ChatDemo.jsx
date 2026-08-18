@@ -47,18 +47,8 @@ const MESSAGES = [
   },
   {
     role: 'assistant',
-    text: 'Ho i dati della tua bolletta:\n• ' + DEMO_NAME + '\n• ' + DEMO_ADDRESS + '\n• POD ' + DEMO_POD + '\n• ' + DEMO_CONSUMO + ' — ' + DEMO_SPESA + '\n\n**Vuoi che precompili il modulo di attivazione per Fastweb Energia FIX?**\n\nDovrai comunque essere tu a verificare i dati e cliccare su **Invia**. Riceverai una mail di conferma prima dell\'inoltro della richiesta.',
+    text: '✅ Pronto per attivare! Segui questo link per andare direttamente sul sito del fornitore:\n👉 [Vai al sito del fornitore](https://www.switchai.it/offerta)\n\nCompleta l\'attivazione in autonomia — SwitchAI non raccoglie dati personali. A presto! 🎉',
     delay: 1000,
-  },
-  {
-    role: 'user',
-    text: 'Sì, precompila il modulo!',
-    delay: 300,
-  },
-  {
-    role: 'assistant',
-    text: '✅ Fatto! Ecco il link: [Apri modulo precompilato →](https://www.switchai.it/sottoscrizione)\n\nVerifica i dati, completa i campi mancanti e clicca Invia. A presto! 🎉',
-    delay: 500,
   },
 ];
 

@@ -317,6 +317,76 @@ function arera_parse_components($xml, string $tipoFasceCode): array {
     return $components;
 }
 
+/**
+ * Estrae gli <Sconto> dall'XML ARERA.
+ * Ritorna array di sconti con prezzo, unità di misura e eventuale soglia.
+ * Sconti con soglia (VALIDO_FINO) sono marcati come thresholded (non applicabili flat).
+ */
+function arera_parse_sconti($xml): array {
+    $sconti = [];
+    $unitaLabel = ['01' => '€/anno', '02' => '€/kW', '03' => '€/kWh', '04' => '€/Smc', '05' => '€/mese'];
+
+    foreach ($xml->children() as $child) {
+        if (strtolower($child->getName()) !== 'sconto') continue;
+
+        $sNome = arera_xml_find($child, 'NOME');
+        $sDesc = arera_xml_find($child, 'DESCRIZIONE');
+
+        // ── Parsing CONDIZIONE_APPLICAZIONE ──
+        // 00 = incondizionale (sempre applicabile)
+        // 01-99 = condizionale (es. solo con SDD, dual fuel, web, ecc.)
+        $condizioneCode = arera_xml_find($child, 'CONDIZIONE_APPLICAZIONE');
+        $isUnconditional = ($condizioneCode === '00');
+
+        foreach ($child->children() as $cn => $container) {
+            if (strtolower($cn) !== 'prezzisconto') continue;
+
+            $prezzo = null;
+            $umCod = '';
+            $validoFino = null;
+            $soglia = null;
+
+            foreach ($container->children() as $iv) {
+                $ivName = strtolower($iv->getName());
+                if ($ivName === 'prezzo') {
+                    $prezzo = (float)str_replace(',', '.', trim((string)$iv));
+                }
+                if ($ivName === 'unita_misura') {
+                    $umCod = trim((string)$iv);
+                }
+                if ($ivName === 'valido_fino') {
+                    $validoFino = (int)trim((string)$iv);
+                }
+                // Campo soglia/quantità (es. primi 840 kWh, 240 Smc)
+                if ($ivName === 'valido_per' || $ivName === 'quantita' || $ivName === 'soglia') {
+                    $soglia = (float)str_replace(',', '.', trim((string)$iv));
+                }
+            }
+
+            // Fallback: estrai soglia dal nome (es. "Sconto 40% sui primi 840 kWh/a")
+            if ($soglia === null && preg_match('/primi\s+(\d+)\s*(kWh|Smc)/i', $sNome, $m)) {
+                $soglia = (float)$m[1];
+            }
+
+            if ($prezzo === null || $prezzo <= 0) continue;
+
+            $sconti[] = [
+                'nome' => $sNome,
+                'descrizione' => $sDesc,
+                'prezzo' => $prezzo,
+                'unita_cod' => $umCod,
+                'unita' => $unitaLabel[$umCod] ?? ('cod_' . $umCod),
+                'thresholded' => $validoFino !== null && $validoFino > 0,
+                'valido_fino' => $validoFino,
+                'soglia' => $soglia,
+                'condizione_cod' => $condizioneCode,
+                'unconditional' => $isUnconditional,
+            ];
+        }
+    }
+    return $sconti;
+}
+
 function arera_process_xml(string $path, string $type, array $brandMetadata, array $params): array {
     arera_log("Processing XML for {$type}...");
     $reader = new XMLReader();
@@ -364,6 +434,7 @@ function arera_process_xml(string $path, string $type, array $brandMetadata, arr
             $spread = null;
             $costoFisso = null;
             $prezzoFisso = null;
+            $fixedKeywordFound = false;
 
             // Parsiamo i componenti una sola volta
             $components = arera_parse_components($xml, $fasceCode);
@@ -401,10 +472,14 @@ function arera_process_xml(string $path, string $type, array $brandMetadata, arr
                         || stripos($c['nome'], 'QUOTA') !== false
                         || stripos($c['descrizione'], 'commercializzazione') !== false
                         || stripos($c['descrizione'], 'quota fissa') !== false;
-                    if ($isFixedKeyword && $costoFisso === null) {
-                        $costoFisso = $c['prezzo'];
-                    } elseif ($costoFisso === null && stripos($c['nome'], 'POTENZA') === false) {
-                        // Fallback: primo componente non-potenza
+                    if ($isFixedKeyword) {
+                        // Somma TUTTI i componenti fissi che matchano le keyword
+                        // (commercializzazione + CCV + quota fissa, ecc.)
+                        $annuale = $um === '05' ? $c['prezzo'] * 12 : $c['prezzo'];
+                        $costoFisso = ($costoFisso ?? 0.0) + $annuale;
+                        $fixedKeywordFound = true;
+                    } elseif (!$fixedKeywordFound && $costoFisso === null && stripos($c['nome'], 'POTENZA') === false) {
+                        // Fallback: primo componente non-potenza (solo se nessun keyword match trovato)
                         $costoFisso = $c['prezzo'];
                     }
                 }
@@ -425,7 +500,65 @@ function arera_process_xml(string $path, string $type, array $brandMetadata, arr
                 }
             }
 
+            // ── Applica sconti <Sconto> incondizionali (CONDIZIONE_APPLICAZIONE=00) ──
+            // Gli sconti condizionali (es. "solo con SDD") vengono esposti ma NON applicati.
+            $sconti = arera_parse_sconti($xml);
+            $energyDiscount = 0.0;
+            $fixedDiscount = 0.0;
+            $scontiApplicati = [];
+            $scontiNonApplicati = [];
+            $baseCostoFisso = $costoFisso;  // snapshot pre-sconti
+            foreach ($sconti as $s) {
+                $sum = $s['unita_cod'];
+                $hasSoglia = ($s['soglia'] ?? null) !== null && $s['soglia'] > 0;
+                // Skip: condizionali, o time-limited (valido_fino) SENZA soglia quantitativa.
+                // Se ha soglia (es. "primi 840 kWh"), applichiamo con limite — anche se thresholded.
+                $skip = (!$hasSoglia && $s['thresholded']) || !$s['unconditional'];
+                if ($skip) {
+                    $scontiNonApplicati[] = $s;
+                    continue;
+                }
+                // Euristica anti-promo: se uno sconto fisso ridurrebbe il CF sotto 24€/anno
+                // (minimo vitale PCV = 2€/mese) partendo da un base > 20€, è probabilmente
+                // una promo (es. Bonus Porta un Amico) erroneamente marcata 00 da ARERA.
+                if ($sum === '01' || $sum === '05') {
+                    $annuale = $sum === '05' ? $s['prezzo'] * 12 : $s['prezzo'];
+                    $remaining = ($costoFisso ?? 0) - $fixedDiscount - $annuale;
+                    if ($baseCostoFisso !== null && $baseCostoFisso > 20 && $remaining < 24 && $annuale > $baseCostoFisso * 0.5) {
+                        $scontiNonApplicati[] = $s;
+                        continue;
+                    }
+                    $fixedDiscount += $annuale;
+                } elseif ($sum === '03' || $sum === '04') {
+                    // Energia €/kWh o €/Smc
+                    if ($hasSoglia) {
+                        // Sconto con soglia (es. "40% sui primi 840 kWh"): converti in
+                        // sconto fisso annuo = soglia × prezzo. Per tutti i profili standard
+                        // (1500/2700/4000 luce, 400/1000/1800 gas) il consumo >= soglia tipica,
+                        // quindi la conversione è esatta per consumi >= soglia.
+                        $sogliaAnnuale = $s['soglia'] * $s['prezzo'];
+                        $fixedDiscount += $sogliaAnnuale;
+                    } else {
+                        // Sconto senza soglia: applica al prezzo energia
+                        $energyDiscount += $s['prezzo'];
+                    }
+                }
+                $scontiApplicati[] = $s;
+            }
+            if ($energyDiscount > 0 && $isFisso) {
+                foreach ($energyByFascia as $f => $val) {
+                    if ($val > 0) $energyByFascia[$f] = max(0, $val - $energyDiscount);
+                }
+            } elseif ($energyDiscount > 0 && !$isFisso && $spread !== null) {
+                $spread = max(0, $spread - $energyDiscount);
+            }
+
             if ($costoFisso === null) $costoFisso = 0.0;
+            if ($fixedDiscount > 0) $costoFisso = max(0, $costoFisso - $fixedDiscount);
+            if ($costoFisso < 0) $costoFisso = 0.0;
+
+            // Per-fascia prices: populated only for multi-fascia fixed offers
+            $prezzoF1 = null; $prezzoF2 = null; $prezzoF3 = null;
 
             // Prezzo unico per offerte fisse (per ranking/profili): F1 per monoraria, media delle fasce per multi-fascia
             if ($isFisso && $hasEnergyComponent) {
@@ -435,6 +568,10 @@ function arera_process_xml(string $path, string $type, array $brandMetadata, arr
                         ? reset($nonZeroFasce)
                         : (array_sum($nonZeroFasce) / count($nonZeroFasce));
                 }
+                $hasMultiFascia = count($nonZeroFasce) > 1;
+                $prezzoF1 = $hasMultiFascia ? arera_format($energyByFascia['F1'] ?? 0, 4) : null;
+                $prezzoF2 = $hasMultiFascia ? arera_format($energyByFascia['F2'] ?? 0, 4) : null;
+                $prezzoF3 = $hasMultiFascia ? arera_format($energyByFascia['F3'] ?? 0, 4) : null;
             }
 
             // ── Validità + filtro scadute ────────────────────────────
@@ -486,16 +623,18 @@ function arera_process_xml(string $path, string $type, array $brandMetadata, arr
             $urlSitoVenditore = normalizeOfferUrl(arera_xml_find($xml, 'URL_SITO_VENDITORE'));
             $codiceOfferta = arera_xml_find($xml, 'COD_OFFERTA');
 
+            // componenti vengono ricalcolati a runtime da calculateSavingsBreakdown — non serve salvarli
+
             // ── Componenti strutturati (per-fascia + voci fisse) ────
-            $componenti = array_map(fn($c) => [
-                'nome' => $c['nome'],
-                'descrizione' => $c['descrizione'],
-                'fascia' => $c['fascia'],
-                'prezzo' => $c['prezzo'],
-                'unita' => $c['unita'],
-                'tipologia' => $c['tipologia'],
-                'macroarea' => $c['macroarea'],
-            ], $components);
+            // $componenti = array_map(fn($c) => [
+            //     'nome' => $c['nome'],
+            //     'descrizione' => $c['descrizione'],
+            //     'fascia' => $c['fascia'],
+            //     'prezzo' => $c['prezzo'],
+            //     'unita' => $c['unita'],
+            //     'tipologia' => $c['tipologia'],
+            //     'macroarea' => $c['macroarea'],
+            // ], $components);
 
             if ($prezzoFisso !== null) {
                 $prezzoTot = $prezzoFisso;
@@ -526,6 +665,9 @@ function arera_process_xml(string $path, string $type, array $brandMetadata, arr
                 ($isLuce ? 'Pun' : 'Psv') => $refStr,
                 'spread' => $spreadStr,
                 'costo_fisso' => arera_format($costoFisso, 2),
+                'prezzo f1' => $prezzoF1 ?? null,
+                'prezzo f2' => $prezzoF2 ?? null,
+                'prezzo f3' => $prezzoF3 ?? null,
                 'prezzo_bloccato' => (string)$bloccato,
                 'vantaggi' => $meta['vantaggi'],
                 'costo_profilo_basso' => arera_format($costoBasso, 2),
@@ -548,7 +690,22 @@ function arera_process_xml(string $path, string $type, array $brandMetadata, arr
                 'fornitore_locale' => ($meta['tipo'] ?? '') === 'locale',
                 'regione_principale' => $meta['regione_principale'] ?? '',
                 'codice_offerta' => $codiceOfferta,
-                'componenti' => $componenti,
+                // Sconti: trasparenza per l'utente
+                'sconti_applicati' => array_map(fn($s) => [
+                    'nome' => $s['nome'],
+                    'prezzo' => arera_format($s['prezzo'], 4),
+                    'unita' => $s['unita'],
+                ], $scontiApplicati),
+                'sconti_non_applicati' => array_map(fn($s) => [
+                    'nome' => $s['nome'],
+                    'prezzo' => arera_format($s['prezzo'], 4),
+                    'unita' => $s['unita'],
+                    'motivo' => $s['thresholded'] ? 'con soglia/validità limitata' : 'sconto condizionale (es. richiede SDD, dual fuel)',
+                ], $scontiNonApplicati),
+                'has_sconti_condizionali' => count($scontiNonApplicati) > 0,
+                'sconto_note' => count($scontiNonApplicati) > 0
+                    ? 'Alcuni sconti non sono stati applicati perché condizionali (es. richiedono SDD, dual fuel o altro). Controlla il sito del fornitore per i dettagli.'
+                    : '',
             ];
 
             // Dedup: skip if same brand + nome + prezzo + costo_fisso
@@ -590,27 +747,39 @@ function _arera_save_forward_params(array $data, string $type): void {
     $now = date('Y-m-d');
 
     if ($type === 'luce') {
-        // Estrai PUN dalla prima offerta variabile LUCE
         foreach ($data as $o) {
             $punRaw = $o['Pun'] ?? null;
-            if ($punRaw !== null && (float)$punRaw > 0) {
-                $config['PUN'] = (float)$punRaw;
-                $config['PUN_label'] = "PUN forward ARERA — {$now}";
-                arera_log("Saved forward PUN: " . arera_format((float)$punRaw * 1000, 1) . " €/MWh");
-                break;
+            if ($punRaw !== null) {
+                $punVal = (float)str_replace(',', '.', $punRaw);
+                if ($punVal > 0) {
+                    $config['PUN'] = $punVal;
+                    $config['PUN_label'] = "PUN forward ARERA — {$now}";
+                    // Rapporti F1/F2/F3 statistici da dati GME storici:
+                    // F1 (peak, Lun-Ven 8-19): +7% vs media
+                    // F2 (intermedio, Lun-Ven 7-8, 19-23 + Sab 7-23): ~media
+                    // F3 (off-peak, notti + domeniche): -10% vs media
+                    $config['PUN_F1'] = round($punVal * 1.07, 5);   // stima statistica GME
+                    $config['PUN_F2'] = $punVal;                      // PUN forward = F2
+                    $config['PUN_F3'] = round($punVal * 0.90, 5);   // stima statistica GME
+                    $config['PUN_note'] = 'PUN_F1/F3 sono stime statistiche basate sui differenziali medi GME storici. ARERA pubblica un solo PUN forward.';
+                    arera_log("Saved forward PUN: " . arera_format($punVal * 1000, 1) . " €/MWh (F1: +7%, F3: -10% vs F2)");
+                    break;
+                }
             }
         }
     }
 
     if ($type === 'gas') {
-        // Estrai PSV dalla prima offerta variabile GAS
         foreach ($data as $o) {
-            $psvRaw = $o['Psv'] ?? $o['psv Aprile 2025/'] ?? null;
-            if ($psvRaw !== null && (float)$psvRaw > 0) {
-                $config['PSV'] = (float)$psvRaw;
-                $config['PSV_label'] = "PSV forward ARERA — {$now}";
-                arera_log("Saved forward PSV: " . arera_format((float)$psvRaw * 1000, 1) . " €/MWh");
-                break;
+            $psvRaw = $o['Psv'] ?? null;
+            if ($psvRaw !== null) {
+                $psvVal = (float)str_replace(',', '.', $psvRaw);
+                if ($psvVal > 0) {
+                    $config['PSV'] = $psvVal;
+                    $config['PSV_label'] = "PSV forward ARERA — {$now}";
+                    arera_log("Saved forward PSV: " . arera_format($psvVal * 1000, 1) . " €/MWh");
+                    break;
+                }
             }
         }
     }

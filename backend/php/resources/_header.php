@@ -120,21 +120,7 @@ nav .area-btn span.label{display:none}
 </head>
 <body>
 
-<nav style="background:rgba(7,10,18,0.95);backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,0.06);position:sticky;top:0;z-index:100">
-<div class="container" style="display:flex;align-items:center;justify-content:space-between;padding:14px 24px;max-width:1040px">
-<a href="/" style="display:flex;align-items:center;gap:10px;text-decoration:none">
-<img src="/img/logo-76.png" alt="SwitchAI" width="38" height="38" style="border-radius:10px;box-shadow:0 4px 12px rgba(245,158,11,0.3)">
-<span style="font-size:18px;font-weight:800;color:#f1f5f9;letter-spacing:-0.5px">Switch<span style="color:#f59e0b">AI</span></span>
-</a>
-<div style="display:flex;gap:4px;align-items:center">
-<a href="/" style="padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;color:#f1f5f9;text-decoration:none">Confronta</a>
-<a href="/come-funziona" style="padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;color:#94a3b8;text-decoration:none">Come funziona</a>
-<a href="/per-llm" style="padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;color:#94a3b8;text-decoration:none">Per LLM</a>
-<a href="/risorse/" style="padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;color:#94a3b8;text-decoration:none">Risorse</a>
-<a href="/faq.html" style="padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;color:#94a3b8;text-decoration:none">FAQ</a>
-</div>
-</div>
-</nav>
+<?php readfile(__DIR__ . '/../nav.html'); ?>
 
 <main class="container">
 

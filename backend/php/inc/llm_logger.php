@@ -72,6 +72,14 @@ function logTraffic(string $endpoint, string $method = 'GET', array $meta = []):
         ?? 'unknown';
     $ip = explode(',', $ip)[0];
 
+    // Anonimizza IP per GDPR (tronca ultimo ottetto)
+    $ip = trim($ip);
+    if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+        $ip = preg_replace('/\.\d+$/', '.0', $ip);
+    } elseif (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+        $ip = preg_replace('/[^:]+$/', '0', $ip);
+    }
+
     $entry = json_encode([
         'timestamp'  => date('c'),
         'endpoint'   => $endpoint,

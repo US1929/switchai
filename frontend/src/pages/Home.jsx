@@ -1,4 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { Helmet } from 'react-helmet-async';
+import { Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { calcLuceCost, calcGasCost, buildBreakdown, deduplicateTariffs, formatEuro, getCurrentPricePerUnit, getCurrentFixedMonthly, getRankingBadges, isPriceAnomalous, estimateRegulatedCosts } from '../lib/calc.js';
 import { MERCATO } from '../lib/constants.js';
@@ -98,7 +100,10 @@ export default function Home() {
         if (extractedData.tipo_cliente) body.tipo_cliente = extractedData.tipo_cliente;
         if (extractedData.spesa_materia_energia > 0) body.spesa_materia_energia = Number(extractedData.spesa_materia_energia);
         if (extractedData.quota_fissa_mensile > 0) body.quota_fissa_mensile = Number(extractedData.quota_fissa_mensile);
-        if (extractedData.spread > 0) body.spread_eur_kwh = Number(extractedData.spread);
+        if (extractedData.spread > 0) {
+  if (isLuce) body.spread_eur_kwh = Number(extractedData.spread);
+  else body.spread_eur_smc = Number(extractedData.spread);
+}
         if (extractedData.potenza_impegnata) body.potenza_impegnata = Number(extractedData.potenza_impegnata);
         // PUN/PSV live per confronto simmetrico ARERA
         if (punEurKwh > 0) body.pun_eur_kwh = punEurKwh;
@@ -107,8 +112,9 @@ export default function Home() {
         const r = await fetch('/api/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
         if (!r.ok) throw new Error(`API V2 error ${r.status}: ${r.statusText}`);
         const d = await r.json();
-        if (d.top3?.length) {
-          const items = d.top3.map(o => ({
+        const v2Results = d.top3 || d.results || [];
+        if (v2Results.length) {
+          const items = v2Results.map(o => ({
             tariff: { id: o.tariff_id, brand: o.supplier, supplier_name: o.supplier, offerta: o.tariff_name, tariffa: o.type === 'FISSO' ? 'Fissa' : 'Variabile', 'prezzo tot kwh': o.price_per_unit, 'prezzo tot smc': o.price_per_unit, costo_fisso: (o.fixed_fee_monthly||0)*12, fixed_fee_monthly: o.fixed_fee_monthly, logo: o.supplier_logo, spread: o.spread, Pagamento: o.payment_method, prezzo_bloccato: o.contract_detail?.match(/(\d+)\s*mesi/)?.[1] || null, validita_offerta: o.valid_until, penale_recesso: o.penale_recesso, vantaggi: o.advantages, note_costi: null, extra: { penale_recesso: o.penale_recesso, validita_offerta: o.valid_until, vantaggi: o.advantages, prezzo_bloccato_mesi: o.contract_detail?.match(/(\d+)\s*mesi/)?.[1] || null }, subscription_url: o.subscription_url, affiliate_url: o.affiliate_url },
             annualCost: o.annual_cost_eur, savings: o.savings_eur > 0 ? Math.round(o.savings_eur) : null, savingsPct: o.savings_pct, breakdown: o.breakdown ? [o.breakdown.explanation] : [], hasRealSpend: true,
             priceWarning: o.price_warning,
@@ -184,14 +190,11 @@ export default function Home() {
       .then(r => r.json())
       .then(d => setMarketData(d))
       .catch(() => {});
-    // Fetch conteggio offerte dinamico
-    Promise.all([
-      fetch('/api/tariffe/luce').then(r => r.json()),
-      fetch('/api/tariffe/gas').then(r => r.json()),
-    ]).then(([luce, gas]) => {
-      const total = (luce.offers?.length || 0) + (gas.offers?.length || 0);
-      setOfferCount(total);
-    }).catch(() => {});
+    // Fetch conteggio offerte dinamico (filtrato, coerente con i risultati)
+    fetch('/api/status')
+      .then(r => r.json())
+      .then(d => setOfferCount(d.filtered?.total || d.luce_tariffs + d.gas_tariffs || 0))
+      .catch(() => {});
   }, []);
 
   // PUN/PSV live da /api/market-indices (campi: pun, psv — già in €/kWh e €/Smc)
@@ -236,12 +239,15 @@ export default function Home() {
         const sumRegAnnual = reg.trasporto + reg.oneri + reg.accise + reg.costoPotenza + reg.quotaFissaReti;
         const ivaAnnual = Math.max(0, reg.totale - sumRegAnnual - (reg.canoneRai || 0));
         const canone = reg.canoneRai || 0;
+        const canoneRaiAutoCorrected = llmExtractedData.canone_rai > 0 && llmExtractedData.canone_rai < 30;
 
         const anno = {
           materia: Math.round(Math.max(0, annualTotal - sumRegAnnual - ivaAnnual - canone)),
           trasporto: Math.round(reg.trasporto),
           oneri: Math.round(reg.oneri),
-          imposte: Math.round(reg.accise + reg.costoPotenza + reg.quotaFissaReti + ivaAnnual + canone),
+          imposte: Math.round(reg.accise + reg.costoPotenza + reg.quotaFissaReti + ivaAnnual),
+          canoneRai: Math.round(canone),
+          canoneRaiAutoCorrected,
         };
 
         const materiaMese = llmExtractedData.spesa_materia_energia != null
@@ -252,7 +258,9 @@ export default function Home() {
           materia: materiaMese,
           trasporto: Math.round(reg.trasporto / 12 * 100) / 100,
           oneri: Math.round(reg.oneri / 12 * 100) / 100,
-          imposte: Math.round((reg.accise + reg.costoPotenza + reg.quotaFissaReti + ivaAnnual + canone) / 12 * 100) / 100,
+          imposte: Math.round((reg.accise + reg.costoPotenza + reg.quotaFissaReti + ivaAnnual) / 12 * 100) / 100,
+          canoneRai: Math.round(canone / 12 * 100) / 100,
+          canoneRaiAutoCorrected,
         };
 
         return { mese, anno };
@@ -260,7 +268,29 @@ export default function Home() {
     : null;
 
   return (
-    <main>
+    <>
+      <Helmet>
+        <title>SwitchAI — Confronta Tariffe Luce e Gas con l'AI | Italia</title>
+        <meta name="description" content="Confronta le tariffe energia elettrica e gas in Italia. SwitchAI usa l'intelligenza artificiale per analizzare la tua bolletta, confrontare 5.600+ offerte e attivare la migliore. Compatibile WebMCP." />
+      </Helmet>
+      <main>
+      {loading && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 999,
+          background: 'rgba(6,9,19,0.85)', backdropFilter: 'blur(8px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <div style={{ textAlign: 'center' }}>
+            <div className="spinner" style={{
+              width: 40, height: 40, margin: '0 auto 18px',
+              border: '3px solid rgba(255,255,255,0.08)',
+              borderTopColor: '#f59e0b', borderRadius: '50%',
+            }} />
+            <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>Confrontando le migliori offerte...</p>
+            <p style={{ color: '#64748b', fontSize: '0.75rem', marginTop: 6 }}>Analisi ARERA delle tariffe attive</p>
+          </div>
+        </div>
+      )}
       {/* ── Hero ─────────────────────────────────────────────────── */}
       <section style={{ padding: '60px 24px 50px', textAlign: 'center', position: 'relative' }}>
         <div style={{ position: 'absolute', top: '10%', left: '50%', translate: '-50%', width: 600, height: 400, background: `radial-gradient(ellipse, ${accentColor}15, transparent 70%)`, pointerEvents: 'none' }} />
@@ -280,7 +310,7 @@ export default function Home() {
             <a href="#come-usare" className="btn btn-electric" style={{ fontSize: 15, padding: '14px 32px', textDecoration: 'none' }}>
               🤖 Analizza con la tua AI
             </a>
-            <a href="#come-usare" className="btn btn-outline" style={{ fontSize: 15, padding: '14px 32px', textDecoration: 'none' }}>
+            <a href="/calcolo-rapido" className="btn btn-outline" style={{ fontSize: 15, padding: '14px 32px', textDecoration: 'none' }}>
               📋 Prova senza connettere l'AI
             </a>
           </div>
@@ -392,6 +422,35 @@ export default function Home() {
                 </div>
               </div>
             </div>
+
+            {/* Mode 4: Senza AI — calcolo rapido */}
+            <Link to="/calcolo-rapido" style={{ textDecoration: 'none' }}>
+              <div className="glass-card animate-fade-in" style={{
+                padding: '16px 20px', borderColor: 'rgba(16,185,129,0.12)', background: 'rgba(16,185,129,0.02)',
+                transition: 'border-color 0.2s',
+              }}
+                onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(16,185,129,0.35)'}
+                onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(16,185,129,0.12)'}
+              >
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+                  <div style={{ flexShrink: 0, marginTop: 2 }}>
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" />
+                      <line x1="6" y1="20" x2="6" y2="14" />
+                    </svg>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: '#f1f5f9' }}>Senza AI — calcolo rapido</span>
+                      <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 4, background: 'rgba(16,185,129,0.12)', color: '#6ee7b7', fontWeight: 600 }}>SENZA BOLLETTA</span>
+                    </div>
+                    <p style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.6 }}>
+                      Inserisci tipo fornitura, consumi e importo bolletta manualmente. Confronto immediato senza bisogno di AI o file PDF.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </Link>
           </div>
 
           {/* Demo button */}
@@ -421,7 +480,7 @@ export default function Home() {
                   ['Zona', llmExtractedData.zona],
                   ['Spesa materia energia', llmExtractedData.spesa_materia_energia ? `${llmExtractedData.spesa_materia_energia} €` : null],
                   ['Quota fissa mensile', llmExtractedData.quota_fissa_mensile ? `${llmExtractedData.quota_fissa_mensile} €/mese` : null],
-                  ['Canone RAI', llmExtractedData.canone_rai > 0 ? `${llmExtractedData.canone_rai} €/anno` : null],
+                  ['Canone RAI', llmExtractedData.canone_rai > 0 ? `${llmExtractedData.canone_rai} €` : null],
                   ['Tipo tariffa', llmExtractedData.tipo_tariffa],
                   ['Spread', llmExtractedData.spread != null ? `${llmExtractedData.spread} €` : null],
                   ['Potenza impegnata', llmExtractedData.potenza_impegnata ? `${llmExtractedData.potenza_impegnata} kW` : null],
@@ -756,7 +815,7 @@ export default function Home() {
               {[
                 { icon: '💬', title: '1. Chiedi al tuo AI', desc: '"Ehi Claude, ho questa bolletta Enel da 650€/anno. Trovami l\'offerta migliore con SwitchAI."' },
                 { icon: '⚡', title: '2. L\'AI chiama SwitchAI', desc: 'L\'AI invia i tuoi consumi alla nostra API. SwitchAI confronta centinaia di offerte in tempo reale e restituisce la migliore con tutti i dettagli.' },
-                { icon: '✅', title: '3. Vedi il risparmio e decidi', desc: 'L\'AI ti dice quanto risparmi e perché. Se vuoi attivare, ti guida alla sottoscrizione. Sei tu a decidere.' },
+                { icon: '✅', title: '3. Vedi il risparmio e decidi', desc: 'L\'AI ti dice quanto risparmi e perché. Se vuoi attivare, ti basta un click sul link del fornitore. Sei tu a decidere.' },
               ].map(step => (
                 <div key={step.title} className="glass-card" style={{ padding: '28px 24px', textAlign: 'center' }}>
                   <div style={{ fontSize: 40, marginBottom: 16 }}>{step.icon}</div>
@@ -771,5 +830,6 @@ export default function Home() {
       {/* ── Demo Modal ──────────────────────────────────────────── */}
       <ChatDemo isOpen={demoOpen} onClose={() => setDemoOpen(false)} />
     </main>
+    </>
   );
 }

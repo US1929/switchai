@@ -94,6 +94,16 @@ export default function TariffTableRow({
     return () => window.removeEventListener('resize', check);
   }, []);
 
+  // Fire impression pixel per affiliazione
+  useEffect(() => {
+    const t = item?.tariff;
+    const imprUrl = t?.impression_url || t?.extra?.impression_url;
+    if (imprUrl) {
+      const img = new Image();
+      img.src = imprUrl;
+    }
+  }, [item?.tariff?.impression_url, item?.tariff?.extra?.impression_url]);
+
   const tariff = item.tariff;
   const annualCost = Math.round(item.annualCost || 0);
   const savings = item.savings !== null ? Math.round(item.savings) : null;
@@ -640,22 +650,40 @@ export default function TariffTableRow({
             </div>
           )}
 
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <a
-              href={`/sottoscrizione?tariff=${encodeURIComponent(tariff.id || '')}&supplier=${encodeURIComponent(tariff.brand || '')}&name=${encodeURIComponent(tariff.offerta || '')}&commodity=${commodity}&annualCost=${annualCost}`}
+              href={tariff.affiliate_url || tariff.subscription_url || tariff.url_offerta || tariff.extra?.url_offerta || (tariff.brand ? `/fornitori/${tariff.brand.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}` : '#')}
+              target={tariff.affiliate_url || tariff.subscription_url || tariff.url_offerta || tariff.extra?.url_offerta ? "_blank" : undefined}
+              rel={tariff.affiliate_url || tariff.subscription_url || tariff.url_offerta || tariff.extra?.url_offerta ? "nofollow noopener" : undefined}
               className="btn btn-electric"
-              style={{ fontSize: 11, padding: '8px 18px', flexShrink: 0 }}
+              style={{
+                fontSize: 13, padding: '10px 24px', flexShrink: 0, fontWeight: 700,
+                background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                border: 'none', borderRadius: 8, cursor: 'pointer',
+                color: '#0f172a', textDecoration: 'none',
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                boxShadow: '0 4px 14px rgba(245,158,11,0.3)',
+              }}
             >
-              Sottoscrivi
+              {isPositive ? (
+                <>⚡ Risparmia {formatEuro(savings)}/anno →</>
+              ) : (
+                <>🔗 Vedi offerta</>
+              )}
             </a>
             <button
               onClick={e => { e.stopPropagation(); setShowCalc(true); }}
               className="btn btn-outline"
-              style={{ fontSize: 11, padding: '8px 18px' }}
+              style={{ fontSize: 11, padding: '8px 16px' }}
             >
-              ℹ️ Calcolo Risparmio
+              ℹ️ Calcolo
             </button>
           </div>
+          {tariff.affiliate_url && (
+            <div style={{ fontSize: 9, color: '#64748b', marginTop: 4, textAlign: 'center' }}>
+              *Link di affiliazione — se attivi, a noi potrebbe spettare una commissione. Il prezzo per te non cambia.
+            </div>
+          )}
 
             {(tariff.codice_offerta || tariff.extra?.codice_offerta || tariff.url_offerta || tariff.extra?.url_offerta || prezzoBloccato || penaleRecesso || validitaOfferta) && (
             <div style={{
@@ -698,9 +726,9 @@ export default function TariffTableRow({
                   📋 Cod.: {tariff.codice_offerta || tariff.extra?.codice_offerta}
                 </span>
               )}
-              {(tariff.url_offerta || tariff.extra?.url_offerta) && (
+              {(tariff.affiliate_url || tariff.url_offerta || tariff.extra?.url_offerta) && (
                 <a
-                  href={tariff.url_offerta || tariff.extra?.url_offerta}
+                  href={tariff.affiliate_url || tariff.url_offerta || tariff.extra?.url_offerta}
                   target="_blank" rel="noopener noreferrer"
                   style={{
                     fontSize: 9, padding: '2px 8px', borderRadius: 4,
@@ -710,7 +738,7 @@ export default function TariffTableRow({
                     display: 'inline-flex', alignItems: 'center', gap: 3,
                   }}
                 >
-                  🔗 Vedi su ARERA
+                  🔗 Vedi sul sito
                 </a>
               )}
             </div>

@@ -12,7 +12,10 @@ const navLinkStyle = (isActive) => ({
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
+  const [user, setUser] = useState(null);
+  const [menuOpen, setMenuOpen] = useState(false);
   const location = useLocation();
+  const token = sessionStorage.getItem('switchai_token');
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10);
@@ -20,7 +23,26 @@ export default function Navbar() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
+  useEffect(() => {
+    if (token) {
+      fetch('/api/auth/me', { headers: { 'x-auth-token': token } })
+        .then(r => r.json())
+        .then(d => { if (d.nome) setUser(d); else setUser(null); })
+        .catch(() => setUser(null));
+    } else {
+      setUser(null);
+    }
+    setMenuOpen(false);
+  }, [token, location.pathname]);
+
   const currentPath = location.pathname;
+
+  const doLogout = () => {
+    sessionStorage.removeItem('switchai_token');
+    setUser(null);
+    setMenuOpen(false);
+    window.location.href = '/';
+  };
 
   return (
     <nav style={{
@@ -38,7 +60,6 @@ export default function Navbar() {
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '14px 24px',
       }}>
-        {/* Logo */}
         <Link to="/" style={{
           display: 'flex', alignItems: 'center', gap: 10,
           textDecoration: 'none',
@@ -52,13 +73,73 @@ export default function Navbar() {
           </span>
         </Link>
 
-        {/* Nav links */}
         <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
           <Link to="/" style={navLinkStyle(currentPath === '/')}>Confronta</Link>
           <Link to="/come-funziona" style={navLinkStyle(currentPath === '/come-funziona')}>Come funziona</Link>
-          <a href="/per-llm" style={navLinkStyle(currentPath === '/per-llm')}>Per LLM</a>
+          <Link to="/plus" style={navLinkStyle(currentPath === '/plus')}>SwitchAI+</Link>
+          <Link to="/api-docs" style={navLinkStyle(currentPath === '/api-docs')}>API</Link>
           <a href="/risorse/" style={navLinkStyle(currentPath === '/risorse/')}>Risorse</a>
           <a href="/faq.html" style={navLinkStyle(currentPath === '/faq.html')}>FAQ</a>
+
+          {user ? (
+            <div style={{ position: 'relative', marginLeft: 8 }}>
+              <button onClick={() => setMenuOpen(!menuOpen)} style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '6px 14px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)',
+                background: 'rgba(255,255,255,0.04)', color: '#e2e8f0', cursor: 'pointer',
+                fontSize: 13, fontWeight: 600,
+              }}>
+                <span>👤</span>
+                <span>{user.nome}</span>
+                <span style={{ fontSize: 10, color: '#64748b', marginLeft: 2 }}>▼</span>
+              </button>
+              {menuOpen && (
+                <div style={{
+                  position: 'absolute', top: '100%', right: 0, marginTop: 6,
+                  minWidth: 160, padding: 6, borderRadius: 10,
+                  background: '#1e293b', border: '1px solid rgba(255,255,255,0.08)',
+                  boxShadow: '0 12px 32px rgba(0,0,0,0.4)',
+                }}>
+                  <Link to="/dashboard" style={{
+                    display: 'block', padding: '8px 14px', borderRadius: 6,
+                    fontSize: 13, color: '#e2e8f0', textDecoration: 'none',
+                  }}
+                    onClick={() => setMenuOpen(false)}>
+                    📊 Dashboard
+                  </Link>
+                  {user.admin && (
+                    <Link to="/admin" style={{
+                      display: 'block', padding: '8px 14px', borderRadius: 6,
+                      fontSize: 13, color: '#e2e8f0', textDecoration: 'none',
+                    }}
+                      onClick={() => setMenuOpen(false)}>
+                      ⚙️ Admin
+                    </Link>
+                  )}
+                  <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '4px 8px' }} />
+                  <button onClick={doLogout} style={{
+                    display: 'block', width: '100%', textAlign: 'left',
+                    padding: '8px 14px', borderRadius: 6,
+                    fontSize: 13, color: '#fca5a5', textDecoration: 'none',
+                    background: 'none', border: 'none', cursor: 'pointer',
+                  }}>
+                    Esci
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div style={{ display: 'flex', gap: 6, marginLeft: 8 }}>
+              <Link to="/accedi" className="btn btn-outline"
+                style={{ textDecoration: 'none', padding: '6px 14px', fontSize: 12 }}>
+                Accedi
+              </Link>
+              <Link to="/registrati" className="btn btn-electric"
+                style={{ textDecoration: 'none', padding: '6px 14px', fontSize: 12 }}>
+                Registrati
+              </Link>
+            </div>
+          )}
         </div>
       </div>
     </nav>

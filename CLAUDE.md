@@ -38,11 +38,11 @@ cd mcp-server && npm install && node index.js
 frontend/dist/        ← BUILD OUTPUT da caricare su OVH (www/)
   api/index.php       ← API Router principale (include endpoint V2 /api/analyze)
   mcp/index.php       ← MCP Server PHP (JSON-RPC via HTTP POST)
-  inc/                ← Librerie PHP (tariff_loader, bill_parser, subscription_handler, llm_logger, api_auth)
+  inc/                ← Librerie PHP (tariff_loader, bill_parser, llm_logger, api_auth)
   router.php          ← Entry point PHP built-in server
-  data/               ← market_history.json, subscriptions/, templates/ (JSON flat-file)
+  data/               ← market_history.json, templates/ (JSON flat-file)
 frontend/src/
-  pages/              ← Home, Sottoscrizione, Analisi, Admin, Stats, Login, Conferma, Activate, ...
+  pages/              ← Home, ComeFunziona, Analisi, Admin, Stats, Login, ConfermaRegistrazione, ...
   components/         ← TariffCard, StickyReferenceBar, MarketSignal, ChatDemo, Navbar, Footer, ...
   lib/
     calc.js           ← Calcoli tariffari (calcLuceCost, calcGasCost, getCurrentPricePerUnit, savingsToHuman, getRankingBadges, isPriceAnomalous, estimateRegulatedCosts)
@@ -59,7 +59,6 @@ mcp-server/           ← MCP Server Node.js per Claude Desktop (index.js, serve
 ## File più importanti
 
 - `frontend/src/pages/Home.jsx` — Hero + 3 mode card (Claude MCP, ChatGPT, Copia-incolla) + confronto interattivo
-- `frontend/src/pages/Sottoscrizione.jsx` — Form wizard 4 step per attivazione offerta
 - `frontend/src/components/TariffCard.jsx` — Card offerta v5.0: barra proporzionale, ranking 🥇🥈🥉, risparmio mensile, warning prezzo anomalo, accordion dettagli
 - `frontend/src/components/StickyReferenceBar.jsx` — Barra sticky con prezzo energia attuale, quota fissa, spesa annua (usa PUN/PSV live + spread)
 - `frontend/src/components/MarketSignal.jsx` — Segnali trend mercato (visibile solo con dati reali, mai placeholder)
@@ -68,7 +67,6 @@ mcp-server/           ← MCP Server Node.js per Claude Desktop (index.js, serve
 - `backend/php/api/index.php` — API Router (20+ endpoint)
 - `backend/php/inc/tariff_loader.php` — Carica 44+ offerte da fonti proprietarie (URL in costanti PHP private)
 - `backend/php/inc/bill_parser.php` — Estrae dati da testo bolletta italiana
-- `backend/php/inc/subscription_handler.php` — Double opt-in GDPR + invio sottoscrizione
 - `backend/php/inc/api_auth.php` — Autenticazione API key per endpoint protetti
 - `backend/php/inc/llm_logger.php` — Logging chiamate LLM per analytics
 - `backend/php/router.php` — Router PHP built-in server: API → api/index.php, MCP → mcp/index.php, file statici, SPA fallback → index.html
@@ -107,12 +105,6 @@ Altre rotte       → index.html (SPA fallback)
 - **Mai hardcodare token o API key** — sempre da `getenv()`, usare `public/.env.example` come template
 - **Sistema onestà**: consiglia switch solo se risparmio >50€/anno e >5% rispetto alla spesa attuale
 - **MarketSignal**: mostrare solo con dati trend reali, mai placeholder
-
-## GDPR Double Opt-In
-
-1. `POST /api/subscription/submit` → pending + email conferma all'utente
-2. Utente clicca `/conferma?token=xxx` → confirmed
-3. Solo dopo la conferma i dati sensibili vengono inviati via email e (se WS_ENABLED=true) al web service
 
 ## Mercato
 Italia — Mercato Libero Energia — zone NORD, CENTRO, SUD — 106 province — 44+ offerte da 13 fornitori

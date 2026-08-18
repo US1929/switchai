@@ -5,7 +5,7 @@ export default function Cookie() {
     <main style={{ padding: '60px 24px 80px' }}>
       <div style={{ maxWidth: 780, margin: '0 auto', fontSize: 14, color: '#94a3b8', lineHeight: 1.8 }}>
         <h1 style={{ fontSize: 30, fontWeight: 900, color: '#f1f5f9', marginBottom: 8 }}>Cookie Policy</h1>
-        <p style={{ color: '#64748b', marginBottom: 40 }}>Ultimo aggiornamento: Giugno 2026</p>
+        <p style={{ color: '#64748b', marginBottom: 40 }}>Ultimo aggiornamento: Luglio 2026</p>
 
         <Section title="1. Cosa sono i cookie">
           I cookie sono piccoli file di testo che i siti web salvano sul dispositivo dell'utente durante la navigazione.
@@ -38,13 +38,15 @@ export default function Cookie() {
         </Section>
 
         <Section title="3. Cookie di terze parti">
-          SwitchAI <b>non utilizza cookie di profilazione</b>, né cookie di terze parti per finalità di marketing, analisi o tracciamento.
-          Non sono presenti pixel di Facebook, Google Analytics, o altri strumenti di tracciamento.
+          SwitchAI <b>non utilizza cookie di profilazione propri</b>. I link di attivazione delle offerte
+          possono utilizzare il network di affiliazione <b>TradeDoubler</b>, che imposta cookie tecnici/di
+          sessione per tracciare le conversioni. Non vengono condivisi dati personali con TradeDoubler.
+          Le offerte senza link di affiliazione non attivano alcun tracciamento di terze parti.
         </Section>
 
         <Section title="4. WebMCP e AI Agent">
           SwitchAI è compatibile con lo standard WebMCP (Google Chrome Labs). Quando un AI agent visita il sito, i tool vengono registrati
-          tramite <code style={{ background: 'rgba(255,255,255,0.05)', padding: '2px 6px', borderRadius: 4 }}>navigator.modelContext.registerTool()</code>.
+          tramite <code style={{ background: 'rgba(255,255,255,0.05)', padding: '2px 6px', borderRadius: 4 }}>navigator.modelContext.registerTool() (Chrome 146+) o document.modelContext.registerTool() (Chrome 150+)</code>.
           Questo meccanismo non utilizza cookie e non memorizza dati sul dispositivo. L'unica interazione con il browser è la registrazione
           di funzioni JavaScript accessibili all'AI agent.
         </Section>
@@ -60,7 +62,7 @@ export default function Cookie() {
         </Section>
 
         <Section title="6. Contatti">
-          Per domande sulla cookie policy: <b>privacy@switchai.it</b>
+          Per domande sulla cookie policy: <b>info@switchai.it</b>
         </Section>
       </div>
     </main>
