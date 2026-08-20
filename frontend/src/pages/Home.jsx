@@ -20,7 +20,7 @@ function estimateSpend(commodity, consumption) {
 const STATS = (count) => [
   { value: count ? `${count}+` : '...', label: 'Offerte Luce e Gas' },
   { value: '<30 sec', label: 'Per cambiare fornitore' },
-  { value: '500€', label: 'Risparmio medio/anno' },
+  { value: 'Fino a 500€', label: 'Risparmio annuo possibile*' },
 ];
 
 	const LLM_PROMPT = `Estrai dalla mia bolletta italiana (ARERA 2.0) questi dati in JSON. NON includere POD, indirizzo o dati personali.
@@ -316,6 +316,9 @@ export default function Home() {
           </div>
           <div className="animate-fade-in-up" style={{ display: 'flex', justifyContent: 'center', gap: 48, flexWrap: 'wrap' }}>
             {STATS(offerCount).map(s => <div key={s.label} style={{ textAlign: 'center' }}><div style={{ fontSize: 28, fontWeight: 800, color: '#f1f5f9' }}>{s.value}</div><div style={{ fontSize: 13, color: '#64748b', marginTop: 2 }}>{s.label}</div></div>)}
+            <div style={{ width: '100%', textAlign: 'center', fontSize: 11, color: '#64748b', marginTop: 4 }}>
+              *Stima potenziale per profili domestici medi: il risparmio reale dipende da consumi, zona e offerta attuale. Calcola il tuo con l'analisi.
+            </div>
           </div>
         </div>
       </section>

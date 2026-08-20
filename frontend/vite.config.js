@@ -37,12 +37,12 @@ function copyBackendPlugin() {
       ]
 
       // Crea directory data/offerte per ARERA sync e copia i JSON delle offerte
-      // (db-offerte-luce.json, db-offerte-gas.json, config.json con PUN/PSV forward)
+      // (db-offerte-luce.json, db-offerte-gas.json, wattene_snapshot.json per il test di confronto)
       const dataOfferteDir = resolve(distDir, 'data', 'offerte')
       try { mkdirSync(dataOfferteDir, { recursive: true }) } catch {}
       const offerteSrcDir = resolve(backendDir, 'data', 'offerte')
       if (existsSync(offerteSrcDir)) {
-        const offerteFiles = ['db-offerte-luce.json', 'db-offerte-gas.json', 'fornitori-enrichment.json']
+        const offerteFiles = ['db-offerte-luce.json', 'db-offerte-gas.json', 'fornitori-enrichment.json', 'wattene_snapshot.json', 'config.json']
         for (const f of offerteFiles) {
           const src = resolve(offerteSrcDir, f)
           if (existsSync(src)) {

@@ -30,6 +30,8 @@
   RewriteCond %{THE_REQUEST} \.html
   RewriteRule ^per-llm\.html$ /per-llm [R=301,L]
   RewriteCond %{THE_REQUEST} \.html
+  RewriteRule ^per-llm-examples\.html$ /per-llm-examples [R=301,L]
+  RewriteCond %{THE_REQUEST} \.html
   RewriteRule ^privacy\.html$ /privacy [R=301,L]
   RewriteCond %{THE_REQUEST} \.html
   RewriteRule ^cookie\.html$ /cookie [R=301,L]
@@ -40,6 +42,7 @@
 
   # File HTML statici — serviti dopo redirect o rewrite interno
   RewriteRule ^per-llm\.html$ - [L,NC]
+  RewriteRule ^per-llm-examples\.html$ - [L,NC]
   RewriteRule ^privacy\.html$ - [L,NC]
   RewriteRule ^come-funziona\.html$ - [L,NC]
   RewriteRule ^cookie\.html$ - [L,NC]
@@ -48,6 +51,7 @@
   # URL puliti → servono internamente il file .html (rewrite silenzioso)
   RewriteRule ^come-funziona$ /come-funziona.html [L]
   RewriteRule ^per-llm$ /per-llm.html [L]
+  RewriteRule ^per-llm-examples$ /per-llm-examples.html [L]
   RewriteRule ^privacy$ /privacy.html [L]
   RewriteRule ^cookie$ /cookie.html [L]
   RewriteRule ^faq$ /faq.html [L]
@@ -56,6 +60,7 @@
   # Redirect trailing slash → clean (evita SPA fallback con canonical sbagliato)
   RewriteRule ^come-funziona/$ /come-funziona [R=301,L]
   RewriteRule ^per-llm/$ /per-llm [R=301,L]
+  RewriteRule ^per-llm-examples/$ /per-llm-examples [R=301,L]
   RewriteRule ^privacy/$ /privacy [R=301,L]
   RewriteRule ^cookie/$ /cookie [R=301,L]
   RewriteRule ^faq/$ /faq [R=301,L]
@@ -63,12 +68,14 @@
 
   # Pagine offerta, offerte per regione, e fornitori (per crawler/SEO)
   RewriteRule ^offerta/([a-zA-Z0-9\-]+)$ api/index.php [QSA,L]
-  RewriteRule ^offerte/(luce|gas)/([a-z-]+)$ api/index.php [QSA,L]
+  RewriteRule ^offerte/(luce|gas)/([a-z0-9-]+)$ api/index.php [QSA,L]
   RewriteRule ^fornitori/([a-z0-9\-]+)$ api/index.php [QSA,L]
 
   # SEO pages — pre-render per crawler
   RewriteRule ^tariffe-luce$ api/index.php [QSA,L]
   RewriteRule ^confronto-gas$ api/index.php [QSA,L]
+  RewriteRule ^quanto-pago-di-luce$ api/index.php [QSA,L]
+  RewriteRule ^fisso-vs-variabile$ api/index.php [QSA,L]
 
   # Risorse SEO — pagine PHP indicizzabili (router dedicato)
   RewriteRule ^risorse(/.*)?$ risorse.php [QSA,L]

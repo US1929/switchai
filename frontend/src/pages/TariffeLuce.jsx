@@ -73,7 +73,7 @@ export default function TariffeLuce() {
             Confronta le offerte luce sui tuoi consumi reali
           </p>
           <p style={{ color: '#94a3b8', fontSize: 13, marginBottom: 20 }}>
-            Carica la tua bolletta e scopri in meno di un minuto se stai pagando più del necessario, confrontando automaticamente oltre 44 offerte disponibili sul mercato libero italiano.
+            Carica la tua bolletta e scopri in meno di un minuto se stai pagando più del necessario, confrontando automaticamente 5.600+ offerte disponibili sul mercato libero italiano.
           </p>
           <Link
             to="/calcolo-rapido?commodity=luce"

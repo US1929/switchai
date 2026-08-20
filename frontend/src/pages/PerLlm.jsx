@@ -71,7 +71,7 @@ export default function PerLlm() {
           <div style={{ fontSize: 13, color: '#94a3b8', lineHeight: 1.8 }}>
             <p style={{ marginBottom: 12 }}>
               <b style={{ color: '#f1f5f9' }}>WebMCP (Chrome 146+)</b>: Visita <code style={{ background: 'rgba(255,255,255,0.05)', padding: '2px 6px', borderRadius: 4, color: '#60a5fa' }}>https://switchai.it</code> in un browser con WebMCP abilitato.
-              I tool sono registrati via <code style={{ background: 'rgba(255,255,255,0.05)', padding: '2px 6px', borderRadius: 4 }}>navigator.modelContext.registerTool() (Chrome 146+) o document.modelContext.registerTool() (Chrome 150+)</code>.
+              I tool sono registrati via <code style={{ background: 'rgba(255,255,255,0.05)', padding: '2px 6px', borderRadius: 4 }}>document.modelContext.registerTool() (Chrome 150+; su Chrome 146-149 via navigator.modelContext, poi rimosso)</code>.
               L'agente li scopre automaticamente.
             </p>
             <p>

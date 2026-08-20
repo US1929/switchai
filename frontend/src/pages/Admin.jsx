@@ -144,12 +144,19 @@ function WatteneTab({ token }) {
 
 function renderSummary(section) {
   if (!section) return null;
+  const hasStale = (section.stale || 0) > 0;
+  const hasError = (section.failed || 0) > 0 || (section.not_found || 0) > 0;
+  const badgeBg = hasError ? 'rgba(239,68,68,0.06)' : hasStale ? 'rgba(245,158,11,0.06)' : 'rgba(16,185,129,0.06)';
+  const badgeBorder = hasError ? 'rgba(239,68,68,0.2)' : hasStale ? 'rgba(245,158,11,0.2)' : 'rgba(16,185,129,0.2)';
+  const badgeColor = hasError ? '#fca5a5' : hasStale ? '#fbbf24' : '#6ee7b7';
+  const globalMsg = section.global_msg || (hasError ? '❌ Alcuni test non superati' : hasStale ? '⚠️ Snapshot datato' : '✅ TUTTI I TEST SUPERATI');
   return (
     <div>
       <div style={{ display: 'flex', gap: 16, marginBottom: 14, flexWrap: 'wrap' }}>
         {[
           { label: 'Offerte', value: section.total, color: '#94a3b8' },
           { label: 'OK', value: section.passed, color: '#10b981' },
+          { label: 'STALE', value: section.stale ?? 0, color: hasStale ? '#f59e0b' : '#64748b' },
           { label: 'FAIL', value: section.failed, color: section.failed > 0 ? '#ef4444' : '#64748b' },
         ].map(s => (
           <div key={s.label} style={{
@@ -163,13 +170,19 @@ function renderSummary(section) {
         ))}
       </div>
 
+      {section.snapshot_date && (
+        <div style={{ fontSize: 11, color: '#64748b', marginBottom: 8 }}>
+          📅 Snapshot Wattene: {section.snapshot_date}
+        </div>
+      )}
+
       <div style={{
         padding: '12px 16px', borderRadius: 10, marginBottom: 14,
-        background: section.all_ok ? 'rgba(16,185,129,0.06)' : 'rgba(239,68,68,0.06)',
-        border: `1px solid ${section.all_ok ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)'}`,
-        fontSize: 13, color: section.all_ok ? '#6ee7b7' : '#fca5a5', fontWeight: 700,
+        background: badgeBg,
+        border: `1px solid ${badgeBorder}`,
+        fontSize: 13, color: badgeColor, fontWeight: 700,
       }}>
-        {section.all_ok ? '✅ TUTTI I TEST SUPERATI' : '❌ Alcuni test non superati'}
+        {globalMsg}
       </div>
     </div>
   );
@@ -184,7 +197,7 @@ function renderCases(cases, type) {
       background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: type === 'wattene' ? 8 : 4 }}>
-        <span>{c.status === 'OK' ? '✅' : c.status === 'FAIL' ? '❌' : '🔍'}</span>
+        <span>{c.status === 'OK' ? '✅' : c.status === 'STALE' ? '⚠️' : c.status === 'FAIL' ? '❌' : '🔍'}</span>
         <div>
           <div style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9' }}>{c.brand}{c.type ? ` (${c.type})` : ''}</div>
           <div style={{ fontSize: 11, color: '#94a3b8' }}>{c.offerta}</div>
@@ -192,10 +205,10 @@ function renderCases(cases, type) {
       </div>
 
       {type === 'wattene' && c.status !== 'NOT_FOUND' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, fontSize: 11 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, fontSize: 11 }}>
           <div>
-            <div style={{ color: '#64748b' }}>Prezzo €/kWh</div>
-            <div style={{ color: c.prezzo_ok ? '#10b981' : '#ef4444', fontWeight: 600 }}>
+            <div style={{ color: '#64748b' }}>Prezzo energia €/kWh</div>
+            <div style={{ color: c.prezzo_ok ? '#10b981' : c.status === 'STALE' ? '#f59e0b' : '#ef4444', fontWeight: 600 }}>
               {c.prezzo_nostro?.toFixed(6)} vs {c.prezzo_wattene?.toFixed(6)}
             </div>
             <div style={{ fontSize: 10, color: '#64748b' }}>
@@ -211,10 +224,16 @@ function renderCases(cases, type) {
               diff: {(c.diff_pcv_eur > 0 ? '+' : '') + c.diff_pcv_eur?.toFixed(2)}€
             </div>
           </div>
-          <div>
-            <div style={{ color: '#64748b' }}>Dispacciamento</div>
-            <div style={{ color: '#94a3b8', fontWeight: 600 }}>{c.dispacciamento?.toFixed(5)} €/kWh</div>
-          </div>
+        </div>
+      )}
+
+      {type === 'wattene' && c.stale_note && (
+        <div style={{
+          marginTop: 8, padding: '6px 10px', borderRadius: 6,
+          background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)',
+          fontSize: 11, color: '#fbbf24',
+        }}>
+          ⚠️ {c.stale_note}
         </div>
       )}
 

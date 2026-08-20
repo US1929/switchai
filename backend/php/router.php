@@ -22,7 +22,7 @@ if (preg_match('#^/(inc|data|logs)/#', $path) || str_ends_with($path, '.env')) {
 }
 
 // ── SEO pages, Offerte e sitemap: pagine dinamiche per crawler ──────
-$seoPaths = ['/tariffe-luce', '/confronto-gas'];
+$seoPaths = ['/tariffe-luce', '/confronto-gas', '/quanto-pago-di-luce', '/fisso-vs-variabile'];
 if (in_array($path, $seoPaths, true) || preg_match('#^/offerta/#', $path) || preg_match('#^/offerte/#', $path) || preg_match('#^/fornitori/#', $path) || $path === '/sitemap.xml') {
     $_SERVER['SCRIPT_NAME'] = '/api/index.php';
     $_SERVER['SCRIPT_FILENAME'] = __DIR__ . '/api/index.php';
@@ -69,6 +69,25 @@ if (preg_match('#^/api(/|$)#', $path)) {
 
 // ── File statici: servili direttamente ─────────────────────────────────
 $filePath = __DIR__ . $path;
+
+// Pagine statiche HTML con URL pulito → file .html (parità con .htaccess)
+$staticClean = [
+    '/come-funziona'         => '/come-funziona.html',
+    '/per-llm'               => '/per-llm.html',
+    '/per-llm-examples'      => '/per-llm-examples.html',
+    '/privacy'               => '/privacy.html',
+    '/cookie'                => '/cookie.html',
+    '/faq'                   => '/faq.html',
+    '/connettori'            => '/faq.html',
+];
+if (isset($staticClean[$path])) {
+    $staticPath = __DIR__ . $staticClean[$path];
+    if (is_file($staticPath)) {
+        header('Content-Type: text/html; charset=utf-8');
+        readfile($staticPath);
+        return true;
+    }
+}
 
 // Se è un file esistente (non directory), lascia che PHP lo serva
 if (is_file($filePath)) {

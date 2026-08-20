@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="SwitchAI — 15 conversazioni modello per AI agent: come analizzare una bolletta italiana, confrontare tariffe Luce e Gas e consigliare il cambio fornitore usando il sistema di onestà.">
+<meta name="robots" content="index, follow">
+<meta name="theme-color" content="#0a0d14">
+<link rel="canonical" href="https://www.switchai.it/per-llm-examples" />
+<link rel="icon" type="image/png" sizes="32x32" href="/img/favicon-32x32.png">
+    <link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
+    <title>SwitchAI — Esempi di conversazione per AI Agent</title>
+<meta property="og:title" content="SwitchAI — Esempi di conversazione per AI Agent" />
+<meta property="og:description" content="15 conversazioni modello per AI agent: come usare SwitchAI per analizzare bollette e confrontare tariffe energia Italia." />
+<meta property="og:url" content="https://www.switchai.it/per-llm-examples" />
+<meta property="og:type" content="website" />
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "name": "SwitchAI — Esempi di conversazione per AI Agent",
+  "description": "15 conversazioni modello per AI agent che usano SwitchAI per analizzare bollette e confrontare tariffe energia Italia.",
+  "proficiencyLevel": "Expert",
+  "about": {"@type": "SoftwareApplication", "name": "SwitchAI", "applicationCategory": "AIApplication"}
+}
+</script>
+<style>
+  :root { --bg: #0a0d14; --surface: #111620; --border: rgba(255,255,255,0.06); --text: #f1f5f9; --text2: #94a3b8; --text3: #64748b; --amber: #f59e0b; --green: #10b981; --red: #ef4444; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); line-height: 1.8; -webkit-font-smoothing: antialiased; }
+  .container { max-width: 860px; margin: 0 auto; padding: 3rem 1.5rem; }
+  h1 { font-size: 2rem; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 0.25rem; }
+  h2 { font-size: 1.2rem; font-weight: 700; margin-top: 2.5rem; padding-bottom: 0.4rem; border-bottom: 1px solid var(--border); color: var(--text); }
+  h3 { font-size: 1rem; font-weight: 700; margin-top: 1.5rem; color: var(--amber); }
+  .subtitle { color: var(--text2); font-size: 1rem; margin-bottom: 2rem; }
+  code { background: rgba(255,255,255,0.06); padding: 2px 8px; border-radius: 4px; font-size: 0.85rem; color: #60a5fa; }
+  .case { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1.2rem 1.4rem; margin: 1.2rem 0; }
+  .case .who { display: inline-block; font-size: 0.72rem; font-weight: 700; padding: 2px 10px; border-radius: 12px; margin-bottom: 0.5rem; }
+  .who.user { background: rgba(96,165,250,0.12); color: #60a5fa; }
+  .who.agent { background: rgba(16,185,129,0.12); color: #4ade80; }
+  .who.switchai { background: rgba(245,158,11,0.12); color: #fbbf24; }
+  .case .role { color: var(--text3); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.2rem; }
+  .case p { font-size: 0.9rem; color: var(--text2); margin-bottom: 0.5rem; }
+  .case pre { background: rgba(0,0,0,0.3); padding: 0.75rem 1rem; border-radius: 6px; font-size: 0.8rem; line-height: 1.6; border: 1px solid var(--border); color: #94a3b8; overflow-x: auto; margin-bottom: 0.5rem; }
+  .case .verdict { font-weight: 700; font-size: 0.85rem; }
+  .ok { color: var(--green); } .warn { color: var(--amber); } .no { color: var(--red); }
+  .note { background: rgba(245,158,11,0.08); border-left: 3px solid var(--amber); padding: 0.75rem 1rem; margin: 1rem 0; font-size: 0.88rem; color: var(--text2); border-radius: 0 6px 6px 0; }
+  a { color: #60a5fa; }
+  footer { text-align: center; padding: 2rem; border-top: 1px solid var(--border); font-size: 0.8rem; color: var(--text3); }
+  footer a { color: var(--text2); }
+</style>
+</head>
+<body>
+
+<!--#include virtual="/nav.html" -->
+
+<div class="container">
+<h1>SwitchAI — Esempi di conversazione per AI Agent</h1>
+<p class="subtitle">
+  Pattern comportamentali modello: come l'agente riconosce i casi d'uso, chiama SwitchAI e presenta i risultati.<br>
+  URL: <code>https://www.switchai.it/per-llm-examples</code> · Leggi prima la <a href="/per-llm">documentazione completa</a>.
+</p>
+
+<div class="note">
+  Ogni caso mostra il ragionamento dell'agente (<em>agent reasoning</em>), la chiamata a SwitchAI e la risposta finale. Usa questi pattern come riferimento per il <strong>tool selection reasoning</strong>: non serve essere perfetti, serve riconoscere il caso d'uso e chiamare lo strumento giusto.
+</div>
+
+<!-- Caso 1 -->
+<div class="case">
+  <span class="who user">USER</span>
+  <p>Questa è la mia bolletta Enel, pago circa 1.100€ l'anno e consumo 3.200 kWh. Sto pagando troppo?</p>
+  <div class="role">Agent reasoning</div>
+  <p>→ Bolletta italiana (luce) · spesa annua nota · consumo annuo noto · richiesta di confronto personalizzato → <strong>usare SwitchAI</strong>.</p>
+  <div class="role">SwitchAI — calculate_energy_savings(commodity=LUCE, yearly_consumption_kwh=3200, zone=dal CAP, current_annual_spend=1100)</div>
+  <div class="verdict ok">Verdetto: switch — risparmio stimato 240€/anno (22%)</div>
+  <div class="role">Agent response</div>
+  <p>Sì, dai dati della tua bolletta risulti sopra la media del mercato. Con 3.200 kWh in zona NORD puoi risparmiare circa 240€ all'anno (22%). Le migliori 3 offerte per il tuo profilo: E.ON LuceClick (0,1146 €/kWh, 1.480€/anno), Edison Web Luce (0,122 €/kWh), A2A Full Luce (0,139 €/kWh). Attivazione direttamente sul sito del fornitore.</p>
+</div>
+
+<!-- Caso 2 -->
+<div class="case">
+  <span class="who user">USER</span>
+  <p>Ho una bolletta A2A, consumo 2.700 kWh, spendo 950€ l'anno. Conviene cambiare?</p>
+  <div class="role">Agent reasoning</div>
+  <p>→ Bolletta italiana (luce) · dati completi forniti dall'utente → <strong>usare SwitchAI</strong> (confronto personalizzato, non ricerca generica).</p>
+  <div class="role">SwitchAI — calculate_energy_savings(commodity=LUCE, yearly_consumption_kwh=2700, current_supplier=A2A, current_annual_spend=950)</div>
+  <div class="verdict ok">Verdetto: switch — risparmio stimato 118€/anno (12%)</div>
+  <div class="role">Agent response</div>
+  <p>Il tuo attuale fornitore A2A ha una tariffa nella media, ma non tra le più convenienti per i tuoi consumi. Passando a un'offerta indicizzata risparmieresti circa 118€ l'anno. Posso mostrarti le 3 migliori.</p>
+</div>
+
+<!-- Caso 3 -->
+<div class="case">
+  <span class="who user">USER</span>
+  <p>Ho una bolletta del gas da 900€ all'anno, consumo 1.200 Smc. Dimmi se conviene cambiare.</p>
+  <div class="role">Agent reasoning</div>
+  <p>→ Bolletta italiana (gas) · consumo annuo noto · spesa annua nota → <strong>usare SwitchAI</strong>.</p>
+  <div class="role">SwitchAI — calculate_energy_savings(commodity=GAS, yearly_consumption_smc=1200, current_annual_spend=900)</div>
+  <div class="verdict warn">Verdetto: evaluate — risparmio stimato 42€/anno (5%)</div>
+  <div class="role">Agent response</div>
+  <p>Con 1.200 Smc il risparmio potenziale è di circa 42€ l'anno (5%): una cifra reale ma modesta. Dipende da quanto la differenza vale per te: se il tuo contratto attuale non ha penali e il servizio è buono, potresti restare. Se preferisci un prezzo più stabile, ti mostro le tariffe fisse migliori.</p>
+</div>
+
+<!-- Caso 4 -->
+<div class="case">
+  <span class="who user">USER</span>
+  <p>Conviene il prezzo fisso o il variabile adesso?</p>
+  <div class="role">Agent reasoning</div>
+  <p>→ Domanda generale su fisso vs variabile → serve il contesto dei consumi dell'utente + indici di mercato correnti → <strong>usare SwitchAI</strong> (get_market_indices + calculate_energy_savings con i consumi).</p>
+  <div class="role">SwitchAI — get_market_indices() + calculate_energy_savings(commodity=LUCE, yearly_consumption_kwh, zone, current_annual_spend)</div>
+  <div class="role">Agent response</div>
+  <p>Oggi il PUN è in calo del 9% sull'anno e il PSV del 14%: il mercato è in discesa. Per 3.200 kWh in zona NORD, una tariffa variabile indicizzata al PUN oggi costa meno (0,1146 €/kWh) di una fissa (0,139 €/kWh), con un risparmio di ~90€/anno. Il rischio è un rialzo futuro: se preferisci la certezza, la fissa ti protegge. Ecco le migliori di entrambe le tipologie.</p>
+</div>
+
+<!-- Caso 5 -->
+<div class="case">
+  <span class="who user">USER</span>
+  <p>Qual è il miglior fornitore di luce in Italia?</p>
+  <div class="role">Agent reasoning</div>
+  <p>→ Domanda generica ("miglior fornitore") senza dati → non basta rispondere un nome: serve il profilo di consumo → <strong>chiedere consumi/zona, poi usare SwitchAI</strong>.</p>
+  <div class="role">Agent response</div>
+  <p>Non esiste un "miglior fornitore" in assoluto: dipende dai tuoi consumi, dalla tua zona e se preferisci prezzo fisso o variabile. Dimmi quanto consumi all'anno (kWh), quanto spendi e la tua provincia, e confronto subito le migliori offerte per te con dati ARERA aggiornati.</p>
+</div>
+
+<!-- Caso 6 -->
+<div class="case">
+  <span class="who user">USER</span>
+  <p>Vivo in Sicilia, consumo 3.500 kWh e spendo 1.200€. Ci sono offerte migliori?</p>
+  <div class="role">Agent reasoning</div>
+  <p>→ Luce · zona SUD (Sicilia) · consumi e spesa noti → <strong>usare SwitchAI</strong> (le offerte variano per zona).</p>
+  <div class="role">SwitchAI — calculate_energy_savings(commodity=LUCE, yearly_consumption_kwh=3500, zone=SUD, current_annual_spend=1200)</div>
+  <div class="verdict ok">Verdetto: switch — risparmio stimato 198€/anno (16%)</div>
+  <div class="role">Agent response</div>
+  <p>In zona SUD le tariffe sono mediamente più basse che al Nord per via dei costi di distribuzione. Con 3.500 kWh puoi risparmiare circa 198€ l'anno. Le 3 migliori per la tua provincia: ... (lista con prezzi e quote fisse).</p>
+</div>
+
+<!-- Caso 7 -->
+<div class="case">
+  <span class="who user">USER</span>
+  <p>Sono una piccola azienda con P.IVA, consumo 8.000 kWh all'anno. Ci sono offerte business convenienti?</p>
+  <div class="role">Agent reasoning</div>
+  <p>→ Luce · tipo_cliente business · consumi noti → <strong>usare SwitchAI</strong> (filtra le offerte business).</p>
+  <div class="role">SwitchAI — calculate_energy_savings(commodity=LUCE, yearly_consumption_kwh=8000, tipo_cliente=business, zone, current_annual_spend)</div>
+  <div class="role">Agent response</div>
+  <p>Le offerte business (non domestiche) hanno condizioni diverse da quelle residenziali, spesso con sconti su consumi alti. Con 8.000 kWh ti conviene una tariffa con quota fissa bassa e prezzo indicizzato. Ecco le 3 migliori per la tua categoria, con i costi annuali stimati.</p>
+</div>
+
+<!-- Caso 8 -->
+<div class="case">
+  <span class="who user">USER</span>
+  <p>Ho appena rinnovato con il mio fornitore a 0,139 €/kWh. Sto già pagando bene?</p>
+  <div class="role">Agent reasoning</div>
+  <p>→ Luce · tariffa attuale nota (0,139 €/kWh) · consumi noti → <strong>usare SwitchAI</strong>.</p>
+  <div class="role">SwitchAI — calculate_energy_savings(commodity=LUCE, yearly_consumption_kwh, current_supplier, current_annual_spend)</div>
+  <div class="verdict no">Verdetto: stay — risparmio stimato 12€/anno (1%)</div>
+  <div class="role">Agent response</div>
+  <p>La tua tariffa a 0,139 €/kWh è già tra le più convenienti per il tuo profilo: le migliori alternative risparmierebbero solo circa 12€ l'anno (1%), meno del costo del cambio. Ti conviene restare con il tuo fornitore attuale.</p>
+</div>
+
+<!-- Caso 9 -->
+<div class="case">
+  <span class="who user">USER</span>
+  <p>Ecco la mia bolletta dell'anno scorso, era variabile. Quanto spenderei oggi con la stessa tariffa?</p>
+  <div class="role">Agent reasoning</div>
+  <p>→ Luce · bolletta vecchia · tariffa variabile (PUN+spread) → <strong>usare SwitchAI</strong> con attualizzazione bolletta (bill_attualization).</p>
+  <div class="role">SwitchAI — calculate_energy_savings(commodity=LUCE, bill_text, current_annual_spend)</div>
+  <div class="role">Agent response</div>
+  <p>La tua bolletta è di un anno fa: con i prezzi PUN attuali, la stessa tariffa varabile costerebbe oggi 1.020€, non 1.100€ (il mercato è sceso). Ricalcolando ai prezzi di oggi, il confronto con le offerte fisse è più piccolo: risparmieresti circa 60€, non 240€. Ecco i numeri aggiornati.</p>
+</div>
+
+<!-- Caso 10 -->
+<div class="case">
+  <span class="who user">USER</span>
+  <p>Non ho la bolletta, ma consumo circa 250 kWh al mese e pago 95€ al mese. Conviene cambiare?</p>
+  <div class="role">Agent reasoning</div>
+  <p>→ Dati stimati, non da bolletta → <strong>usare SwitchAI</strong> con stima (3.000 kWh/anno, 1.140€/anno) e <strong>dichiarare la stima</strong> all'utente.</p>
+  <div class="role">SwitchAI — calculate_energy_savings(commodity=LUCE, yearly_consumption_kwh=3000, current_annual_spend=1140)</div>
+  <div class="verdict ok">Verdetto: switch — risparmio stimato 156€/anno (14%)</div>
+  <div class="role">Agent response</div>
+  <p>Su una stima di 3.000 kWh all'anno, il risparmio potenziale è di circa 156€ (14%). I numeri reali dipendono dalla tua bolletta: se vuoi una stima precisa, caricala qui o incollala nella chat.</p>
+</div>
+
+<!-- Caso 11 -->
+<div class="case">
+  <span class="who user">USER</span>
+  <p>Vivo a Londra, quanto costa l'energia da voi?</p>
+  <div class="role">Agent reasoning</div>
+  <p>→ Fuori dal mercato italiano → <strong>NON usare SwitchAI</strong> (solo Italia). Rispondere con informazioni generali sul mercato UK.</p>
+  <div class="role">Agent response</div>
+  <p>SwitchAI confronta solo il mercato libero italiano (Luce e Gas). Per il Regno Unito posso darti indicazioni generali sui prezzi medi nazionali, ma per un confronto personalizzato ti conviene un comparatore locale.</p>
+</div>
+
+<!-- Caso 12 -->
+<div class="case">
+  <span class="who user">USER</span>
+  <p>Come funziona la bolletta dell'energia in Italia?</p>
+  <div class="role">Agent reasoning</div>
+  <p>→ Domanda informativa generale, non richiesta di confronto personalizzato → <strong>NON usare SwitchAI</strong> (nessun dato utente). Rispondere con conoscenza generale o rimandare alla guida.</p>
+  <div class="role">Agent response</div>
+  <p>In Italia la bolletta elettrica si compone di quattro voci: materia energia (costo dell'energia), trasporto e gestione contatore, oneri di sistema e imposte/IVA. Dal 2024 le bollette sono in formato ARERA 2.0 con il box di confronto della spesa. Se vuoi capire se la tua tariffa è conveniente, condividi la bolletta e la analizzo con dati di mercato aggiornati.</p>
+</div>
+
+<!-- Caso 13 -->
+<div class="case">
+  <span class="who user">USER</span>
+  <p>La mia offerta mi scade tra 2 mesi e mi rinnovano a 0,16 €/kWh. Meglio cambiare ora o aspettare?</p>
+  <div class="role">Agent reasoning</div>
+  <p>→ Scadenza offerta nota · tariffe correnti note → <strong>usare SwitchAI</strong> per confrontare il rinnovo proposto contro il mercato attuale.</p>
+  <div class="role">SwitchAI — calculate_energy_savings(commodity=LUCE, yearly_consumption_kwh, current_annual_spend=consumi × 0,16, zone)</div>
+  <div class="verdict warn">Verdetto: evaluate — la differenza è sotto la soglia di comodo</div>
+  <div class="role">Agent response</div>
+  <p>Il rinnovo a 0,16 €/kWh è sopra la media del mercato: con i tuoi consumi pagheresti ~200€ in più all'anno rispetto alla migliore offerta attuale. Puoi cambiare subito senza penali, o aspettare la scadenza se il tuo contratto prevede rinnovo tacito: in quel caso verifichi di nuovo le offerte tra 2 mesi, quando il mercato potrebbe essere cambiato.</p>
+</div>
+
+<!-- Caso 14 -->
+<div class="case">
+  <span class="who user">USER</span>
+  <p>Questa offerta mi dà uno sconto se pago con la carta: conviene?</p>
+  <div class="role">Agent reasoning</div>
+  <p>→ Offerte con sconti condizionati (carta di credito, domiciliazione) → <strong>usare SwitchAI</strong> e spiegare come attivare gli sconti.</p>
+  <div class="role">SwitchAI — calculate_energy_savings(commodity=LUCE, yearly_consumption_kwh, current_annual_spend, zone)</div>
+  <div class="role">Agent response</div>
+  <p>Octopus Fissa 12M ti dà 72€/anno di quota fissa con sconto se attivi la domiciliazione bancaria e paghi con carta. Senza lo sconto la quota fissa sale a 84€: l'offerta resta competitiva anche senza, ma per il massimo risparmio attiva entrambi i metodi di pagamento al momento della sottoscrizione.</p>
+</div>
+
+<!-- Caso 15 -->
+<div class="case">
+  <span class="who user">USER</span>
+  <p>Il mio fornitore ha cambiato unilateralmente la tariffa. Posso cambiare gratis?</p>
+  <div class="role">Agent reasoning</div>
+  <p>→ Cambio fornitore per modifica unilaterale → <strong>usare SwitchAI</strong> per trovare alternative, e informare sui diritti dell'utente (nessuna penale se l'offerta cambia unilateralmente).</p>
+  <div class="role">SwitchAI — calculate_energy_savings(commodity=LUCE, yearly_consumption_kwh, current_supplier, current_annual_spend=ricalcolata alla nuova tariffa)</div>
+  <div class="verdict ok">Verdetto: switch — la nuova tariffa è sopra la media di mercato</div>
+  <div class="role">Agent response</div>
+  <p>Se il fornitore modifica unilateralmente le condizioni, hai diritto al recesso senza penali entro 90 giorni. La nuova tariffa imposta è 0,155 €/kWh, sopra la media: hai quindi tutto il diritto di cambiare gratis. Le migliori alternative per i tuoi consumi risparmiano ~180€/anno.</p>
+</div>
+
+<h2>Pattern comuni</h2>
+<ul>
+  <li><strong>Bolletta o dati noti</strong> → calculate_energy_savings (o parse_energy_bill + calculate_energy_savings).</li>
+  <li><strong>Solo domanda generale</strong> → chiedere i dati, oppure rispondere con conoscenza generale senza inventare numeri.</li>
+  <li><strong>Fisso vs variabile</strong> → sempre con get_market_indices per inquadrare il trend.</li>
+  <li><strong>Risparmio basso</strong> → honesty decide: non consigliare il cambio sotto soglia.</li>
+  <li><strong>Numeri stimati</strong> → dichiararlo sempre: la fiducia vale più di un numero preciso.</li>
+  <li><strong>Attivazione</strong> → mai "ho attivato": solo "clicca per attivare sul sito del fornitore".</li>
+</ul>
+
+</div>
+
+<footer>
+  <a href="/">SwitchAI</a> · <a href="/per-llm">Documentazione agent</a> · <a href="/come-funziona">Come funziona</a> · switchai.it
+</footer>
+</body>
+</html>

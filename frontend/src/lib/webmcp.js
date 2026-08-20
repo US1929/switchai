@@ -13,6 +13,11 @@
  * Nota: document.modelContext è [SecureContext, SameObject] su Document; il fallback
  * navigator.modelContext è solo difensivo (non richiesto dalla spec, zero rischio).
  *
+ * Chrome 153+ (Issue #48 / PR #247): execute(input, { signal }) riceve un AbortSignal
+ * in secondo argomento. Lo inoltriamo a ogni fetch() per supportare la cancellazione
+ * delle esecuzioni da parte di agente/utente. Il default `= {}` nella destructuring
+ * mantiene la compatibilità con Chrome 146-152, dove il secondo argomento non è passato.
+ *
  * Quando un AI agent visita la pagina, trova questi tool registrati
  * e può chiamarli con linguaggio naturale.
  */
@@ -74,7 +79,9 @@ const savingsTool = {
     readOnlyHint: true,
     untrustedContentHint: true
   },
-  execute: async (params) => {
+  // Chrome 153+: execute(input, { signal }) — AbortSignal per cancellare fetch in-flight.
+  // Default `= {}` per compatibilità con Chrome 146-152 (secondo argomento assente).
+  execute: async (params, { signal } = {}) => {
     const commodity = params.commodity?.toUpperCase();
     if (!['LUCE', 'GAS'].includes(commodity)) {
       return { content: [{ type: "text", text: JSON.stringify({ error: "commodity deve essere 'LUCE' o 'GAS'" }) }] };
@@ -103,6 +110,7 @@ const savingsTool = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
+      signal,
     });
 
     if (!res.ok) {
@@ -163,7 +171,7 @@ const parseBillTool = {
     readOnlyHint: true,
     untrustedContentHint: false
   },
-  execute: async (params) => {
+  execute: async (params, { signal } = {}) => {
     if (!params.bill_text || params.bill_text.length < 20) {
       return { content: [{ type: "text", text: JSON.stringify({ error: "Testo bolletta troppo corto. Fornisci il testo completo." }) }] };
     }
@@ -172,6 +180,7 @@ const parseBillTool = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text: params.bill_text }),
+      signal,
     });
 
     if (!res.ok) {
@@ -223,13 +232,13 @@ const listOffersTool = {
     readOnlyHint: true,
     untrustedContentHint: false
   },
-  execute: async (params) => {
+  execute: async (params, { signal } = {}) => {
     const commodity = params.commodity?.toUpperCase();
     if (!['LUCE', 'GAS'].includes(commodity)) {
       return { content: [{ type: "text", text: JSON.stringify({ error: "commodity deve essere 'LUCE' o 'GAS'" }) }] };
     }
 
-    const res = await fetch(`${API_BASE}/tariffe/${commodity.toLowerCase()}`);
+    const res = await fetch(`${API_BASE}/tariffe/${commodity.toLowerCase()}`, { signal });
 
     if (!res.ok) {
       return { content: [{ type: "text", text: JSON.stringify({ error: `Errore API: ${res.status}` }) }] };
@@ -269,8 +278,8 @@ const marketIndicesTool = {
     readOnlyHint: true,
     untrustedContentHint: true
   },
-  execute: async () => {
-    const res = await fetch(`${API_BASE}/market-indices`);
+  execute: async (_params, { signal } = {}) => {
+    const res = await fetch(`${API_BASE}/market-indices`, { signal });
     if (!res.ok) {
       return { content: [{ type: "text", text: JSON.stringify({ error: `Errore API: ${res.status}` }) }] };
     }

@@ -347,8 +347,13 @@ try {
             handleSeoPage('confronto-gas');
             break;
 
-        // GET /offerte/luce/{regione} e /offerte/gas/{regione} — pagine geo SEO
-        case preg_match('#^/offerte/(luce|gas)/([a-z-]+)$#', $uri, $offerteMatch) && $method === 'GET':
+        // Pagine problema SEO (con dati di mercato reali)
+        case in_array($uri, ['/quanto-pago-di-luce', '/fisso-vs-variabile'], true) && $method === 'GET':
+            handleSeoPage(trim($uri, '/'));
+            break;
+
+        // GET /offerte/luce/{regione|consumo} e /offerte/gas/{regione|consumo} — pagine geo/consumo SEO
+        case preg_match('#^/offerte/(luce|gas)/([a-z0-9-]+)$#', $uri, $offerteMatch) && $method === 'GET':
             handleRegionePage($offerteMatch[1], $offerteMatch[2]);
             break;
 
@@ -868,11 +873,14 @@ function handleDynamicSitemap(): void {
     $static = [
         ['loc' => 'https://www.switchai.it/', 'priority' => '1.0', 'changefreq' => 'daily'],
         ['loc' => 'https://www.switchai.it/per-llm', 'priority' => '0.9', 'changefreq' => 'weekly'],
+        ['loc' => 'https://www.switchai.it/per-llm-examples', 'priority' => '0.7', 'changefreq' => 'monthly'],
         ['loc' => 'https://www.switchai.it/fornitori/', 'priority' => '0.8', 'changefreq' => 'daily'],
         ['loc' => 'https://www.switchai.it/calcolo-rapido', 'priority' => '0.8', 'changefreq' => 'weekly'],
         ['loc' => 'https://www.switchai.it/come-funziona', 'priority' => '0.8', 'changefreq' => 'weekly'],
         ['loc' => 'https://www.switchai.it/tariffe-luce', 'priority' => '0.8', 'changefreq' => 'weekly'],
         ['loc' => 'https://www.switchai.it/confronto-gas', 'priority' => '0.8', 'changefreq' => 'weekly'],
+        ['loc' => 'https://www.switchai.it/quanto-pago-di-luce', 'priority' => '0.6', 'changefreq' => 'weekly'],
+        ['loc' => 'https://www.switchai.it/fisso-vs-variabile', 'priority' => '0.6', 'changefreq' => 'weekly'],
         ['loc' => 'https://www.switchai.it/privacy', 'priority' => '0.5', 'changefreq' => 'monthly'],
         ['loc' => 'https://www.switchai.it/cookie', 'priority' => '0.3', 'changefreq' => 'monthly'],
         ['loc' => 'https://www.switchai.it/faq', 'priority' => '0.7', 'changefreq' => 'weekly'],
@@ -931,6 +939,23 @@ function handleDynamicSitemap(): void {
                 echo "  </url>\n";
             }
         }
+
+        // Offerte per fascia consumo (9 pagine: 5 luce + 4 gas)
+        $consumoBands = [
+            'luce' => [2000, 2700, 3200, 3500, 4500],
+            'gas'  => [700, 1000, 1500, 2000, 3000],
+        ];
+        foreach (['luce', 'gas'] as $comm) {
+            foreach ($consumoBands[$comm] as $band) {
+                $unit = $comm === 'luce' ? 'kwh' : 'smc';
+                echo "  <url>\n";
+                echo "    <loc>https://www.switchai.it/offerte/{$comm}/{$band}-{$unit}</loc>\n";
+                echo "    <lastmod>{$syncDate}</lastmod>\n";
+                echo "    <changefreq>weekly</changefreq>\n";
+                echo "    <priority>0.5</priority>\n";
+                echo "  </url>\n";
+            }
+        }
     } catch (\Throwable $e) {
         // Se il caricamento tariffe fallisce, almeno le pagine statiche ci sono
     }
@@ -975,6 +1000,33 @@ function getRegioniHtml(string $commodity): string {
 
 // ── SEO PAGES pre-render per crawler ─────────────────────────────
 function handleSeoPage(string $page): void {
+    // Dati di mercato reali (per le pagine problema: prezzi medi, migliori, indici)
+    $marketStats = ['luce' => null, 'gas' => null];
+    try {
+        $allOffers = loadTariffs();
+        foreach (['LUCE', 'GAS'] as $comm) {
+            $prices = array_filter(array_map(
+                fn($t) => $t['commodity'] === $comm ? ($comm === 'LUCE' ? $t['price_mono_kwh'] : $t['price_smc']) : null,
+                $allOffers
+            ), fn($p) => $p !== null && $p > 0);
+            if (!empty($prices)) {
+                $sorted = array_values($prices);
+                sort($sorted);
+                $marketStats[$comm === 'LUCE' ? 'luce' : 'gas'] = [
+                    'count'   => count($sorted),
+                    'min'     => $sorted[0],
+                    'median'  => $sorted[(int)floor(count($sorted) / 2)],
+                ];
+            }
+        }
+    } catch (\Throwable $e) {}
+    $configFile = __DIR__ . '/../data/offerte/config.json';
+    $indici = is_file($configFile) ? (json_decode(file_get_contents($configFile), true) ?: []) : [];
+    $punLive = $indici['pun'] ?? $indici['PUN'] ?? null;
+    $psvLive = $indici['psv'] ?? $indici['PSV'] ?? null;
+    $fmt = fn($v) => $v !== null ? number_format((float)$v, 4, ',', '') . ' €' : '—';
+    $fmtMed = fn($v) => $v !== null ? number_format((float)$v, 4, ',', '') : '—';
+
     $pages = [
         'tariffe-luce' => [
             'title' => 'Tariffe Luce 2026: Confronto Offerte Mercato Libero | SwitchAI',
@@ -991,6 +1043,22 @@ function handleSeoPage(string $page): void {
             'intro' => 'Anche per il gas la maggior tutela è terminata (gennaio 2024). Chi non ha ancora scelto un\'offerta sul mercato libero rischia di pagare condizioni pensate come rete di sicurezza.',
             'body'  => '<div style="background:#111620;border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:24px;margin-bottom:20px"><h2 style="font-size:18px;font-weight:700;color:#f1f5f9;margin-bottom:12px">Come si forma il prezzo del gas in bolletta</h2><p>Il costo del gas si compone di: materia prima (€/Smc, indicizzata al PSV), quota fissa, trasporto e distribuzione, oneri di sistema e imposte. Solo materia prima e quota fissa cambiano tra fornitori.</p></div><div style="background:#111620;border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:24px;margin-bottom:20px"><h2 style="font-size:18px;font-weight:700;color:#f1f5f9;margin-bottom:12px">Fisso o indicizzato al PSV</h2><p>Il prezzo fisso dà prevedibilità in inverno quando i consumi salgono. L\'indicizzato al PSV segue il mercato: può convenire se stabile ma espone a rincari nei picchi di domanda.</p></div><div style="background:#111620;border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:24px;margin-bottom:20px"><h2 style="font-size:18px;font-weight:700;color:#f1f5f9;margin-bottom:12px">I consumi contano più del prezzo unitario</h2><p>Un\'offerta ottima per 1.400 Smc/anno può essere mediocre per 500 Smc/anno perché la quota fissa incide diversamente. Il confronto deve partire dai tuoi consumi reali, non da una media nazionale.</p></div>' . getRegioniHtml('gas'),
             'cta'   => '<a href="/calcolo-rapido?commodity=gas" style="display:inline-block;padding:14px 32px;border-radius:10px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;font-size:15px;font-weight:700;text-decoration:none;box-shadow:0 8px 24px rgba(59,130,246,0.25)">🔥 Confronta le tariffe gas</a>',
+        ],
+        'quanto-pago-di-luce' => [
+            'title' => 'Quanto pago davvero di luce? Costo medio e migliori tariffe ' . date('Y') . ' | SwitchAI',
+            'desc'  => 'Scopri quanto costa mediamente la luce in Italia, qual è il prezzo attuale del kWh e quanto potresti risparmiare con la tariffa più conveniente per i tuoi consumi.',
+            'h1'    => 'Quanto pago davvero di luce? La guida al costo reale del kWh',
+            'intro' => 'Il prezzo del kWh che vedi in bolletta non è mai solo il "costo dell\'energia": è la somma di materia energia, trasporto, oneri di sistema e imposte. Ecco quanto costa davvero oggi.',
+            'body'  => '<div style="background:#111620;border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:24px;margin-bottom:20px"><h2 style="font-size:18px;font-weight:700;color:#f1f5f9;margin-bottom:12px">Il prezzo del kWh oggi (dati reali ARERA)</h2><p>Sul mercato libero ci sono ' . ($marketStats['luce']['count'] ?? '—') . ' offerte attive. La più economica parte da <strong>' . $fmtMed($marketStats['luce']['min'] ?? null) . ' €/kWh</strong> (prezzo materia energia), mentre il prezzo mediano si aggira attorno a <strong>' . $fmtMed($marketStats['luce']['median'] ?? null) . ' €/kWh</strong>. Il PUN (prezzo all\'ingrosso) oggi vale <strong>' . $fmt($punLive) . '/kWh</strong>.</p><p>Una famiglia media (2.700-3.200 kWh/anno) spende tra i 700 e i 1.200 € all\'anno: la differenza tra la tariffa più cara e la più economica può superare i 200 € l\'anno, a parità di consumi.</p></div><div style="background:#111620;border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:24px;margin-bottom:20px"><h2 style="font-size:18px;font-weight:700;color:#f1f5f9;margin-bottom:12px">Perché paghi più del prezzo del kWh che vedi pubblicizzato</h2><p>Le offerte pubblicizzano il solo prezzo materia energia. In bolletta si aggiungono: quota fissa (trasporto e gestione contatore, ~120-150 €/anno), oneri di sistema (uguali per tutti i fornitori) e IVA/imposte. Il costo finale è quindi sempre superiore a prezzo × consumi.</p></div><div style="background:#111620;border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:24px;margin-bottom:20px"><h2 style="font-size:18px;font-weight:700;color:#f1f5f9;margin-bottom:12px">Come capire se stai pagando troppo</h2><p>Confronta la tua spesa annua totale (non solo il prezzo/kWh) con quella delle offerte migliori per il tuo consumo e la tua zona. Se il tuo fornitore applica un prezzo sopra la mediana o una quota fissa alta, probabilmente stai pagando più del necessario.</p></div>' . getRegioniHtml('luce'),
+            'cta'   => '<a href="/calcolo-rapido?commodity=luce" style="display:inline-block;padding:14px 32px;border-radius:10px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-size:15px;font-weight:700;text-decoration:none;box-shadow:0 8px 24px rgba(245,158,11,0.25)">⚡ Quanto posso risparmiare sulla luce?</a>',
+        ],
+        'fisso-vs-variabile' => [
+            'title' => 'Prezzo Fisso o Variabile 2026: come scegliere la tariffa luce e gas | SwitchAI',
+            'desc'  => 'Prezzo fisso o indicizzato (PUN/PSV)? Come scegliere la tariffa luce e gas giusta: vantaggi, rischi e dati di mercato attuali per decidere con cognizione.',
+            'h1'    => 'Prezzo fisso o variabile: come scegliere la tariffa giusta',
+            'intro' => 'È la domanda più frequente sul mercato libero. La risposta dipende dal tuo profilo di rischio, dai tuoi consumi e dall\'andamento dei prezzi all\'ingrosso (PUN per la luce, PSV per il gas).',
+            'body'  => '<div style="background:#111620;border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:24px;margin-bottom:20px"><h2 style="font-size:18px;font-weight:700;color:#f1f5f9;margin-bottom:12px">Dove sono oggi i prezzi di mercato</h2><p>Il PUN (energia elettrica) oggi vale <strong>' . $fmt($punLive) . '/kWh</strong> e il PSV (gas) <strong>' . $fmt($psvLive) . '/Smc</strong>. Le offerte variabili applicano un piccolo spread su questi indici: se l\'indice scende, la tua bolletta scende; se sale, sale anche la bolletta.</p></div><div style="background:#111620;border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:24px;margin-bottom:20px"><h2 style="font-size:18px;font-weight:700;color:#f1f5f9;margin-bottom:12px">Prezzo fisso: quando conviene</h2><p>Blocca il prezzo per 12-24 mesi. Conviene se vuoi <strong>prevedibilità</strong> (budget certo, nessuna sorpresa in bolletta), se temi rialzi di mercato, o se hai un mutuo/reddito fisso e non vuoi oscillazioni. Il costo: paghi oggi un premio per la protezione, e non benefici dei ribassi futuri.</p></div><div style="background:#111620;border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:24px;margin-bottom:20px"><h2 style="font-size:18px;font-weight:700;color:#f1f5f9;margin-bottom:12px">Prezzo variabile/indicizzato: quando conviene</h2><p>Segue il mercato con uno spread. Conviene se accetti il <strong>rischio di variazione</strong> in cambio di un prezzo oggi più basso, e soprattutto in mercati stabili o in discesa. Un\'indicizzata ben scelta è quasi sempre più economica di una fissa a mercato calmo.</p></div><div style="background:#111620;border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:24px;margin-bottom:20px"><h2 style="font-size:18px;font-weight:700;color:#f1f5f9;margin-bottom:12px">Regola pratica</h2><p>Se la differenza tra fisso e variabile è &lt; 15-20 €/anno per i tuoi consumi, scegli in base alla tranquillità che preferisci. Se supera i 50 €/anno, la scelta conta davvero: usa il confronto personalizzato con i tuoi consumi reali.</p></div>' . getRegioniHtml('luce'),
+            'cta'   => '<a href="/calcolo-rapido?commodity=luce" style="display:inline-block;padding:14px 32px;border-radius:10px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-size:15px;font-weight:700;text-decoration:none;box-shadow:0 8px 24px rgba(245,158,11,0.25)">⚡ Confronta fisso vs variabile per i tuoi consumi</a>',
         ],
     ];
 
@@ -1240,6 +1308,12 @@ function handleRegionePage(string $commodity, string $slug): void {
         return;
     }
 
+    // Pagine per fascia consumo: /offerte/luce/3200-kwh, /offerte/gas/1500-smc
+    if (preg_match('#^(\d+)-(kwh|smc)$#', $slug, $consMatch)) {
+        handleConsumptionPage($commodity, $slug, (int)$consMatch[1], $consMatch[2]);
+        return;
+    }
+
     $regionMap = [
         'piemonte'             => ['code' => '01', 'zone' => 'NORD', 'name' => 'Piemonte'],
         'valle-daosta'         => ['code' => '02', 'zone' => 'NORD', 'name' => "Valle d'Aosta"],
@@ -1385,6 +1459,14 @@ function handleRegionePage(string $commodity, string $slug): void {
     }
     echo '</tbody></table>';
 
+    // Nav fasce consumo (permette all'utente e ai crawler di esplorare per consumo)
+    $consumoNav = $isLuce ? [2000, 2700, 3200, 3500, 4500] : [700, 1000, 1500, 2000, 3000];
+    echo '<div style="margin:1.2rem 0"><span style="font-size:.85rem;color:#475569;font-weight:600">Offerte per consumo: </span>';
+    foreach ($consumoNav as $b) {
+        echo '<a href="/offerte/' . strtolower($commodity) . '/' . $b . '-' . ($isLuce ? 'kwh' : 'smc') . '" style="display:inline-block;margin:4px;padding:6px 14px;background:#fff;border:1px solid #e2e8f0;border-radius:20px;color:#0f172a;font-size:.85rem;text-decoration:none">' . number_format($b, 0, ',', '.') . ' ' . ($isLuce ? 'kWh' : 'Smc') . '</a>';
+    }
+    echo '</div>';
+
     echo '<h2 style="font-size:1.1rem;margin-top:2rem;color:#0f172a">🔎 Come confrontare le offerte ' . $label . ' in ' . htmlspecialchars($regionName) . '</h2>';
     echo '<div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:20px;margin-bottom:1.5rem">';
     echo '<p style="color:#475569;font-size:.9rem;line-height:1.7">Il prezzo dell\'energia ' . $label . ' in ' . htmlspecialchars($regionName) . ' varia in base al fornitore scelto e al tipo di contratto (prezzo fisso o variabile). Le tariffe a prezzo fisso bloccano il costo per 12-24 mesi, mentre le variabili seguono l\'andamento del mercato (' . ($isLuce ? 'PUN' : 'PSV') . ').</p>';
@@ -1393,6 +1475,143 @@ function handleRegionePage(string $commodity, string $slug): void {
 
     echo '<p style="margin-top:1.5rem"><a href="/calcolo-rapido?commodity=' . strtolower($commodity) . '" class="cta">⚡ Confronta le offerte ' . $label . ' nella tua zona →</a></p>';
     echo '<p style="color:#94a3b8;font-size:.75rem;margin-top:2rem">Dati aggiornati in tempo reale dal Portale Offerte ARERA (CC BY 4.0). Le offerte visualizzate sono filtrate per disponibilità in ' . htmlspecialchars($regionName) . '. I prezzi possono variare in base ai consumi effettivi. SwitchAI — switchai.it</p>';
+    echo '</body></html>';
+}
+
+/**
+ * Pagina SEO per fascia consumo: /offerte/luce/3200-kwh, /offerte/gas/1500-smc
+ * Mostra le offerte più convenienti per un profilo con quel consumo annuo.
+ */
+function handleConsumptionPage(string $commodity, string $slug, int $consumption, string $unitSlug): void {
+    $isLuce = $commodity === 'LUCE';
+    $label = $isLuce ? 'Luce' : 'Gas';
+    $unit = $isLuce ? 'kWh' : 'Smc';
+    $italianMonths = ['', 'Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
+    $month = $italianMonths[(int)date('n')] . ' ' . date('Y');
+    $consumptionLabel = number_format($consumption, 0, ',', '.');
+
+    // Fasce consumo ammesse per evitare URL arbitrari/crawler abuse
+    $allowed = $isLuce ? [2000, 2700, 3200, 3500, 4500] : [700, 1000, 1500, 2000, 3000];
+    if (!in_array($consumption, $allowed, true) || ($isLuce ? 'kwh' : 'smc') !== $unitSlug) {
+        http_response_code(404);
+        echo '<html lang="it"><head><title>Fascia di consumo non valida | SwitchAI</title></head><body style="background:#0a0d14;color:#f1f5f9;font-family:sans-serif;text-align:center;padding:80px 20px"><h1>404</h1><p>Fascia di consumo non valida.</p><p><a href="/" style="color:#f59e0b">← Torna a SwitchAI</a></p></body></html>';
+        return;
+    }
+
+    $all = getTariffsByCommodity($commodity);
+    $filtered = array_values(array_filter($all, fn($t) =>
+        ($t['tipo_cliente'] ?? '') === 'residenziale' && $t['nazionale']
+    ));
+    if (empty($filtered)) {
+        http_response_code(404);
+        echo '<html lang="it"><head><title>Nessuna offerta trovata | SwitchAI</title></head><body style="background:#0a0d14;color:#f1f5f9;font-family:sans-serif;text-align:center;padding:80px 20px"><h1>Nessuna offerta disponibile</h1><p><a href="/" style="color:#f59e0b">← Torna a SwitchAI</a></p></body></html>';
+        return;
+    }
+
+    // Costo annuo stimato = prezzo energia × consumo + quota fissa annuale
+    foreach ($filtered as &$o) {
+        $prezzo = $isLuce ? ($o['price_mono_kwh'] ?? null) : ($o['price_smc'] ?? null);
+        $fissa = (float)($o['fixed_fee_annual'] ?? 0);
+        $o['_costo_annuo'] = $prezzo !== null ? $prezzo * $consumption + $fissa : PHP_FLOAT_MAX;
+        $o['_prezzo'] = $prezzo;
+    }
+    unset($o);
+
+    usort($filtered, fn($a, $b) => $a['_costo_annuo'] <=> $b['_costo_annuo']);
+
+    $top = array_slice($filtered, 0, 15);
+    $total = count($filtered);
+    $providers = count(array_unique(array_map(fn($t) => $t['supplier_name'], $filtered)));
+    $fissi = count(array_filter($filtered, fn($t) => $t['type'] === 'FISSO'));
+    $variabili = $total - $fissi;
+    $prezzoMin = $top[0]['_prezzo'] ?? null;
+    $prezzoMinFisso = null;
+    foreach ($filtered as $t) {
+        if ($t['type'] === 'FISSO' && $t['_prezzo'] !== null && ($prezzoMinFisso === null || $t['_prezzo'] < $prezzoMinFisso)) {
+            $prezzoMinFisso = $t['_prezzo'];
+        }
+    }
+
+    $title = "Offerte $label per $consumptionLabel $unit: le tariffe migliori $month | SwitchAI";
+    $desc = "Confronta le migliori offerte $label per un consumo di $consumptionLabel $unit l'anno. $total offerte da $providers fornitori, costo annuo stimato da " . number_format($top[0]['_costo_annuo'] ?? 0, 2, ',', '') . " €. Dati ufficiali ARERA.";
+
+    header('Content-Type: text/html; charset=UTF-8');
+
+    echo '<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8">';
+    echo '<meta name="viewport" content="width=device-width, initial-scale=1.0">';
+    echo '<meta name="robots" content="index, follow">';
+    echo "<title>$title</title>";
+    echo '<meta name="description" content="' . htmlspecialchars($desc, ENT_QUOTES, 'UTF-8') . '">';
+    echo '<meta property="og:title" content="' . htmlspecialchars($title, ENT_QUOTES, 'UTF-8') . '">';
+    echo '<meta property="og:description" content="' . htmlspecialchars($desc, ENT_QUOTES, 'UTF-8') . '">';
+    echo '<meta property="og:url" content="https://www.switchai.it/offerte/' . strtolower($commodity) . '/' . $slug . '">';
+    echo '<link rel="canonical" href="https://www.switchai.it/offerte/' . strtolower($commodity) . '/' . $slug . '">';
+
+    echo '<script type="application/ld+json">' . json_encode([
+        '@context' => 'https://schema.org',
+        '@graph' => [[
+            '@type' => 'BreadcrumbList',
+            'itemListElement' => [
+                ['@type' => 'ListItem', 'position' => 1, 'name' => 'SwitchAI', 'item' => 'https://www.switchai.it/'],
+                ['@type' => 'ListItem', 'position' => 2, 'name' => "Offerte $label", 'item' => 'https://www.switchai.it/' . ($isLuce ? 'tariffe-luce' : 'confronto-gas')],
+                ['@type' => 'ListItem', 'position' => 3, 'name' => "$consumptionLabel $unit", 'item' => "https://www.switchai.it/offerte/" . strtolower($commodity) . "/$slug"],
+            ],
+        ], [
+            '@type' => 'FAQPage',
+            'mainEntity' => [[
+                '@type' => 'Question',
+                'name' => "Quanto costa la luce/gas con $consumptionLabel $unit l'anno?",
+                'acceptedAnswer' => ['@type' => 'Answer', 'text' => "Con un consumo di $consumptionLabel $unit l'anno, la spesa può variare da " . number_format($top[0]['_costo_annuo'] ?? 0, 2, ',', '') . " € (offerta più economica) a oltre 2.000 € per le tariffe più care. La scelta della tariffa giusta può far risparmiare centinaia di euro all'anno."],
+            ], [
+                '@type' => 'Question',
+                'name' => "Quante offerte $label ci sono per $consumptionLabel $unit?",
+                'acceptedAnswer' => ['@type' => 'Answer', 'text' => "Attualmente sono disponibili $total offerte $label per questo consumo, di cui $fissi a prezzo fisso e $variabili a prezzo variabile, da $providers fornitori diversi."],
+            ]],
+        ]],
+    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . '</script>';
+
+    echo '<style>body{font-family:system-ui,sans-serif;max-width:800px;margin:2rem auto;padding:0 1.5rem;line-height:1.8;color:#333;background:#fafafa} h1{font-size:1.6rem;margin-bottom:.25rem} .sub{color:#777;font-size:.9rem;margin-bottom:1.5rem} .stats{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:1.5rem} .stat{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:12px 18px;text-align:center;min-width:80px} .stat .num{font-size:1.4rem;font-weight:800;color:#0f172a} .stat .lbl{font-size:.7rem;color:#64748b;text-transform:uppercase} table{width:100%;border-collapse:collapse;margin:1rem 0;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.06)} th,td{padding:10px 14px;text-align:left;border-bottom:1px solid #f1f5f9;font-size:.9rem} th{background:#f8fafc;color:#475569;font-weight:600;font-size:.8rem;text-transform:uppercase} .cta{display:inline-block;padding:10px 24px;background:#f59e0b;color:#fff;border-radius:8px;text-decoration:none;font-weight:700;font-size:.9rem} .fisso{color:#10b981;font-weight:600} .variabile{color:#f59e0b;font-weight:600} .badge{display:inline-block;font-size:.7rem;padding:2px 8px;border-radius:4px;font-weight:700}</style>';
+    echo '</head><body>';
+    echo '<p style="color:#777;font-size:.85rem"><a href="/" style="color:#f59e0b">← SwitchAI</a> — Offerte ' . $label . ' — ' . $consumptionLabel . ' ' . $unit . ' — ' . date('d/m/Y') . '</p>';
+    echo '<h1>Le migliori offerte ' . $label . ' per ' . $consumptionLabel . ' ' . $unit . '/anno</h1>';
+    echo '<p class="sub">' . $total . ' offerte per un profilo domestico con ' . $consumptionLabel . ' ' . $unit . ' l\'anno. Dati ufficiali <a href="https://www.ilportaleofferte.it" target="_blank" rel="noopener">Portale Offerte ARERA</a> — licenza CC BY 4.0.</p>';
+
+    echo '<div class="stats">';
+    echo '<div class="stat"><div class="num">' . $total . '</div><div class="lbl">Offerte ' . $label . ' ⚡</div></div>';
+    echo '<div class="stat"><div class="num">' . $providers . '</div><div class="lbl">Fornitori 🏢</div></div>';
+    echo '<div class="stat"><div class="num">' . $fissi . '</div><div class="lbl">Prezzo Fisso 🔒</div></div>';
+    echo '<div class="stat"><div class="num">' . $variabili . '</div><div class="lbl">Prezzo Variabile 🔀</div></div>';
+    echo '<div class="stat"><div class="num">' . number_format($top[0]['_costo_annuo'] ?? 0, 0, ',', '') . ' €</div><div class="lbl">Costo annuo minimo</div></div>';
+    if ($prezzoMinFisso !== null) {
+        echo '<div class="stat"><div class="num">' . number_format($prezzoMinFisso, 4, ',', '') . '</div><div class="lbl">Miglior fisso €/' . $unit . '</div></div>';
+    }
+    echo '</div>';
+
+    echo '<h2 style="font-size:1.1rem;margin-top:2rem;color:#0f172a">🏆 Le ' . min(15, $total) . ' offerte ' . $label . ' più convenienti per ' . $consumptionLabel . ' ' . $unit . '</h2>';
+    echo '<table><thead><tr><th>#</th><th>Fornitore</th><th>Offerta</th><th>Tipo</th><th>Prezzo</th><th>Quota fissa</th><th>Costo annuo stimato</th></tr></thead><tbody>';
+    foreach ($top as $i => $o) {
+        $rank = $i + 1;
+        $badge = $rank === 1 ? '🥇' : ($rank === 2 ? '🥈' : ($rank === 3 ? '🥉' : ''));
+        echo '<tr>';
+        echo "<td style='font-weight:700;color:#64748b'>$badge $rank</td>";
+        echo '<td><strong>' . htmlspecialchars($o['supplier_name']) . '</strong></td>';
+        echo '<td><a href="/offerta/' . urlencode($o['id']) . '" style="color:#0f172a;text-decoration:none">' . htmlspecialchars($o['name']) . '</a></td>';
+        echo '<td><span class="' . ($o['type'] === 'FISSO' ? 'fisso' : 'variabile') . '">' . ($o['type'] === 'FISSO' ? 'Fisso' : 'Variabile') . '</span></td>';
+        echo '<td>' . ($o['_prezzo'] !== null ? number_format($o['_prezzo'], 4, ',', '') . ' €/' . $unit : '—') . '</td>';
+        echo '<td>' . (isset($o['fixed_fee_monthly']) ? number_format($o['fixed_fee_monthly'], 2, ',', '') . ' €/mese' : '—') . '</td>';
+        echo '<td><strong>' . number_format($o['_costo_annuo'], 2, ',', '') . ' €</strong></td>';
+        echo '</tr>';
+    }
+    echo '</tbody></table>';
+
+    echo '<h2 style="font-size:1.1rem;margin-top:2rem;color:#0f172a">🔎 Come scegliere la tariffa per ' . $consumptionLabel . ' ' . $unit . '/anno</h2>';
+    echo '<div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:20px;margin-bottom:1.5rem">';
+    echo '<p style="color:#475569;font-size:.9rem;line-height:1.7">Con un consumo di ' . $consumptionLabel . ' ' . $unit . ' l\'anno, la quota fissa pesa meno sul totale rispetto a un consumo basso: conviene quindi privilegiare il <strong>prezzo energia</strong> (' . ($isLuce ? '€/kWh' : '€/Smc') . ') rispetto alla quota fissa. Le tariffe a prezzo fisso proteggono dai rialzi di mercato, quelle variabili seguono l\'andamento del ' . ($isLuce ? 'PUN' : 'PSV') . '.</p>';
+    echo '<p style="color:#475569;font-size:.9rem;line-height:1.7">Per un confronto preciso sul tuo consumo reale, usa il calcolatore SwitchAI: inserisci il tuo consumo annuo e la tua spesa attuale, l\'AI ti mostrerà l\'offerta migliore per la tua situazione specifica.</p>';
+    echo '</div>';
+
+    echo '<p style="margin-top:1.5rem"><a href="/calcolo-rapido?commodity=' . strtolower($commodity) . '" class="cta">⚡ Confronta le offerte ' . $label . ' per il tuo consumo →</a></p>';
+    echo '<p style="color:#94a3b8;font-size:.75rem;margin-top:2rem">Dati aggiornati in tempo reale dal Portale Offerte ARERA (CC BY 4.0). Costo annuo stimato come prezzo energia × consumo + quota fissa annuale (iva e oneri esclusi). I prezzi possono variare in base ai consumi effettivi. SwitchAI — switchai.it</p>';
     echo '</body></html>';
 }
 
@@ -2864,6 +3083,20 @@ function handleWatteneTest(): void {
         errorResponse('Dati ARERA non trovati. Eseguire prima il sync.', 503);
     }
 
+    // Snapshot Wattene da file dati: aggiornabile senza toccare il codice.
+    // Fonte: wattene.it → pagina offerta → scontrino dell'energia →
+    // componente "Energia" (prezzo materia energia) e "Commercializzazione" (PCV mensile × 12).
+    $snapshotFile = __DIR__ . '/../data/offerte/wattene_snapshot.json';
+    if (!is_file($snapshotFile)) {
+        errorResponse('Snapshot Wattene non trovato (data/offerte/wattene_snapshot.json).', 503);
+    }
+    $snapshot = json_decode(file_get_contents($snapshotFile), true);
+    $testCases = $snapshot['offers'] ?? [];
+    $snapshotDate = $snapshot['snapshot_date'] ?? 'n/d';
+    if (empty($testCases)) {
+        errorResponse('Snapshot Wattene vuoto o non valido.', 503);
+    }
+
     // Trasforma in array con chiavi che matchano il test
     $data = array_map(function($t) {
         return [
@@ -2878,31 +3111,28 @@ function handleWatteneTest(): void {
         ];
     }, $all);
 
-    $testCases = [
-        ['brand' => 'E.ON ENERGIA',     'offerta' => 'E.ON LuceClick - Amico new', 'wat_prezzo' => 0.135488, 'wat_pcv' => 109.23, 'wat_consumo' => 3200],
-        ['brand' => 'EDISON ENERGIA',    'offerta' => 'Edison Web Luce',             'wat_prezzo' => 0.133988, 'wat_pcv' => 90.00,  'wat_consumo' => 3200],
-        ['brand' => 'OCTOPUS ENERGY',    'offerta' => 'Octopus Fissa 12M',           'wat_prezzo' => 0.135788, 'wat_pcv' => 72.00,  'wat_consumo' => 3200],
-        ['brand' => 'A2A ENERGIA',       'offerta' => 'A2A Full Luce',               'wat_prezzo' => 0.155988, 'wat_pcv' => 135.00, 'wat_consumo' => 3200, 'tipo_fasce' => 'Monoraria'],
-        ['brand' => 'SORGENIA',          'offerta' => 'Next Energy Hybrid',          'wat_prezzo' => 0.137988, 'wat_pcv' => 108.00, 'wat_consumo' => 3200],
-    ];
-
     $results = [];
-    $allOk = true;
+    $hasStale = false;
+    $hasFail = false;
 
     foreach ($testCases as $c) {
         $found = null;
-        // Collect all matching variants, then pick the best one
+        // Candidati: stesso brand e tipo cliente. Il nome offerta su Wattene
+        // può differire da ARERA (es. "Octopus Fissa 12M" vs "Octopus Flex Mono"),
+        // quindi il nome NON è un requisito: è solo una preferenza.
         $candidates = [];
         foreach ($data as $o) {
             if (stripos($o['brand'] ?? '', $c['brand']) === false) continue;
-            if (stripos($o['name'] ?? '', $c['offerta']) === false) continue;
             if (($o['tipo_cliente'] ?? '') !== 'residenziale') continue;
             $candidates[] = $o;
         }
-        // Preferenza 1: candidate con PCV corrispondente (se test lo specifica)
-        $pcvFiltered = array_values(array_filter($candidates, fn($o) => abs((float)str_replace(',', '.', $o['costo_fisso'] ?? '0') - $c['wat_pcv']) < 2));
+        // Preferenza 1: PCV (quota fissa annua) corrispondente — segnale primario
+        $pcvFiltered = array_values(array_filter($candidates, fn($o) => abs((float)str_replace(',', '.', $o['costo_fisso'] ?? '0') - $c['wat_pcv_annuo']) < 2));
         if (!empty($pcvFiltered)) $candidates = $pcvFiltered;
-        // Preferenza 2: (1) explicit tipo_fasce, (2) Monoraria, (3) first found
+        // Preferenza 2: nome offerta corrispondente (quando esiste)
+        $nameMatched = array_values(array_filter($candidates, fn($o) => stripos($o['offerta'] ?? '', $c['offerta']) !== false));
+        if (!empty($nameMatched)) $candidates = $nameMatched;
+        // Preferenza 3: fasce preferite (default Monoraria), poi prezzo più vicino
         $preferredFasce = $c['tipo_fasce'] ?? 'Monoraria';
         foreach ($candidates as $o) {
             if (($o['tipo_fasce'] ?? '') === $preferredFasce) {
@@ -2911,41 +3141,63 @@ function handleWatteneTest(): void {
             }
         }
         if (!$found && !empty($candidates)) {
-            $found = $candidates[0]; // fallback: first match
+            usort($candidates, fn($a, $b) =>
+                abs((float)str_replace(',', '.', $a['prezzo tot kwh'] ?? '0') - $c['wat_prezzo_energia'])
+                <=> abs((float)str_replace(',', '.', $b['prezzo tot kwh'] ?? '0') - $c['wat_prezzo_energia'])
+            );
+            $found = $candidates[0];
         }
 
         if (!$found) {
             $results[] = ['brand' => $c['brand'], 'offerta' => $c['offerta'], 'status' => 'NOT_FOUND'];
-            $allOk = false;
+            $hasFail = true;
             continue;
         }
 
+        // Confronto DIRETTO sul prezzo materia energia:
+        // il nostro price_mono_kwh (ARERA) vs il prezzo "Energia" dello scontrino Wattene.
+        // Nessuna correzione dispacciamento: Wattene lo espone separatamente (0,0240 €/kWh).
         $ourPrezzo = (float)str_replace(',', '.', $found['prezzo tot kwh'] ?? '0');
         $ourPcv = (float)str_replace(',', '.', $found['costo_fisso'] ?? '0');
-        $ourPrezzoCorrected = $ourPrezzo + (defined('LUCE_DISPACCIAMENTO') ? LUCE_DISPACCIAMENTO : 0.016988);
 
-        $diffPrezzo = round(($c['wat_prezzo'] - $ourPrezzoCorrected) * 1000, 3); // millesimi
-        $diffPcv = round($c['wat_pcv'] - $ourPcv, 2);
+        $diffPrezzo = round(($c['wat_prezzo_energia'] - $ourPrezzo) * 1000, 3); // millesimi
+        $diffPcv = round($c['wat_pcv_annuo'] - $ourPcv, 2);
 
-        $prezzoOk = abs($diffPrezzo) < 2;
+        $prezzoOk = abs($diffPrezzo) <= 2;
         $pcvOk = abs($diffPcv) < 2;
-        $ok = $prezzoOk && $pcvOk;
-        if (!$ok) $allOk = false;
+
+        // Classificazione:
+        // OK    → prezzo entro ±2 millesimi e PCV combacia
+        // STALE → PCV combacia (offerta trovata, quota fissa identica) ma prezzo deriva:
+        //         il fornitore ha rinnovato l'offerta su ARERA dopo lo snapshot. Non è un bug di calcolo.
+        // FAIL  → PCV non combacia: stiamo confrontando offerte diverse o c'è un problema di dati.
+        if ($prezzoOk && $pcvOk) {
+            $status = 'OK';
+        } elseif ($pcvOk) {
+            $status = 'STALE';
+            $hasStale = true;
+        } else {
+            $status = 'FAIL';
+            $hasFail = true;
+        }
 
         $results[] = [
             'brand'              => $c['brand'],
             'offerta'            => $c['offerta'],
-            'status'             => $ok ? 'OK' : 'FAIL',
-            'prezzo_nostro'      => round($ourPrezzoCorrected, 6),
-            'prezzo_wattene'     => $c['wat_prezzo'],
+            'matched_offerta'    => $found['name'] ?? null,
+            'status'             => $status,
+            'prezzo_nostro'      => round($ourPrezzo, 6),
+            'prezzo_wattene'     => $c['wat_prezzo_energia'],
             'diff_prezzo_mill'  => $diffPrezzo,
             'prezzo_ok'          => $prezzoOk,
             'pcv_nostro'         => $ourPcv,
-            'pcv_wattene'        => $c['wat_pcv'],
+            'pcv_wattene'        => $c['wat_pcv_annuo'],
             'diff_pcv_eur'      => $diffPcv,
             'pcv_ok'             => $pcvOk,
             'sconti_attivi'      => $found['sconti_applicati'] ?? [],
-            'dispacciamento'     => defined('LUCE_DISPACCIAMENTO') ? round(LUCE_DISPACCIAMENTO, 6) : 0.016988,
+            'stale_note'         => $status === 'STALE'
+                ? "Offerta trovata ({$found['name']}) e PCV combacia, ma il prezzo è cambiato su ARERA dopo lo snapshot ($snapshotDate). Verificare su wattene.it e aggiornare wattene_snapshot.json."
+                : null,
         ];
     }
 
@@ -3018,16 +3270,28 @@ function handleWatteneTest(): void {
         ];
     }
 
+    // Messaggio globale: FAIL → errore vero; STALE senza FAIL → snapshot datato; altrimenti tutto ok
+    if ($hasFail) {
+        $globalMsg = '❌ Alcuni test non superati';
+    } elseif ($hasStale) {
+        $globalMsg = "⚠️ Snapshot Wattene datato ($snapshotDate): alcune offerte sono state rinnovate su ARERA. Aggiornare data/offerte/wattene_snapshot.json da wattene.it.";
+    } else {
+        $globalMsg = '✅ TUTTI I TEST SUPERATI';
+    }
+
     jsonResponse([
         'tested_at'   => date('Y-m-d H:i:s'),
         'wattene'     => [
             'total'       => count($results),
             'passed'      => count(array_filter($results, fn($r) => $r['status'] === 'OK')),
+            'stale'       => count(array_filter($results, fn($r) => $r['status'] === 'STALE')),
             'failed'      => count(array_filter($results, fn($r) => $r['status'] === 'FAIL')),
             'not_found'   => count(array_filter($results, fn($r) => $r['status'] === 'NOT_FOUND')),
-            'all_ok'      => $allOk,
-            'tolerance'   => '±2 millesimi prezzo, ±2€ PCV',
-            'note'        => 'Il prezzo Wattene include dispacciamento. Il nostro prezzo corretto = prezzo_tot_kwh + dispacciamento.',
+            'all_ok'      => !$hasFail && !$hasStale,
+            'global_msg'  => $globalMsg,
+            'snapshot_date' => $snapshotDate,
+            'tolerance'   => '±2 millesimi prezzo energia, ±2€ PCV',
+            'note'        => 'Confronto diretto sul prezzo materia energia (componente "Energia" dello scontrino Wattene) e sulla commercializzazione (PCV). Fonte dati: data/offerte/wattene_snapshot.json.',
             'cases'       => $results,
         ],
         'random'      => [

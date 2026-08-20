@@ -46,7 +46,7 @@ export default function Cookie() {
 
         <Section title="4. WebMCP e AI Agent">
           SwitchAI è compatibile con lo standard WebMCP (Google Chrome Labs). Quando un AI agent visita il sito, i tool vengono registrati
-          tramite <code style={{ background: 'rgba(255,255,255,0.05)', padding: '2px 6px', borderRadius: 4 }}>navigator.modelContext.registerTool() (Chrome 146+) o document.modelContext.registerTool() (Chrome 150+)</code>.
+          tramite <code style={{ background: 'rgba(255,255,255,0.05)', padding: '2px 6px', borderRadius: 4 }}>document.modelContext.registerTool() (Chrome 150+; su Chrome 146-149 via navigator.modelContext, poi rimosso)</code>.
           Questo meccanismo non utilizza cookie e non memorizza dati sul dispositivo. L'unica interazione con il browser è la registrazione
           di funzioni JavaScript accessibili all'AI agent.
         </Section>

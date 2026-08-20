@@ -1,0 +1,12 @@
+{
+    "snapshot_date": "2026-08-18",
+    "source": "wattene.it — scontrino dell'energia, componente 'Energia' (prezzo materia energia fornitore) e 'Commercializzazione' (PCV)",
+    "profile": { "consumo_kwh": 3200, "potenza_kw": 3, "zona": "NORD", "tipo_cliente": "residenziale" },
+    "offers": [
+        { "brand": "E.ON ENERGIA",  "offerta": "E.ON LuceClick - Amico new", "wat_prezzo_energia": 0.1146,  "wat_pcv_annuo": 109.08 },
+        { "brand": "EDISON ENERGIA", "offerta": "Edison Web Luce",            "wat_prezzo_energia": 0.122,   "wat_pcv_annuo": 90.00 },
+        { "brand": "OCTOPUS ENERGY", "offerta": "Octopus Fissa 12M",          "wat_prezzo_energia": 0.1474,  "wat_pcv_annuo": 72.00 },
+        { "brand": "A2A ENERGIA",    "offerta": "A2A Full Luce",              "wat_prezzo_energia": 0.139,   "wat_pcv_annuo": 135.00 },
+        { "brand": "SORGENIA",       "offerta": "Next Energy",                "wat_prezzo_energia": 0.15499, "wat_pcv_annuo": 108.00 }
+    ]
+}

@@ -86,4 +86,8 @@ Sezione Plus
 headroom-run.sh
 
 # Dati ARERA rigenerati dal sync notturno (grossi, non source)
-backend/php/data/
+# Eccezione: wattene_snapshot.json è config del test (fonte: wattene.it)
+backend/php/data/*
+!backend/php/data/offerte/
+backend/php/data/offerte/*
+!backend/php/data/offerte/wattene_snapshot.json

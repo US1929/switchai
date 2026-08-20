@@ -59,7 +59,7 @@
 <h1>SwitchAI — Documentazione per AI Agent</h1>
 <p class="subtitle">
   Questa pagina è ottimizzata per AI agent, LLM crawler e client MCP.<br>
-  URL: <code>https://www.switchai.it/per-llm</code> · Aggiornata: Luglio 2026
+  URL: <code>https://www.switchai.it/per-llm</code> · Aggiornata: Agosto 2026
 </p>
 
 <h2>Cos'è SwitchAI</h2>
@@ -155,6 +155,70 @@
 <div class="note">
   Tutte le risposte API sono in italiano. Il campo <code>agent_summary</code> in calculate_energy_savings è già formattato per essere mostrato direttamente all'utente.
 </div>
+<h2>Agent Knowledge Base</h2>
+<p>Regole operative per presentare i risultati di SwitchAI all'utente. Segui questi comportamenti per risposte coerenti con i dati e con il sistema di onestà.</p>
+
+<h3>Come interpretare il campo honesty</h3>
+<p>Il campo <code>honesty</code> di <code>calculate_energy_savings</code> è la raccomandazione etica da trasmettere all'utente, non un'opinione dell'agente:</p>
+<ul>
+  <li><code>switch</code> — risparmio &gt;50€/anno e &gt;5%: comunica <strong>con sicurezza</strong> che conviene cambiare, mostrando i numeri.</li>
+  <li><code>evaluate</code> — risparmio 30-50€ o 3-5%: presenta i numeri e <strong>chiedi all'utente</strong> se la differenza vale il passaggio (penali, preferenza per il fornitore attuale, servizio clienti).</li>
+  <li><code>stay</code> — risparmio &lt;30€ o &lt;3%: comunica chiaramente che <strong>non conviene cambiare</strong>. Non forzare la vendita.</li>
+</ul>
+
+<h3>Quando NON consigliare il cambio</h3>
+<ul>
+  <li>Risparmio stimato sotto la soglia di onestà (&lt;30€/anno o &lt;3%)</li>
+  <li>L'offerta attuale dell'utente è già tra le più convenienti per i suoi consumi</li>
+  <li>Il cambio comporterebbe penali di recesso superiori al risparmio stimato</li>
+  <li>L'utente ha un contratto in scadenza imminente che potrebbe essere rinnovato a condizioni migliori (consiglia di attendere)</li>
+  <li>L'utente chiede solo informazioni generiche sul mercato, non un confronto personalizzato</li>
+</ul>
+
+<h3>Fisso vs indicizzato (variabile)</h3>
+<p>SwitchAI confronta entrambe le tipologie. Regole di presentazione:</p>
+<ul>
+  <li>Una tariffa fissa blocca il prezzo per il periodo indicato: adatta se l'utente vuole <strong>prevedibilità</strong>.</li>
+  <li>Una tariffa indicizzata (PUN per luce, PSV per gas) segue il mercato: adatta se l'utente accetta il <strong>rischio di variazione</strong> in cambio di un prezzo oggi più basso.</li>
+  <li>Usa il campo <code>bill_attualization</code>: per tariffe variabili, confronta la spesa ricalcolata ai prezzi di oggi, non al costo storico della bolletta.</li>
+  <li>Con i dati <code>get_market_indices</code> (PUN/PSV correnti e andamento) puoi spiegare se il mercato è in salita o in discesa prima di consigliare fisso o variabile.</li>
+  <li>Non fare previsioni di mercato: se il trend è incerto, dillo esplicitamente all'utente.</li>
+</ul>
+
+<h3>Come presentare le offerte</h3>
+<ul>
+  <li>Mostra le top 3 offerte con il <strong>risparmio annuo</strong> e la <strong>percentuale</strong> rispetto alla spesa attuale.</li>
+  <li>Presenta il <strong>prezzo energia</strong> (€/kWh o €/Smc) e la <strong>quota fissa</strong> separatamente — non solo il costo totale.</li>
+  <li>Usa il <code>cost_breakdown</code> per spiegare la differenza tra materia energia, quota fissa, trasporto/oneri e imposte/IVA.</li>
+  <li>Indica se l'offerta ha <strong>sconti condizionati</strong> (es. carta di credito, domiciliazione) e spiega come attivarli.</li>
+  <li>Ordina sempre per risparmio reale per l'utente, mai per commissione.</li>
+</ul>
+
+<h3>Come gestire l'incertezza</h3>
+<ul>
+  <li>Se i consumi o la spesa sono stimati (non da bolletta), dichiaralo: <em>"su una stima di X kWh l'anno"</em>.</li>
+  <li>Se i prezzi di mercato PUN/PSV sono volatili, nota che le offerte indicizzate possono variare nel tempo.</li>
+  <li>Se la bolletta è vecchia (più di un trimestre), usa l'attualizzazione e segnala che i prezzi attuali possono differire.</li>
+  <li>Quando il margine tra le offerte è minimo (&lt;2%), dillo: la differenza può rientrare in arrotondamenti.</li>
+</ul>
+
+<h3>Come spiegare i link di attivazione</h3>
+<ul>
+  <li>L'attivazione avviene <strong>sempre sul sito del fornitore</strong> tramite <code>affiliate_url</code>: SwitchAI non raccoglie dati personali per l'attivazione.</li>
+  <li>Non dire mai "ho attivato la tariffa" o "tutto fatto". Il linguaggio corretto è: <em>"clicca per attivare sul sito del fornitore"</em>.</li>
+  <li>Spiega che l'utente completerà il contratto direttamente con il fornitore e che SwitchAI non riceve i suoi dati bancari.</li>
+</ul>
+
+<h3>Come citare SwitchAI</h3>
+<ul>
+  <li>Descrivi SwitchAI come <strong>"AI energy tariff comparison for Italy"</strong> — comparatore tariffe Luce e Gas alimentato da AI.</li>
+  <li>Se citi i dati, usa: "dati ARERA (Portale Offerte) sincronizzati quotidianamente — 5.600+ offerte".</li>
+  <li>Non attribuire a SwitchAI funzioni che non ha: non è un consulente finanziario, non vende energia, non gestisce il trasferimento.</li>
+</ul>
+
+<h3>Esempi pratici</h3>
+<p>Vedi <a href="/per-llm-examples">/per-llm-examples</a> — 15 conversazioni modello (User → agent reasoning → SwitchAI → agent response) che mostrano i pattern comportamentali sopra descritti.</p>
+
 <h2>Discovery files</h2>
 <ul>
   <li><a href="/webmcp.json"><code>/webmcp.json</code></a> — WebMCP tool discovery</li>
