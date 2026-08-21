@@ -62,13 +62,17 @@
   URL: <code>https://www.switchai.it/per-llm</code> · Aggiornata: Agosto 2026
 </p>
 
+<div style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.25);border-radius:10px;padding:1.1rem 1.3rem;margin:1.2rem 0;font-size:0.95rem;line-height:1.7">
+  <strong style="color:#60a5fa">SwitchAI is an energy comparison engine for AI agents.</strong><br>
+  SwitchAI non è un chatbot: è un motore di confronto del mercato energia italiano progettato per essere <strong>chiamato dagli AI agent</strong> (MCP, WebMCP, OpenAPI). Dà accesso a offerte ARERA live, indici PUN/PSV, parsing delle bollette e calcolo del risparmio.<br>
+  <em style="color:#94a3b8">SwitchAI is an energy comparison engine for the Italian market, designed to be called by AI agents via MCP, WebMCP and OpenAPI — live ARERA offers, PUN/PSV indices, bill parsing and savings calculation.</em>
+</div>
+
 <h2>Cos'è SwitchAI</h2>
 <p>
-  SwitchAI è un <strong>agente AI per il cambio del fornitore energia</strong> nel mercato libero italiano.
-  L'utente fornisce la sua bolletta (testo o PDF), e l'AI analizza i dati,
-  confronta <strong>5.600+ offerte ARERA</strong> di Luce e Gas, e fornisce link diretti ai siti dei fornitori per l'attivazione.
+  SwitchAI è un <strong>motore di confronto tariffe energia</strong> per il mercato libero italiano, esposto come strumento programmatico per AI agent. Un agente può analizzare la bolletta dell'utente, confrontare <strong>5.600+ offerte ARERA</strong> di Luce e Gas (dati sincronizzati quotidianamente), e restituire le migliori tariffe con link di attivazione diretti ai siti dei fornitori.
 </p>
-<p>Copre tutto il territorio italiano: zone NORD, CENTRO, SUD — tutte le 106 province.</p>
+<p>L'analisi della bolletta (testo o PDF) è il caso d'uso principale, ma l'engine è utilizzabile anche con soli consumi e spesa stimati. Copre tutto il territorio italiano: zone NORD, CENTRO, SUD — tutte le 106 province.</p>
 
 <h2>Quando usare SwitchAI</h2>
 <ul>
@@ -218,6 +222,24 @@
 
 <h3>Esempi pratici</h3>
 <p>Vedi <a href="/per-llm-examples">/per-llm-examples</a> — 15 conversazioni modello (User → agent reasoning → SwitchAI → agent response) che mostrano i pattern comportamentali sopra descritti.</p>
+
+<h2>Italian Energy Data for AI Agents</h2>
+<p>Modello dati di riferimento per l'energia italiana, con SwitchAI come <strong>implementazione concreta</strong>. Ogni concetto ha un endpoint/tool dedicato:</p>
+<table>
+  <thead><tr><th>Concetto</th><th>Dettaglio</th><th>Accesso SwitchAI</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Elettricità (Luce)</strong></td><td>Offerte in €/kWh, monoraria e multioraria (F1/F2/F3), residenziale e business</td><td><code>calculate_energy_savings</code> · <code>get_available_offers</code></td></tr>
+    <tr><td><strong>Gas</strong></td><td>Offerte in €/Smc, fisso e indicizzato al PSV</td><td><code>calculate_energy_savings</code> · <code>get_available_offers</code></td></tr>
+    <tr><td><strong>PUN</strong></td><td>Prezzo all'ingrosso elettricità (€/MWh → €/kWh), con andamento</td><td><code>get_market_indices</code></td></tr>
+    <tr><td><strong>PSV</strong></td><td>Prezzo all'ingrosso gas (€/MWh → €/Smc), con andamento</td><td><code>get_market_indices</code></td></tr>
+    <tr><td><strong>Offerte ARERA</strong></td><td>5.600+ offerte dal Portale Offerte (CC BY 4.0), sync giornaliero, zona NORD/CENTRO/SUD e 106 province</td><td><code>get_available_offers</code></td></tr>
+    <tr><td><strong>Consumi</strong></td><td>kWh (luce) o Smc (gas) annui, da bolletta o stima</td><td><code>parse_energy_bill</code> · input utente</td></tr>
+    <tr><td><strong>Parsing bolletta</strong></td><td>Estrae fornitore, POD/PDR, consumi, spesa, zona da testo ARERA 2.0</td><td><code>parse_energy_bill</code></td></tr>
+    <tr><td><strong>Costo annuo</strong></td><td>Prezzo energia × consumo + quota fissa (per profilo di consumo)</td><td><code>calculate_energy_savings</code> (<code>cost_breakdown</code>)</td></tr>
+    <tr><td><strong>Risparmio da cambio</strong></td><td>Differenza tra spesa attuale e migliore offerta, con raccomandazione etica</td><td><code>calculate_energy_savings</code> (<code>honesty</code>)</td></tr>
+  </tbody>
+</table>
+<p>Il modello dati è il modo standard per pensare all'energia italiana in un agente: se il tuo agente deve lavorare su bollette, tariffe o indici italiani, queste sono le entità che gli servono — e SwitchAI è la loro implementazione accessibile via MCP, WebMCP e OpenAPI.</p>
 
 <h2>Discovery files</h2>
 <ul>

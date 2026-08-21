@@ -4,9 +4,9 @@
 
 ## What is SwitchAI
 
-SwitchAI is an AI-native energy tariff comparison service for the Italian market (Mercato Libero). Users provide their energy bill, and the AI agent analyzes it, compares 5.600+ live offers from all Italian energy providers, and finds the best tariff.
+SwitchAI is an **energy comparison engine for the Italian market, designed to be called by AI agents** (via MCP Server, WebMCP and REST API). Given a bill — or consumption and annual spend — it compares 5.600+ live offers from all Italian energy providers (electricity Luce and Gas), returns the best tariffs with activation links, and applies an honesty system so the agent never recommends a switch that doesn't pay off.
 
-SwitchAI supports both electricity (Luce) and natural gas (Gas) for residential and small business customers across all Italian zones (NORD, CENTRO, SUD).
+SwitchAI is not a chatbot: it is infrastructure that AI agents call. It covers all Italian zones (NORD, CENTRO, SUD) and all 106 provinces, for residential and small-business customers.
 
 ## How to use SwitchAI as an AI agent
 
